@@ -1,2 +1,85 @@
-/* You can add global styles to this file, and also import other style files */
 @import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Outfit', system-ui, -apple-system, sans-serif;
+  --font-tight: 'Inter Tight', system-ui, -apple-system, sans-serif;
+  
+  /* Tailwind CSS v4 mapping for colors */
+  --color-bg-main: var(--bg-main);
+  --color-surface-0: var(--surface-0);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-border-light: var(--border-light);
+  --color-border-strong: var(--border-strong);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-accent: var(--text-accent);
+  --color-bg-accent: var(--bg-accent);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+}
+
+:root {
+  --bg-main: #ffffff;
+  --surface-0: #ffffff;
+  --surface-1: #f3f4f6;
+  --surface-2: #e5e7eb;
+  --border-light: #e5e7eb;
+  --border-strong: #d1d5db;
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-muted: #9ca3af;
+  --text-accent: #378add;
+  --bg-accent: #f0f7ff;
+  --accent: #378add;
+  --accent-hover: #2a6fae;
+}
+
+.dark {
+  --bg-main: #0f0f10;
+  --surface-0: #18181a;
+  --surface-1: #242426;
+  --surface-2: #2e2e30;
+  --border-light: #242426;
+  --border-strong: #333336;
+  --text-primary: #f1efe8;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+  --text-accent: #378add;
+  --bg-accent: #1e293b;
+  --accent: #378add;
+  --accent-hover: #4fa3f7;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100dvh;
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  transition: background-color 0.2s ease, color 0.2s ease;
+  overflow: hidden;
+}
+
+/* Custom Scrollbar Styles */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
