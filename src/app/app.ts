@@ -1,5 +1,6 @@
-import { Component, signal } from '@angular/core';
+import { Component, inject, computed } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { Auth } from './core/auth';
 
 @Component({
   selector: 'app-root',
@@ -8,5 +9,8 @@ import { RouterOutlet } from '@angular/router';
   styleUrl: './app.scss'
 })
 export class App {
-  protected readonly title = signal('loop');
+  private readonly authService = inject(Auth);
+
+  // App is loading while the initial authentication state is unresolved (undefined)
+  readonly isLoading = computed(() => this.authService.currentUser() === undefined);
 }

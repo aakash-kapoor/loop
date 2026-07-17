@@ -1,0 +1,30 @@
+<div class="flex items-center justify-center min-h-dvh bg-gradient-to-b from-surface-1 to-bg-main p-4 relative overflow-hidden">
+  <!-- Glowing Background Orbs -->
+  <div class="absolute top-1/4 left-1/4 w-72 h-72 bg-accent/10 rounded-full blur-3xl -z-10 animate-pulse"></div>
+  <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/5 rounded-full blur-3xl -z-10 animate-pulse" style="animation-delay: 2s;"></div>
+
+  <!-- Login Card -->
+  <div #loginCard class="w-full max-w-md bg-surface-0/60 backdrop-blur-md border border-border-light rounded-3xl shadow-xl p-8 md:p-10 flex flex-col items-center opacity-0">
+    <!-- Logo Badge -->
+    <div #logo class="w-16 h-16 bg-accent rounded-2xl flex items-center justify-center shadow-lg shadow-accent/20 mb-6 text-white text-3xl">
+      <i class="ti ti-message-circle-2"></i>
+    </div>
+
+    <!-- Title & Subtitle -->
+    <h1 #title class="text-4xl font-display font-bold tracking-tight text-text-primary mb-2">Loop</h1>
+    <p #desc class="text-text-secondary text-center mb-8 max-w-xs font-sans">
+      Connect instantly, chat securely, and stay in the loop with your friends.
+    </p>
+
+    <!-- Sign In Action Button -->
+    <button #actionBtn (click)="signIn()" class="w-full py-3.5 px-5 bg-accent hover:bg-accent-hover text-white font-medium rounded-2xl flex items-center justify-center gap-3 transition-colors duration-200 shadow-md shadow-accent/15 cursor-pointer select-none">
+      <i class="ti ti-brand-google text-xl"></i>
+      <span>Sign in with Google</span>
+    </button>
+
+    <!-- Footer Note -->
+    <span class="mt-8 text-xs text-text-muted text-center max-w-[240px]">
+      By signing in, you agree to our Terms of Service and Privacy Policy.
+    </span>
+  </div>
+</div>
