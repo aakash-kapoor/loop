@@ -1,59 +1,20 @@
-# Loop
+# 💬 Loop
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.6.
+Loop is a sleek, responsive, real-time messaging Progressive Web App (PWA) designed to provide seamless chat experiences on both mobile and desktop platforms.
 
-## Development server
+## ✨ Features
 
-To start a local development server, run:
+- **Real-Time Messaging**: Instant message delivery and status synchronization powered by Firebase.
+- **Direct & Group Chats**: Create conversation threads with individuals or start group chats with multiple users.
+- **Search by Username**: Discover and connect with other users easily using their unique handles.
+- **Message Requests**: Secure inbox control—chats are only confirmed once you send your first reply.
+- **Adaptive Layout**: Two-panel split layout for desktop displays and a focused single-panel view on mobile screens.
+- **Light & Dark Themes**: Fully responsive UI tailored to user system preferences.
+- **PWA Ready**: Offline capabilities and background synchronization supported by Angular Service Workers.
 
-```bash
-ng serve
-```
+## 🛠️ Tech Stack
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+- **Framework**: [Angular](https://angular.dev/) (v21+)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/) (v4+) & SCSS
+- **Database & Authentication**: [Firebase](https://firebase.google.com/)
+- **Unit Testing**: [Vitest](https://vitest.dev/)
