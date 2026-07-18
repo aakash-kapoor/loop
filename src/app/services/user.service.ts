@@ -1,13 +1,41 @@
-import { Injectable, signal } from '@angular/core';
-import { collection, doc, query, where, getDoc, getDocs, limit } from 'firebase/firestore';
+import { Injectable, signal, OnDestroy } from '@angular/core';
+import { collection, doc, query, where, getDoc, getDocs, limit, onSnapshot } from 'firebase/firestore';
 import { db } from '../core/firebase.config';
 import { AppUser } from '../models/user.model';
 
 @Injectable({
   providedIn: 'root',
 })
-export class UserService {
+export class UserService implements OnDestroy {
   readonly usersCache = signal<Record<string, AppUser>>({});
+  
+  // Track active real-time profile subscriptions to avoid duplicates
+  private readonly subscriptions = new Map<string, () => void>();
+
+  ngOnDestroy() {
+    this.subscriptions.forEach((unsub) => unsub());
+    this.subscriptions.clear();
+  }
+
+  // Subscribe to a user document in real-time
+  private subscribeToUserProfile(uid: string) {
+    if (this.subscriptions.has(uid)) return;
+
+    const userRef = doc(db, 'users', uid);
+    const unsub = onSnapshot(userRef, (snap) => {
+      if (snap.exists()) {
+        const profile = snap.data() as AppUser;
+        this.usersCache.set({
+          ...this.usersCache(),
+          [uid]: profile,
+        });
+      }
+    }, (err) => {
+      console.warn(`Failed to listen to profile updates for uid ${uid}:`, err);
+    });
+
+    this.subscriptions.set(uid, unsub);
+  }
 
   async searchUsersByUsername(queryStr: string, currentUserUid?: string): Promise<AppUser[]> {
     const cleaned = queryStr.trim().toLowerCase();
@@ -33,34 +61,22 @@ export class UserService {
   }
 
   async fetchParticipantProfiles(uids: string[]): Promise<void> {
-    const cache = this.usersCache();
-    const missingUids = uids.filter((uid) => !cache[uid]);
-    if (missingUids.length === 0) return;
-
-    const updatedCache = { ...cache };
-    await Promise.all(
-      missingUids.map(async (uid) => {
-        const snap = await getDoc(doc(db, 'users', uid));
-        if (snap.exists()) {
-          updatedCache[uid] = snap.data() as AppUser;
-        }
-      })
-    );
-    this.usersCache.set(updatedCache);
+    // Convert single fetches to real-time doc listeners
+    uids.forEach((uid) => {
+      this.subscribeToUserProfile(uid);
+    });
   }
 
   async getUserProfile(uid: string): Promise<AppUser | null> {
+    this.subscribeToUserProfile(uid);
+
     const cache = this.usersCache();
     if (cache[uid]) return cache[uid];
 
+    // Single-pass check to return the profile immediately for async calls
     const snap = await getDoc(doc(db, 'users', uid));
     if (snap.exists()) {
-      const profile = snap.data() as AppUser;
-      this.usersCache.set({
-        ...cache,
-        [uid]: profile,
-      });
-      return profile;
+      return snap.data() as AppUser;
     }
     return null;
   }

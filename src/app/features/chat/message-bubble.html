@@ -38,12 +38,16 @@
       <div class="relative flex flex-col">
         <!-- Hover Reaction Picker Quick Bar -->
         <div 
-          class="absolute -top-9 z-25 bg-surface-0 border border-border-light rounded-full p-1 shadow-md shadow-black/5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-200 flex items-center gap-1"
+          class="absolute -top-8 z-30 bg-surface-0 border border-border-light rounded-full p-1 shadow-md shadow-black/5 transition-all duration-200 flex items-center gap-1"
           [ngClass]="{
             'right-0': isOutgoing(),
-            'left-0': !isOutgoing()
+            'left-0': !isOutgoing(),
+            'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto': !isMenuOpen(),
+            'opacity-100 pointer-events-auto': isMenuOpen()
           }"
         >
+          <!-- Invisible hover bridge to prevent cursor tracking loss -->
+          <div class="absolute -bottom-2 left-0 right-0 h-2 bg-transparent pointer-events-auto"></div>
           @for (emoji of ['👍', '❤️', '😂', '😮', '😢', '🙏']; track emoji) {
             <button 
               (click)="react(emoji)" 
@@ -61,7 +65,7 @@
         <!-- Reply Block Preview -->
         @if (replyToMessage) {
           <div 
-            class="px-3 py-1.5 rounded-t-2xl text-xs flex flex-col gap-0.5 border-l-2 bg-surface-1/40 border-border-strong text-text-secondary select-none opacity-85"
+            class="px-3.5 py-1.5 rounded-t-2xl text-xs flex flex-col gap-0.5 border-l-2 bg-surface-1/40 border-border-strong text-text-secondary select-none opacity-85"
             [ngClass]="{
               'mr-1': isOutgoing(),
               'ml-1': !isOutgoing()
@@ -72,12 +76,13 @@
           </div>
         }
 
-        <!-- Speech Bubble itself -->
+        <!-- Speech Bubble itself (Taps toggle the menu) -->
         <div 
-          class="px-3.5 py-2.5 shadow-sm text-sm break-words leading-relaxed"
+          (click)="toggleMenu($event)"
+          class="px-3.5 py-2.5 shadow-sm text-sm break-words leading-relaxed rounded-2xl cursor-pointer select-none"
           [ngClass]="{
-            'bg-accent text-white rounded-2xl rounded-tr-sm': isOutgoing(),
-            'bg-surface-1 border border-border-light text-text-primary rounded-2xl rounded-tl-sm': !isOutgoing(),
+            'bg-accent text-white rounded-tr-sm': isOutgoing(),
+            'bg-surface-1 border border-border-light text-text-primary rounded-tl-sm': !isOutgoing(),
             'rounded-t-none': replyToMessage
           }"
         >

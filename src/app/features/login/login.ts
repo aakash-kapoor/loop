@@ -1,4 +1,4 @@
-import { Component, inject, ElementRef, viewChild, AfterViewInit } from '@angular/core';
+import { Component, inject, ElementRef, viewChild, AfterViewInit, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { Auth } from '../../core/auth';
 import { animate } from 'motion';
@@ -12,6 +12,8 @@ import { animate } from 'motion';
 export class Login implements AfterViewInit {
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
+  
+  readonly isLoggingIn = signal<boolean>(false);
 
   private readonly loginCard = viewChild<ElementRef<HTMLElement>>('loginCard');
   private readonly logo = viewChild<ElementRef<HTMLElement>>('logo');
@@ -45,11 +47,13 @@ export class Login implements AfterViewInit {
   }
 
   async signIn() {
+    if (this.isLoggingIn()) return;
+    this.isLoggingIn.set(true);
     try {
       await this.auth.loginWithGoogle();
-      this.router.navigate(['/']);
     } catch (error) {
       console.error('Sign-in failed:', error);
+      this.isLoggingIn.set(false);
     }
   }
 }

@@ -17,9 +17,19 @@
     </p>
 
     <!-- Sign In Action Button -->
-    <button #actionBtn (click)="signIn()" class="w-full py-3.5 px-5 bg-accent hover:bg-accent-hover text-white font-medium rounded-2xl flex items-center justify-center gap-3 transition-colors duration-200 shadow-md shadow-accent/15 cursor-pointer select-none">
-      <i class="ti ti-brand-google text-xl"></i>
-      <span>Sign in with Google</span>
+    <button 
+      #actionBtn 
+      (click)="signIn()" 
+      [disabled]="isLoggingIn()"
+      class="w-full py-3.5 px-5 bg-accent hover:bg-accent-hover disabled:bg-surface-2 disabled:text-text-muted disabled:shadow-none disabled:cursor-not-allowed text-white font-medium rounded-2xl flex items-center justify-center gap-3 transition-colors duration-200 shadow-md shadow-accent/15 cursor-pointer select-none"
+    >
+      @if (isLoggingIn()) {
+        <i class="ti ti-loader-2 animate-spin text-xl"></i>
+        <span>Connecting…</span>
+      } @else {
+        <i class="ti ti-brand-google text-xl"></i>
+        <span>Sign in with Google</span>
+      }
     </button>
 
     <!-- Footer Note -->

@@ -12,6 +12,7 @@ import {
 import { db } from '../core/firebase.config';
 import { Auth } from '../core/auth';
 import { ConversationService } from './conversation.service';
+import { UserService } from './user.service';
 import { Message } from '../models/message.model';
 
 @Injectable({
@@ -20,6 +21,7 @@ import { Message } from '../models/message.model';
 export class MessageService {
   private readonly auth = inject(Auth);
   private readonly conversationService = inject(ConversationService);
+  private readonly userService = inject(UserService);
 
   readonly activeMessages = signal<Message[]>([]);
 
@@ -51,7 +53,24 @@ export class MessageService {
       snapshot.forEach((d) => {
         list.push({ id: d.id, ...d.data() } as Message);
       });
+
+      const isInitial = this.activeMessages().length === 0;
       this.activeMessages.set(list);
+
+      // Trigger alerts only on new incoming messages after the initial subscription fetch
+      if (!isInitial) {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'added') {
+            const newMsg = { id: change.doc.id, ...change.doc.data() } as Message;
+            const currentUid = this.auth.currentUser()?.uid;
+
+            // Trigger alert only if sender is not the current user
+            if (newMsg.senderId !== currentUid) {
+              this.handleIncomingNotification(newMsg);
+            }
+          }
+        });
+      }
     });
   }
 
@@ -59,6 +78,56 @@ export class MessageService {
     if (this.messagesUnsubscribe) {
       this.messagesUnsubscribe();
       this.messagesUnsubscribe = undefined;
+    }
+  }
+
+  private handleIncomingNotification(msg: Message) {
+    // 1. Play Web Audio synthetic ping sound if enabled
+    const soundEnabled = localStorage.getItem('sound_effects') !== 'false';
+    if (soundEnabled) {
+      this.playSyntheticPing();
+    }
+
+    // 2. Trigger browser native notification if enabled
+    const notificationsEnabled = localStorage.getItem('notifications') !== 'false';
+    if (notificationsEnabled && Notification.permission === 'granted') {
+      const sender = this.userService.usersCache()[msg.senderId];
+      const title = sender?.displayName || 'New Message';
+      try {
+        new Notification(title, {
+          body: msg.text,
+          tag: msg.id,
+        });
+      } catch (e) {
+        console.warn('Native notification trigger failed:', e);
+      }
+    }
+  }
+
+  private playSyntheticPing() {
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+
+      const ctx = new AudioContextClass();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      // pop chime sweep
+      osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.08); // A5
+
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start();
+      osc.stop(ctx.currentTime + 0.22);
+    } catch (e) {
+      console.warn('Web Audio synthesis failed:', e);
     }
   }
 
@@ -85,7 +154,7 @@ export class MessageService {
       lastMessageAt: Date.now(),
     };
 
-    convo.participants.forEach((pId) => {
+    convo.participants.forEach((pId: string) => {
       if (pId !== user.uid) {
         updates[`unreadCount.${pId}`] = (convo.unreadCount?.[pId] || 0) + 1;
       }
@@ -94,32 +163,44 @@ export class MessageService {
     await updateDoc(convoRef, updates);
   }
 
-  async toggleReaction(messageId: string, emoji: string): Promise<void> {
+  async toggleReaction(messageId: string, emoji: string): Promise<void> {    
     const convo = this.conversationService.selectedConversation();
     const user = this.auth.currentUser();
-    if (!convo || !user) return;
+    
+    if (!convo || !user) {
+      console.warn('Convo or user not resolved in toggleReaction. convo:', convo, 'user:', user);
+      return;
+    }
 
     const messageRef = doc(db, 'conversations', convo.id, 'messages', messageId);
 
-    await runTransaction(db, async (transaction) => {
-      const snap = await transaction.get(messageRef);
-      if (!snap.exists()) return;
+    try {
+      await runTransaction(db, async (transaction) => {
+        const snap = await transaction.get(messageRef);
+        if (!snap.exists()) {
+          console.warn('Message document not found during reaction transaction');
+          return;
+        }
 
-      const data = snap.data() as Message;
-      const reactions = { ...(data.reactions || {}) };
-      const currentList = reactions[emoji] ? [...reactions[emoji]] : [];
+        const data = snap.data() as Message;
+        const reactions = { ...(data.reactions || {}) };
+        const currentList = reactions[emoji] ? [...reactions[emoji]] : [];
 
-      if (currentList.includes(user.uid)) {
-        reactions[emoji] = currentList.filter((id) => id !== user.uid);
-      } else {
-        reactions[emoji] = [...currentList, user.uid];
-      }
+        if (currentList.includes(user.uid)) {
+          reactions[emoji] = currentList.filter((id) => id !== user.uid);
+        } else {
+          reactions[emoji] = [...currentList, user.uid];
+        }
 
-      if (reactions[emoji].length === 0) {
-        delete reactions[emoji];
-      }
+        if (reactions[emoji].length === 0) {
+          delete reactions[emoji];
+        }
 
-      transaction.update(messageRef, { reactions });
-    });
+        transaction.update(messageRef, { reactions });
+      });
+    } catch (err) {
+      console.error('Reaction transaction failed:', err);
+      throw err;
+    }
   }
 }

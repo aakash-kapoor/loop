@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, inject, computed } from '@angular/core';
+import { Component, Input, Output, EventEmitter, inject, computed, signal, HostListener, ElementRef } from '@angular/core';
 import { DatePipe, NgClass } from '@angular/common';
 import { Message } from '../../models/message.model';
 import { Auth } from '../../core/auth';
@@ -12,7 +12,18 @@ import { MessageService } from '../../services/message.service';
   styleUrl: './message-bubble.scss',
 })
 export class MessageBubble {
-  @Input({ required: true }) message!: Message;
+  readonly messageSignal = signal<Message | null>(null);
+  
+  // Track tap-to-open state for mobile devices
+  readonly isMenuOpen = signal<boolean>(false);
+
+  @Input({ required: true }) set message(val: Message) {
+    this.messageSignal.set(val);
+  }
+  get message(): Message {
+    return this.messageSignal()!;
+  }
+
   @Input() replyToMessage: Message | null = null;
   @Input() showSenderName = false;
 
@@ -21,23 +32,44 @@ export class MessageBubble {
   private readonly auth = inject(Auth);
   private readonly userService = inject(UserService);
   private readonly messageService = inject(MessageService);
+  private readonly elementRef = inject(ElementRef);
 
   readonly currentUserId = computed(() => this.auth.currentUser()?.uid);
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent) {
+    const clickedInside = this.elementRef.nativeElement.contains(event.target as Node);
+    if (!clickedInside) {
+      this.isMenuOpen.set(false);
+    }
+  }
+
+  toggleMenu(event: Event) {
+    this.isMenuOpen.set(!this.isMenuOpen());
+  }
   
-  readonly isOutgoing = computed(() => this.message.senderId === this.currentUserId());
+  readonly isOutgoing = computed(() => {
+    const msg = this.messageSignal();
+    return msg ? msg.senderId === this.currentUserId() : false;
+  });
   
   readonly senderProfile = computed(() => {
-    if (this.message.senderId === 'system') return null;
-    return this.userService.usersCache()[this.message.senderId] || null;
+    const msg = this.messageSignal();
+    if (!msg || msg.senderId === 'system') return null;
+    return this.userService.usersCache()[msg.senderId] || null;
   });
 
   readonly reactionsList = computed(() => {
+    const msg = this.messageSignal();
+    if (!msg) return [];
+    
     const list: { emoji: string; count: number; active: boolean; uids: string[] }[] = [];
-    const rx = this.message.reactions || {};
+    const rx = msg.reactions || {};
     const uid = this.currentUserId();
 
-    Object.entries(rx).forEach(([emoji, uids]) => {
-      if (uids.length > 0) {
+    Object.entries(rx).forEach(([emoji, val]) => {
+      const uids = val as string[];
+      if (uids && uids.length > 0) {
         list.push({
           emoji,
           count: uids.length,
@@ -51,10 +83,20 @@ export class MessageBubble {
   });
 
   async react(emoji: string) {
-    await this.messageService.toggleReaction(this.message.id, emoji);
+    const msg = this.messageSignal();
+    if (!msg) return;
+    
+    try {
+      await this.messageService.toggleReaction(msg.id, emoji);
+    } catch (err) {
+      console.error('Reaction toggle failed in bubble component:', err);
+    }
   }
 
   onReply() {
-    this.reply.emit(this.message);
+    const msg = this.messageSignal();
+    if (msg) {
+      this.reply.emit(msg);
+    }
   }
 }

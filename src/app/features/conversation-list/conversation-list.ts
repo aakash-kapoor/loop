@@ -1,4 +1,4 @@
-import { Component, inject, computed } from '@angular/core';
+import { Component, inject, computed, Input } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { NgTemplateOutlet } from '@angular/common';
 import { ConversationService } from '../../services/conversation.service';
@@ -11,6 +11,8 @@ import { ConversationItem } from './conversation-item/conversation-item';
   styleUrl: './conversation-list.scss',
 })
 export class ConversationList {
+  @Input() isSidebar = false;
+
   private readonly conversationService = inject(ConversationService);
   private readonly router = inject(Router);
 

@@ -88,19 +88,17 @@
 
     <!-- Message Request Banner (If pending and sent by OTHER participant) -->
     @if (isMessageRequest()) {
-      <div class="m-3 p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-2xl shadow-sm flex flex-col items-center gap-3 animate-fadeIn flex-shrink-0">
-        <div class="flex items-center gap-2 text-amber-800 dark:text-amber-300">
-          <i class="ti ti-alert-circle text-lg"></i>
-          <span class="text-xs font-semibold">Message Request</span>
+      <div class="m-4 p-5 bg-bg-accent/50 dark:bg-bg-accent/10 border border-accent/20 rounded-3xl shadow-sm flex flex-col items-center gap-3.5 animate-fadeIn flex-shrink-0">
+        <div class="flex items-center gap-2 text-accent">
+          <i class="ti ti-message-report text-xl"></i>
+          <span class="text-xs font-bold uppercase tracking-wider">Message Request</span>
         </div>
-        <p class="text-xs text-amber-700 dark:text-amber-400 text-center font-normal max-w-xs">
-          {{ chatPartner()?.displayName || 'This user' }} wants to chat with you. Accepting allows them to see when you read messages.
+        <p class="text-xs text-text-secondary text-center leading-relaxed font-normal max-w-xs">
+          <span class="font-semibold text-text-primary">{{ chatPartner()?.displayName || 'This user' }}</span> wants to connect with you. Accepting this request allows them to start messaging and see read receipts.
         </p>
-        <div class="flex items-center gap-2 w-full max-w-xs mt-1">
-          <button (click)="acceptRequest()" class="flex-1 py-2 px-4 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer text-center">
-            Accept
-          </button>
-        </div>
+        <button (click)="acceptRequest()" class="w-full max-w-xs py-2.5 px-4 bg-accent hover:bg-accent-hover text-white text-xs font-bold rounded-2xl transition-all duration-200 shadow-md shadow-accent/15 cursor-pointer text-center select-none">
+          Accept Request
+        </button>
       </div>
     }
 

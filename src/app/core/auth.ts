@@ -17,29 +17,46 @@ export class Auth {
         return;
       }
 
-      // Fetch user profile from firestore
-      const userRef = doc(db, 'users', firebaseUser.uid);
-      const userSnap = await getDoc(userRef);
+      try {
+        // Fetch user profile from firestore
+        const userRef = doc(db, 'users', firebaseUser.uid);
+        const userSnap = await getDoc(userRef);
 
-      if (userSnap.exists()) {
-        const appUser = userSnap.data() as AppUser;
-        // Update online status
-        await updateDoc(userRef, {
-          isOnline: true,
-          lastSeen: Date.now(),
-        });
-        this.currentUser.set({
-          ...appUser,
-          isOnline: true,
-          lastSeen: Date.now(),
-        });
-      } else {
-        // User profile doesn't exist yet, they need to choose a username
+        if (userSnap.exists()) {
+          const appUser = userSnap.data() as AppUser;
+          // Update online status
+          await updateDoc(userRef, {
+            isOnline: true,
+            lastSeen: Date.now(),
+          }).catch(() => {});
+          
+          this.currentUser.set({
+            ...appUser,
+            isOnline: true,
+            lastSeen: Date.now(),
+          });
+        } else {
+          // User profile doesn't exist yet, they need to choose a username
+          const tempUser: AppUser = {
+            uid: firebaseUser.uid,
+            username: '',
+            usernameLower: '',
+            displayName: firebaseUser.displayName || 'User',
+            photoURL: firebaseUser.photoURL || undefined,
+            isOnline: true,
+            lastSeen: Date.now(),
+          };
+          this.currentUser.set(tempUser);
+        }
+      } catch (error) {
+        console.warn('Firestore user fetch failed. Falling back to temporary local session:', error);
+        
+        // Fallback: Create a temporary user session to allow local preview of the application
         const tempUser: AppUser = {
           uid: firebaseUser.uid,
-          username: '',
+          username: '', // Triggers redirection to choose-username
           usernameLower: '',
-          displayName: firebaseUser.displayName || 'User',
+          displayName: firebaseUser.displayName || 'Local User',
           photoURL: firebaseUser.photoURL || undefined,
           isOnline: true,
           lastSeen: Date.now(),
@@ -61,7 +78,7 @@ export class Auth {
       await updateDoc(userRef, {
         isOnline: false,
         lastSeen: Date.now(),
-      }).catch(() => {});
+      }).catch(() => { });
     }
     await signOut(auth);
   }

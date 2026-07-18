@@ -1,5 +1,5 @@
 <!-- Dual-Pane View Switcher for "/" path -->
-@if (isRouteChatsEmpty()) {
+@if (!isSidebar && isRouteChatsEmpty()) {
   <div class="h-full w-full">
     <!-- Mobile View: renders list full screen -->
     <div class="block md:hidden h-full w-full">

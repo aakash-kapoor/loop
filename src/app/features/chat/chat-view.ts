@@ -47,7 +47,7 @@ export class ChatViewComponent implements OnInit, OnDestroy {
   readonly chatPartner = computed(() => {
     const activeConvo = this.convo();
     if (!activeConvo || activeConvo.type !== 'dm') return null;
-    const partnerUid = activeConvo.participants.find((uid) => uid !== this.currentUserId());
+    const partnerUid = activeConvo.participants.find((uid: string) => uid !== this.currentUserId());
     if (!partnerUid) return null;
     return this.userService.usersCache()[partnerUid] || null;
   });

@@ -1,4 +1,4 @@
-import { Injectable, effect, inject, signal } from '@angular/core';
+import { Injectable, effect, inject, signal, computed } from '@angular/core';
 import {
   collection,
   doc,
@@ -23,7 +23,13 @@ export class ConversationService {
   private readonly userService = inject(UserService);
 
   readonly conversations = signal<Conversation[]>([]);
-  readonly selectedConversation = signal<Conversation | null>(null);
+  readonly selectedConversationId = signal<string | null>(null);
+
+  readonly selectedConversation = computed(() => {
+    const id = this.selectedConversationId();
+    if (!id) return null;
+    return this.conversations().find((c) => c.id === id) || null;
+  });
 
   private conversationsUnsubscribe?: () => void;
 
@@ -35,7 +41,7 @@ export class ConversationService {
       } else {
         this.unsubscribe();
         this.conversations.set([]);
-        this.selectedConversation.set(null);
+        this.selectedConversationId.set(null);
       }
     });
   }
@@ -65,15 +71,6 @@ export class ConversationService {
 
       this.conversations.set(list);
 
-      // Keep active selection in sync with updated list metadata
-      const currentSelected = this.selectedConversation();
-      if (currentSelected) {
-        const freshSelected = list.find((c) => c.id === currentSelected.id);
-        if (freshSelected) {
-          this.selectedConversation.set(freshSelected);
-        }
-      }
-
       // Pre-fetch profiles for other participants
       if (allParticipantIds.size > 0) {
         await this.userService.fetchParticipantProfiles(Array.from(allParticipantIds));
@@ -89,23 +86,17 @@ export class ConversationService {
   }
 
   selectConversation(convoId: string | null) {
-    if (!convoId) {
-      this.selectedConversation.set(null);
-      return;
-    }
-
-    const convo = this.conversations().find((c) => c.id === convoId);
-    if (!convo) return;
-
-    this.selectedConversation.set(convo);
+    this.selectedConversationId.set(convoId);
 
     // Reset unread count for current user
-    const currentUser = this.auth.currentUser();
-    if (currentUser) {
-      const convoRef = doc(db, 'conversations', convoId);
-      updateDoc(convoRef, {
-        [`unreadCount.${currentUser.uid}`]: 0,
-      }).catch(() => {});
+    if (convoId) {
+      const currentUser = this.auth.currentUser();
+      if (currentUser) {
+        const convoRef = doc(db, 'conversations', convoId);
+        updateDoc(convoRef, {
+          [`unreadCount.${currentUser.uid}`]: 0,
+        }).catch(() => {});
+      }
     }
   }
 
