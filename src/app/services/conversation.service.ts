@@ -44,6 +44,18 @@ export class ConversationService {
         this.selectedConversationId.set(null);
       }
     });
+
+    // Reset unread count when a conversation is selected or the authenticated user finishes loading
+    effect(() => {
+      const convoId = this.selectedConversationId();
+      const currentUser = this.auth.currentUser();
+      if (convoId && currentUser?.uid) {
+        const convoRef = doc(db, 'conversations', convoId);
+        updateDoc(convoRef, {
+          [`unreadCount.${currentUser.uid}`]: 0,
+        }).catch(() => {});
+      }
+    });
   }
 
   private subscribeToConversations(uid: string) {
@@ -87,17 +99,6 @@ export class ConversationService {
 
   selectConversation(convoId: string | null) {
     this.selectedConversationId.set(convoId);
-
-    // Reset unread count for current user
-    if (convoId) {
-      const currentUser = this.auth.currentUser();
-      if (currentUser) {
-        const convoRef = doc(db, 'conversations', convoId);
-        updateDoc(convoRef, {
-          [`unreadCount.${currentUser.uid}`]: 0,
-        }).catch(() => {});
-      }
-    }
   }
 
   async acceptMessageRequest(): Promise<void> {

@@ -91,6 +91,7 @@ export class NewConversation implements OnDestroy {
       this.selectedUsers.set(current.filter((id) => id !== uid));
     } else {
       this.selectedUsers.set([...current, uid]);
+      this.userService.fetchParticipantProfiles([uid]);
     }
   }
 

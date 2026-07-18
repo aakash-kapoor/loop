@@ -4,7 +4,7 @@ import { Auth } from '../../core/auth';
 import { animate } from 'motion';
 import { FormsModule } from '@angular/forms';
 import { Subject, Subscription } from 'rxjs';
-import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 
 @Component({
   selector: 'app-choose-username',
@@ -31,41 +31,37 @@ export class ChooseUsername implements AfterViewInit, OnDestroy {
   constructor() {
     this.checkSubscription = this.usernameSubject.pipe(
       debounceTime(500),
-      distinctUntilChanged()
-    ).subscribe(async (val) => {
-      const cleanedVal = val.trim();
-      
-      // Validation checks
-      if (cleanedVal.length < 3) {
-        this.isAvailable.set(null);
-        this.errorMessage.set('Username must be at least 3 characters');
-        this.isChecking.set(false);
-        return;
-      }
-      
-      if (!/^[a-zA-Z0-9_]+$/.test(cleanedVal)) {
-        this.isAvailable.set(null);
-        this.errorMessage.set('Only letters, numbers, and underscores allowed');
-        this.isChecking.set(false);
-        return;
-      }
-
-      this.isChecking.set(true);
-      this.errorMessage.set('');
-      
-      try {
-        const available = await this.auth.checkUsernameAvailable(cleanedVal);
-        this.isAvailable.set(available);
-        if (!available) {
-          this.errorMessage.set('This username is already taken');
+      distinctUntilChanged(),
+      switchMap(async (val) => {
+        const cleanedVal = val.trim();
+        
+        // Validation checks
+        if (cleanedVal.length < 3) {
+          return { available: null, errorMessage: 'Username must be at least 3 characters' };
         }
-      } catch (err) {
-        console.error('Availability check failed:', err);
-        this.errorMessage.set('Could not verify availability. Try again.');
-        this.isAvailable.set(null);
-      } finally {
-        this.isChecking.set(false);
-      }
+        
+        if (!/^[a-zA-Z0-9_]+$/.test(cleanedVal)) {
+          return { available: null, errorMessage: 'Only letters, numbers, and underscores allowed' };
+        }
+
+        try {
+          const available = await this.auth.checkUsernameAvailable(cleanedVal);
+          return { 
+            available, 
+            errorMessage: available ? '' : 'This username is already taken' 
+          };
+        } catch (err) {
+          console.error('Availability check failed:', err);
+          return { 
+            available: null, 
+            errorMessage: 'Could not verify availability. Try again.' 
+          };
+        }
+      })
+    ).subscribe((res) => {
+      this.isAvailable.set(res.available);
+      this.errorMessage.set(res.errorMessage);
+      this.isChecking.set(false);
     });
   }
 

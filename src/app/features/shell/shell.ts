@@ -1,5 +1,7 @@
 import { Component, inject, computed } from '@angular/core';
-import { Router, RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { Router, RouterOutlet, RouterLink, RouterLinkActive, NavigationEnd } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { filter, map } from 'rxjs/operators';
 import { ConversationList } from '../conversation-list/conversation-list';
 
 @Component({
@@ -11,8 +13,17 @@ import { ConversationList } from '../conversation-list/conversation-list';
 export class Shell {
   private readonly router = inject(Router);
 
+  private readonly routerEvents = toSignal(
+    this.router.events.pipe(
+      filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+      map(e => e.urlAfterRedirects || e.url)
+    ),
+    { initialValue: this.router.url }
+  );
+
   // Bottom navigation is hidden on mobile if in a chat view (/chats/XYZ)
   readonly isChatActive = computed(() => {
-    return this.router.url.includes('/chats/') && !this.router.url.endsWith('/chats');
+    const url = this.routerEvents();
+    return url.includes('/chats/') && !url.endsWith('/chats');
   });
 }

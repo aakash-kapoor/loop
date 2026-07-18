@@ -48,17 +48,18 @@ export class MessageService {
       orderBy('createdAt', 'asc')
     );
 
+    let isFirstEmit = true;
+
     this.messagesUnsubscribe = onSnapshot(q, (snapshot) => {
       const list: Message[] = [];
       snapshot.forEach((d) => {
         list.push({ id: d.id, ...d.data() } as Message);
       });
 
-      const isInitial = this.activeMessages().length === 0;
       this.activeMessages.set(list);
 
       // Trigger alerts only on new incoming messages after the initial subscription fetch
-      if (!isInitial) {
+      if (!isFirstEmit) {
         snapshot.docChanges().forEach((change) => {
           if (change.type === 'added') {
             const newMsg = { id: change.doc.id, ...change.doc.data() } as Message;
@@ -71,6 +72,7 @@ export class MessageService {
           }
         });
       }
+      isFirstEmit = false;
     });
   }
 
