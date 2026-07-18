@@ -1,0 +1,114 @@
+@if (message.senderId === 'system') {
+  <div class="flex justify-center my-3 w-full animate-fadeIn">
+    <span class="px-3 py-1 bg-surface-1/80 backdrop-blur-sm border border-border-light/60 text-text-muted text-[10px] font-semibold tracking-wide rounded-full uppercase">
+      {{ message.text }}
+    </span>
+  </div>
+} @else {
+  <div 
+    class="group flex gap-2 w-full my-2 animate-fadeIn relative"
+    [ngClass]="{
+      'justify-end': isOutgoing(),
+      'justify-start': !isOutgoing()
+    }"
+  >
+    <!-- Incoming Avatar -->
+    @if (!isOutgoing()) {
+      <div class="relative flex-shrink-0 self-end mb-1">
+        @if (senderProfile()?.photoURL) {
+          <img [src]="senderProfile()?.photoURL" alt="avatar" class="w-8 h-8 rounded-full object-cover border border-border-light shadow-sm" />
+        } @else {
+          <div class="w-8 h-8 rounded-full bg-accent/15 text-accent font-semibold flex items-center justify-center text-xs border border-border-light uppercase">
+            {{ senderProfile()?.displayName?.substring(0, 2) || 'U' }}
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Bubble Wrapper -->
+    <div class="flex flex-col max-w-[70%]" [ngClass]="{'items-end': isOutgoing(), 'items-start': !isOutgoing()}">
+      <!-- Sender Name (Group DM incoming only) -->
+      @if (showSenderName && !isOutgoing()) {
+        <span class="text-[10px] font-semibold text-text-muted mb-1 ml-1 select-none">
+          {{ senderProfile()?.displayName || 'Loading...' }}
+        </span>
+      }
+
+      <!-- Message Content Container -->
+      <div class="relative flex flex-col">
+        <!-- Hover Reaction Picker Quick Bar -->
+        <div 
+          class="absolute -top-9 z-25 bg-surface-0 border border-border-light rounded-full p-1 shadow-md shadow-black/5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-200 flex items-center gap-1"
+          [ngClass]="{
+            'right-0': isOutgoing(),
+            'left-0': !isOutgoing()
+          }"
+        >
+          @for (emoji of ['👍', '❤️', '😂', '😮', '😢', '🙏']; track emoji) {
+            <button 
+              (click)="react(emoji)" 
+              class="w-6 h-6 rounded-full hover:bg-surface-1 flex items-center justify-center text-xs transition-colors cursor-pointer"
+            >
+              {{ emoji }}
+            </button>
+          }
+          <div class="w-[0.5px] h-4 bg-border-light mx-0.5"></div>
+          <button (click)="onReply()" class="w-6 h-6 rounded-full hover:bg-surface-1 text-text-secondary flex items-center justify-center text-xs transition-colors cursor-pointer" title="Reply">
+            <i class="ti ti-arrow-back-up"></i>
+          </button>
+        </div>
+
+        <!-- Reply Block Preview -->
+        @if (replyToMessage) {
+          <div 
+            class="px-3 py-1.5 rounded-t-2xl text-xs flex flex-col gap-0.5 border-l-2 bg-surface-1/40 border-border-strong text-text-secondary select-none opacity-85"
+            [ngClass]="{
+              'mr-1': isOutgoing(),
+              'ml-1': !isOutgoing()
+            }"
+          >
+            <span class="text-[9px] font-bold uppercase tracking-wider text-text-muted">Reply to message</span>
+            <span class="truncate max-w-[200px] italic">"{{ replyToMessage.text }}"</span>
+          </div>
+        }
+
+        <!-- Speech Bubble itself -->
+        <div 
+          class="px-3.5 py-2.5 shadow-sm text-sm break-words leading-relaxed"
+          [ngClass]="{
+            'bg-accent text-white rounded-2xl rounded-tr-sm': isOutgoing(),
+            'bg-surface-1 border border-border-light text-text-primary rounded-2xl rounded-tl-sm': !isOutgoing(),
+            'rounded-t-none': replyToMessage
+          }"
+        >
+          {{ message.text }}
+        </div>
+      </div>
+
+      <!-- Emoji Reactions Bar -->
+      @if (reactionsList().length > 0) {
+        <div class="flex flex-wrap gap-1 mt-1.5" [ngClass]="{'justify-end': isOutgoing(), 'justify-start': !isOutgoing()}">
+          @for (rx of reactionsList(); track rx.emoji) {
+            <button 
+              (click)="react(rx.emoji)"
+              [ngClass]="{
+                'bg-accent/10 border-accent/30 text-accent font-semibold': rx.active,
+                'bg-surface-1 border-border-light text-text-secondary hover:bg-surface-2': !rx.active
+              }"
+              class="flex items-center gap-1 px-2 py-0.5 border rounded-full text-[11px] transition-all cursor-pointer shadow-sm"
+              [title]="'Reacted by ' + rx.count + ' user(s)'"
+            >
+              <span>{{ rx.emoji }}</span>
+              <span class="text-[9px]">{{ rx.count }}</span>
+            </button>
+          }
+        </div>
+      }
+
+      <!-- Timestamp -->
+      <span class="text-[9px] text-text-muted mt-1 select-none" [ngClass]="{'mr-1': isOutgoing(), 'ml-1': !isOutgoing()}">
+        {{ message.createdAt | date:'shortTime' }}
+      </span>
+    </div>
+  </div>
+}

@@ -32,7 +32,7 @@ export const routes: Routes = [
       {
         path: 'chats/:id',
         loadComponent: () =>
-          import('./features/chat/chat').then((m) => m.Chat),
+          import('./features/chat/chat-view').then((m) => m.ChatViewComponent),
       },
       {
         path: 'new',

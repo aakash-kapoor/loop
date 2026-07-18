@@ -1,0 +1,154 @@
+<div class="flex flex-col h-full bg-bg-main overflow-hidden w-full relative">
+  @if (!convo()) {
+    <!-- Empty State / Desktop Placeholder -->
+    <div class="flex-1 flex flex-col items-center justify-center text-text-muted">
+      <div class="w-16 h-16 bg-surface-1 rounded-2xl flex items-center justify-center mb-4 text-border-strong text-2xl border border-border-light">
+        <i class="ti ti-message-circle"></i>
+      </div>
+      <p class="text-sm font-medium">Select a chat to start messaging</p>
+    </div>
+  } @else {
+    <!-- Chat Header -->
+    <div class="flex items-center gap-3 px-4 py-3 border-b border-border-light bg-surface-0/80 backdrop-blur-md flex-shrink-0 z-10">
+      <!-- Back button (Mobile only) -->
+      <button (click)="goBack()" class="md:hidden text-accent hover:bg-surface-1 w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer mr-1">
+        <i class="ti ti-arrow-left text-xl"></i>
+      </button>
+
+      <!-- Avatar -->
+      <div class="relative flex-shrink-0">
+        @if (convo()?.type === 'dm') {
+          @if (chatPartner()?.photoURL) {
+            <img [src]="chatPartner()?.photoURL" alt="avatar" class="w-10 h-10 rounded-full object-cover border border-border-light shadow-sm" />
+          } @else {
+            <div class="w-10 h-10 rounded-full bg-accent/10 text-accent font-semibold flex items-center justify-center text-sm border border-border-light uppercase">
+              {{ chatPartner()?.displayName?.substring(0, 2) || 'U' }}
+            </div>
+          }
+          <!-- Online status light -->
+          @if (chatPartner()?.isOnline) {
+            <span class="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-surface-0 rounded-full"></span>
+          }
+        } @else {
+          <!-- Group Icon -->
+          <div class="w-10 h-10 rounded-xl bg-violet-500/10 text-violet-600 font-semibold flex items-center justify-center text-sm border border-border-light shadow-sm">
+            <i class="ti ti-users text-lg"></i>
+          </div>
+        }
+      </div>
+
+      <!-- User/Group Info -->
+      <div class="flex-1 min-w-0">
+        <h2 class="text-sm font-semibold text-text-primary truncate">
+          {{ convo()?.type === 'dm' ? (chatPartner()?.displayName || 'Loading...') : convo()?.groupName }}
+        </h2>
+        <span class="text-[10px] font-medium" [ngClass]="convo()?.type === 'dm' && chatPartner()?.isOnline ? 'text-emerald-600' : 'text-text-muted'">
+          @if (convo()?.type === 'dm') {
+            @if (chatPartner()?.isOnline) {
+              Active now
+            } @else {
+              Offline
+            }
+          } @else {
+            {{ convo()?.participants?.length }} members
+          }
+        </span>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="flex items-center gap-1 text-text-secondary">
+        <button class="w-8 h-8 rounded-full hover:bg-surface-1 flex items-center justify-center transition-colors cursor-pointer">
+          <i class="ti ti-phone text-lg"></i>
+        </button>
+        <button class="w-8 h-8 rounded-full hover:bg-surface-1 flex items-center justify-center transition-colors cursor-pointer">
+          <i class="ti ti-video text-lg"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Messages Container -->
+    <div #messagesContainer class="flex-1 overflow-y-auto px-4 py-3 flex flex-col bg-bg-main scroll-smooth">
+      @if (messages().length === 0) {
+        <div class="flex-1 flex flex-col items-center justify-center text-text-muted/60 p-8 select-none">
+          <i class="ti ti-message-2 text-4xl mb-2 text-border-strong/60 animate-pulse"></i>
+          <p class="text-xs font-semibold">Say hello to start the conversation!</p>
+        </div>
+      } @else {
+        <!-- Render message bubbles -->
+        @for (msg of messages(); track msg.id; let i = $index) {
+          <app-message-bubble 
+            [message]="msg" 
+            [replyToMessage]="getReplyMessage(msg.replyTo)"
+            [showSenderName]="convo()?.type === 'group'"
+            (reply)="onReplyTrigger($event)"
+          ></app-message-bubble>
+        }
+      }
+    </div>
+
+    <!-- Message Request Banner (If pending and sent by OTHER participant) -->
+    @if (isMessageRequest()) {
+      <div class="m-3 p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-2xl shadow-sm flex flex-col items-center gap-3 animate-fadeIn flex-shrink-0">
+        <div class="flex items-center gap-2 text-amber-800 dark:text-amber-300">
+          <i class="ti ti-alert-circle text-lg"></i>
+          <span class="text-xs font-semibold">Message Request</span>
+        </div>
+        <p class="text-xs text-amber-700 dark:text-amber-400 text-center font-normal max-w-xs">
+          {{ chatPartner()?.displayName || 'This user' }} wants to chat with you. Accepting allows them to see when you read messages.
+        </p>
+        <div class="flex items-center gap-2 w-full max-w-xs mt-1">
+          <button (click)="acceptRequest()" class="flex-1 py-2 px-4 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer text-center">
+            Accept
+          </button>
+        </div>
+      </div>
+    }
+
+    <!-- Input Bar -->
+    <!-- Input is active if not pending, or if it is pending but initiated by ME -->
+    @if (!isPending() || initiatedByMe()) {
+      <div class="flex flex-col border-t border-border-light bg-surface-0 flex-shrink-0 relative">
+        
+        <!-- Reply Target Preview Bar -->
+        @if (replyingTo()) {
+          <div class="flex items-center justify-between px-4 py-2 bg-surface-1 border-b border-border-light text-xs text-text-secondary animate-slideDown">
+            <div class="flex items-center gap-2 truncate pr-4">
+              <i class="ti ti-arrow-back-up text-sm text-accent"></i>
+              <span class="font-semibold text-text-muted uppercase text-[9px] tracking-wide">Replying to:</span>
+              <span class="truncate italic font-normal">"{{ replyingTo()?.text }}"</span>
+            </div>
+            <button (click)="cancelReply()" class="w-6 h-6 rounded-full hover:bg-surface-2 flex items-center justify-center transition-colors cursor-pointer">
+              <i class="ti ti-x text-sm text-text-muted"></i>
+            </button>
+          </div>
+        }
+
+        <!-- Text input area -->
+        <div class="flex items-center gap-2 p-3">
+          <input 
+            type="text" 
+            [(ngModel)]="text" 
+            (keydown.enter)="send()"
+            placeholder="Type a message…" 
+            [disabled]="isPending() && initiatedByMe()"
+            class="flex-1 px-4 py-3 bg-surface-1/50 border border-border-light rounded-full text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent focus:bg-surface-0 transition-all"
+          />
+          <button 
+            (click)="send()" 
+            [disabled]="!text().trim() || (isPending() && initiatedByMe())"
+            class="w-10 h-10 rounded-full bg-accent hover:bg-accent-hover disabled:bg-surface-2 disabled:text-text-muted text-white flex items-center justify-center transition-all duration-200 flex-shrink-0 cursor-pointer disabled:cursor-not-allowed shadow-md shadow-accent/15 disabled:shadow-none"
+          >
+            <i class="ti ti-send text-base"></i>
+          </button>
+        </div>
+
+        <!-- Waiting banner for pending chats initiated by current user -->
+        @if (isPending() && initiatedByMe()) {
+          <div class="text-center pb-2 text-[10px] text-text-muted font-normal">
+            Waiting for recipient to accept message request…
+          </div>
+        }
+      </div>
+    }
+  }
+</div>

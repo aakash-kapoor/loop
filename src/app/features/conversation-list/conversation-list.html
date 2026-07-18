@@ -1,1 +1,55 @@
-<p>conversation-list works!</p>
+<!-- Dual-Pane View Switcher for "/" path -->
+@if (isRouteChatsEmpty()) {
+  <div class="h-full w-full">
+    <!-- Mobile View: renders list full screen -->
+    <div class="block md:hidden h-full w-full">
+      <ng-container *ngTemplateOutlet="listTemplate"></ng-container>
+    </div>
+    <!-- Desktop View: renders placeholder since sidebar already lists chats -->
+    <div class="hidden md:flex flex-col items-center justify-center h-full w-full text-text-muted bg-bg-main">
+      <div class="w-16 h-16 bg-surface-1 rounded-2xl flex items-center justify-center mb-4 text-border-strong text-2xl border border-border-light">
+        <i class="ti ti-message-circle"></i>
+      </div>
+      <p class="text-sm font-medium">Select a chat to start messaging</p>
+    </div>
+  </div>
+} @else {
+  <!-- Default Sidebar rendering -->
+  <ng-container *ngTemplateOutlet="listTemplate"></ng-container>
+}
+
+<ng-template #listTemplate>
+  <div class="flex flex-col h-full bg-surface-0 w-full overflow-hidden">
+    <!-- Sidebar Header -->
+    <div class="flex items-center justify-between p-4 flex-shrink-0 border-b border-border-light">
+      <span class="text-xl font-display font-bold tracking-tight text-text-primary">Loop</span>
+      <div class="flex items-center gap-2">
+        <a routerLink="/new" class="w-8 h-8 rounded-full hover:bg-surface-1 text-text-secondary flex items-center justify-center transition-colors cursor-pointer" title="New conversation">
+          <i class="ti ti-plus text-lg"></i>
+        </a>
+        <a routerLink="/settings" class="w-8 h-8 rounded-full hover:bg-surface-1 text-text-secondary flex items-center justify-center transition-colors cursor-pointer" title="Settings">
+          <i class="ti ti-settings text-lg"></i>
+        </a>
+      </div>
+    </div>
+
+    <!-- Scrollable Chat List -->
+    <div class="flex-1 overflow-y-auto">
+      @if (conversations().length === 0) {
+        <div class="flex flex-col items-center justify-center p-8 text-center text-text-muted mt-8">
+          <div class="w-12 h-12 bg-surface-1 rounded-xl flex items-center justify-center text-text-muted text-xl mb-3 border border-border-light">
+            <i class="ti ti-message-off"></i>
+          </div>
+          <p class="text-xs font-semibold">No chats found</p>
+          <a routerLink="/new" class="mt-2 text-xs font-semibold text-accent hover:underline">Start a new chat</a>
+        </div>
+      } @else {
+        <div class="flex flex-col divide-y divide-border-light/40">
+          @for (convo of conversations(); track convo.id) {
+            <app-conversation-item [convo]="convo"></app-conversation-item>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</ng-template>
