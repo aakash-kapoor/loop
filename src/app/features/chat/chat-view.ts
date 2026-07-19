@@ -1,4 +1,4 @@
-import { Component, inject, computed, signal, ElementRef, viewChild, AfterViewInit, OnInit, OnDestroy, effect } from '@angular/core';
+import { Component, inject, computed, signal, ElementRef, viewChild, AfterViewInit, OnInit, OnDestroy, effect, HostListener } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { NgClass } from '@angular/common';
@@ -8,19 +8,21 @@ import { MessageService } from '../../services/message.service';
 import { UserService } from '../../services/user.service';
 import { Auth } from '../../core/auth';
 import { MessageBubble } from './message-bubble';
+import { Avatar } from '../../shared/avatar/avatar';
 import { Message } from '../../models/message.model';
 import { AppUser } from '../../models/user.model';
 
 @Component({
   selector: 'app-chat-view',
-  imports: [FormsModule, MessageBubble, NgClass],
+  imports: [FormsModule, MessageBubble, NgClass, Avatar],
   templateUrl: './chat-view.html',
   styleUrl: './chat-view.scss',
 })
 export class ChatViewComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
-  
+  private readonly elementRef = inject(ElementRef);
+
   readonly conversationService = inject(ConversationService);
   readonly messageService = inject(MessageService);
   private readonly userService = inject(UserService);
@@ -28,6 +30,7 @@ export class ChatViewComponent implements OnInit, OnDestroy {
 
   readonly text = signal<string>('');
   readonly replyingTo = signal<Message | null>(null);
+  readonly isHeaderMenuOpen = signal<boolean>(false);
 
   private routeSub?: Subscription;
   private readonly messagesContainer = viewChild<ElementRef<HTMLElement>>('messagesContainer');
@@ -39,7 +42,7 @@ export class ChatViewComponent implements OnInit, OnDestroy {
   // Check if DM is pending acceptance
   readonly isPending = computed(() => this.convo()?.isPending || false);
   readonly initiatedByMe = computed(() => this.convo()?.initiatedBy === this.currentUserId());
-  
+
   // If it is pending and NOT initiated by current user, it is a message request banner
   readonly isMessageRequest = computed(() => this.isPending() && !this.initiatedByMe());
 
@@ -120,5 +123,38 @@ export class ChatViewComponent implements OnInit, OnDestroy {
 
   goBack() {
     this.router.navigate(['/chats']);
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent) {
+    const inside = this.elementRef.nativeElement.contains(event.target as Node);
+    if (!inside) {
+      this.isHeaderMenuOpen.set(false);
+    }
+  }
+
+  toggleHeaderMenu(event: Event) {
+    event.stopPropagation();
+    this.isHeaderMenuOpen.set(!this.isHeaderMenuOpen());
+  }
+
+  async clearChat() {
+    this.isHeaderMenuOpen.set(false);
+    try {
+      await this.conversationService.clearChatForMe();
+    } catch (err) {
+      console.error('Clear chat failed:', err);
+    }
+  }
+
+  async deleteConversation() {
+    this.isHeaderMenuOpen.set(false);
+    if (confirm('Are you sure you want to delete this conversation? This action cannot be undone.')) {
+      try {
+        await this.conversationService.deleteConversationForMe();
+      } catch (err) {
+        console.error('Delete conversation failed:', err);
+      }
+    }
   }
 }

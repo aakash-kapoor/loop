@@ -14,15 +14,12 @@
   >
     <!-- Incoming Avatar -->
     @if (!isOutgoing()) {
-      <div class="relative flex-shrink-0 self-end mb-1">
-        @if (senderProfile()?.photoURL) {
-          <img [src]="senderProfile()?.photoURL" alt="avatar" class="w-8 h-8 rounded-full object-cover border border-border-light shadow-sm" />
-        } @else {
-          <div class="w-8 h-8 rounded-full bg-accent/15 text-accent font-semibold flex items-center justify-center text-xs border border-border-light uppercase">
-            {{ senderProfile()?.displayName?.substring(0, 2) || 'U' }}
-          </div>
-        }
-      </div>
+      <app-avatar
+        [photoURL]="senderProfile()?.photoURL"
+        [displayName]="senderProfile()?.displayName"
+        size="sm"
+        class="self-end mb-1"
+      ></app-avatar>
     }
 
     <!-- Bubble Wrapper -->
@@ -37,33 +34,55 @@
       <!-- Message Content Container -->
       <div class="relative flex flex-col">
         <!-- Hover Reaction Picker Quick Bar -->
-        <div 
-          class="absolute -top-8 z-30 bg-surface-0 border border-border-light rounded-full p-1 shadow-md shadow-black/5 transition-all duration-200 flex items-center gap-1"
-          [ngClass]="{
-            'right-0': isOutgoing(),
-            'left-0': !isOutgoing(),
-            'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto': !isMenuOpen(),
-            'opacity-100 pointer-events-auto': isMenuOpen()
-          }"
-        >
-          <!-- Invisible hover bridge to prevent cursor tracking loss -->
-          <div class="absolute -bottom-2 left-0 right-0 h-2 bg-transparent pointer-events-auto"></div>
-          @for (emoji of ['👍', '❤️', '😂', '😮', '😢', '🙏']; track emoji) {
-            <button 
-              (click)="react(emoji)" 
-              class="w-6 h-6 rounded-full hover:bg-surface-1 flex items-center justify-center text-xs transition-colors cursor-pointer"
-            >
-              {{ emoji }}
+        @if (!isDeletedForEveryone() && !isDeletedForMe()) {
+          <div 
+            class="absolute -top-8 z-30 bg-surface-0 border border-border-light rounded-full p-1 shadow-md shadow-black/5 transition-all duration-200 flex items-center gap-1"
+            [ngClass]="{
+              'right-0': isOutgoing(),
+              'left-0': !isOutgoing(),
+              'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto': !isMenuOpen(),
+              'opacity-100 pointer-events-auto': isMenuOpen()
+            }"
+          >
+            <!-- Invisible hover bridge to prevent cursor tracking loss -->
+            <div class="absolute -bottom-2 left-0 right-0 h-2 bg-transparent pointer-events-auto"></div>
+            @for (emoji of ['👍', '❤️', '😂', '😮', '😢', '🙏']; track emoji) {
+              <button 
+                (click)="react(emoji)" 
+                class="w-6 h-6 rounded-full hover:bg-surface-1 flex items-center justify-center text-xs transition-colors cursor-pointer"
+              >
+                {{ emoji }}
+              </button>
+            }
+            <div class="w-[0.5px] h-4 bg-border-light mx-0.5"></div>
+            <button (click)="onReply()" class="w-6 h-6 rounded-full hover:bg-surface-1 text-text-secondary flex items-center justify-center text-xs transition-colors cursor-pointer" title="Reply">
+              <i class="ti ti-arrow-back-up"></i>
             </button>
-          }
-          <div class="w-[0.5px] h-4 bg-border-light mx-0.5"></div>
-          <button (click)="onReply()" class="w-6 h-6 rounded-full hover:bg-surface-1 text-text-secondary flex items-center justify-center text-xs transition-colors cursor-pointer" title="Reply">
-            <i class="ti ti-arrow-back-up"></i>
-          </button>
-        </div>
+
+            <!-- Delete for me — always available -->
+            <button 
+              (click)="deleteForMe()" 
+              class="w-6 h-6 rounded-full hover:bg-surface-1 text-text-secondary 
+                     flex items-center justify-center transition-colors cursor-pointer"
+              title="Delete for me">
+              <i class="ti ti-eye-off text-xs"></i>
+            </button>
+
+            <!-- Delete for everyone — only sender, within 15 mins -->
+            @if (canDeleteForEveryone()) {
+              <button 
+                (click)="deleteForEveryone()" 
+                class="w-6 h-6 rounded-full hover:bg-rose-500/10 text-rose-400 
+                       flex items-center justify-center transition-colors cursor-pointer"
+                title="Delete for everyone">
+                <i class="ti ti-trash text-xs"></i>
+              </button>
+            }
+          </div>
+        }
 
         <!-- Reply Block Preview -->
-        @if (replyToMessage) {
+        @if (replyToMessage && !isDeletedForEveryone() && !isDeletedForMe()) {
           <div 
             class="px-3.5 py-1.5 rounded-t-2xl text-xs flex flex-col gap-0.5 border-l-2 bg-surface-1/40 border-border-strong text-text-secondary select-none opacity-85"
             [ngClass]="{
@@ -77,21 +96,49 @@
         }
 
         <!-- Speech Bubble itself (Taps toggle the menu) -->
-        <div 
-          (click)="toggleMenu($event)"
-          class="px-3.5 py-2.5 shadow-sm text-sm break-words leading-relaxed rounded-2xl cursor-pointer select-none"
-          [ngClass]="{
-            'bg-accent text-white rounded-tr-sm': isOutgoing(),
-            'bg-surface-1 border border-border-light text-text-primary rounded-tl-sm': !isOutgoing(),
-            'rounded-t-none': replyToMessage
-          }"
-        >
-          {{ message.text }}
-        </div>
+        @if (isDeletedForEveryone()) {
+          <!-- Shown to ALL participants -->
+          <div 
+            class="px-3.5 py-2.5 shadow-sm text-xs text-text-muted italic bg-surface-1 border border-border-light rounded-2xl flex items-center gap-1.5 select-none"
+            [ngClass]="{
+              'rounded-tr-sm': isOutgoing(),
+              'rounded-tl-sm': !isOutgoing(),
+              'rounded-t-none': replyToMessage
+            }"
+          >
+            <i class="ti ti-ban text-xs"></i>
+            <span>This message was deleted</span>
+          </div>
+        } @else if (isDeletedForMe()) {
+          <!-- Shown only to current user -->
+          <div 
+            class="px-3.5 py-2.5 shadow-sm text-xs text-text-muted italic bg-surface-1 border border-border-light rounded-2xl flex items-center gap-1.5 select-none"
+            [ngClass]="{
+              'rounded-tr-sm': isOutgoing(),
+              'rounded-tl-sm': !isOutgoing(),
+              'rounded-t-none': replyToMessage
+            }"
+          >
+            <i class="ti ti-eye-off text-xs"></i>
+            <span>You deleted this message</span>
+          </div>
+        } @else {
+          <div 
+            (click)="toggleMenu($event)"
+            class="px-3.5 py-2.5 shadow-sm text-sm break-words leading-relaxed rounded-2xl cursor-pointer select-none"
+            [ngClass]="{
+              'bg-accent text-white rounded-tr-sm': isOutgoing(),
+              'bg-surface-1 border border-border-light text-text-primary rounded-tl-sm': !isOutgoing(),
+              'rounded-t-none': replyToMessage
+            }"
+          >
+            {{ message.text }}
+          </div>
+        }
       </div>
 
       <!-- Emoji Reactions Bar -->
-      @if (reactionsList().length > 0) {
+      @if (reactionsList().length > 0 && !isDeletedForEveryone() && !isDeletedForMe()) {
         <div class="flex flex-wrap gap-1 mt-1.5" [ngClass]="{'justify-end': isOutgoing(), 'justify-start': !isOutgoing()}">
           @for (rx of reactionsList(); track rx.emoji) {
             <button 

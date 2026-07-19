@@ -1,0 +1,31 @@
+<div class="relative flex-shrink-0">
+  @if (isGroup) {
+    <!-- Group Icon -->
+    <div
+      class="flex items-center justify-center border border-border-light font-semibold bg-violet-500/10 text-violet-600"
+      [ngClass]="[sizeClass, shapeClass, textSizeClass]"
+    >
+      <i class="ti ti-users text-lg"></i>
+    </div>
+  } @else if (photoURL) {
+    <img
+      [src]="photoURL"
+      alt="avatar"
+      class="object-cover border border-border-light shadow-sm"
+      [ngClass]="[sizeClass, shapeClass]"
+    />
+  } @else {
+    <!-- Initials fallback -->
+    <div
+      class="flex items-center justify-center border border-border-light font-semibold bg-accent/10 text-accent uppercase"
+      [ngClass]="[sizeClass, shapeClass, textSizeClass]"
+    >
+      {{ initials }}
+    </div>
+  }
+
+  <!-- Online indicator -->
+  @if (isOnline && !isGroup) {
+    <span class="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-surface-0 rounded-full"></span>
+  }
+</div>

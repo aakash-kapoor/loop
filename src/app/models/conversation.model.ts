@@ -9,4 +9,6 @@ export interface Conversation {
     lastMessage: string;
     lastMessageAt: number;
     unreadCount: Record<string, number>;
+    deletedFor?: string[];        // uids who have "deleted" this conversation
+    clearedAt?: Record<string, number>; // uid -> timestamp, hides messages before this time
 }

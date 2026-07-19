@@ -1,19 +1,27 @@
-import { Component, Input, inject, computed } from '@angular/core';
+import { Component, Input, inject, computed, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { Conversation } from '../../../models/conversation.model';
 import { Auth } from '../../../core/auth';
 import { UserService } from '../../../services/user.service';
 import { ConversationService } from '../../../services/conversation.service';
 import { DatePipe, NgClass } from '@angular/common';
+import { Avatar } from '../../../shared/avatar/avatar';
 
 @Component({
   selector: 'app-conversation-item',
-  imports: [NgClass, DatePipe],
+  imports: [NgClass, DatePipe, Avatar],
   templateUrl: './conversation-item.html',
   styleUrl: './conversation-item.scss',
 })
 export class ConversationItem {
-  @Input({ required: true }) convo!: Conversation;
+  readonly convoSignal = signal<Conversation | null>(null);
+
+  @Input({ required: true }) set convo(val: Conversation) {
+    this.convoSignal.set(val);
+  }
+  get convo(): Conversation {
+    return this.convoSignal()!;
+  }
 
   private readonly auth = inject(Auth);
   private readonly userService = inject(UserService);
@@ -23,7 +31,7 @@ export class ConversationItem {
   // Get the other participant's UID (for DM)
   readonly otherParticipantUid = computed(() => {
     const currentUid = this.auth.currentUser()?.uid;
-    return this.convo.participants.find(uid => uid !== currentUid);
+    return this.convoSignal()?.participants.find(uid => uid !== currentUid);
   });
 
   // Get other participant's profile
@@ -35,20 +43,32 @@ export class ConversationItem {
 
   // Check if active
   readonly isActive = computed(() => {
-    return this.conversationService.selectedConversation()?.id === this.convo.id;
+    return this.conversationService.selectedConversation()?.id === this.convoSignal()?.id;
   });
 
   // Unread count for current user
   readonly unreadCount = computed(() => {
     const currentUid = this.auth.currentUser()?.uid;
     if (!currentUid) return 0;
-    return this.convo.unreadCount?.[currentUid] || 0;
+    return this.convoSignal()?.unreadCount?.[currentUid] || 0;
+  });
+
+  // Check if cleared for me
+  readonly isClearedForMe = computed(() => {
+    const uid = this.auth.currentUser()?.uid;
+    if (!uid) return false;
+    const clearedAt = this.convoSignal()?.clearedAt?.[uid] || 0;
+    if (clearedAt === 0) return false;
+    // Only show "Chat cleared" if no new messages have arrived since the clear
+    const lastMessageAt = this.convoSignal()?.lastMessageAt || 0;
+    return lastMessageAt <= clearedAt;
   });
 
   // Check if it's a pending message request for the current user
   readonly isMessageRequest = computed(() => {
     const currentUid = this.auth.currentUser()?.uid;
-    return this.convo.isPending && this.convo.initiatedBy !== currentUid;
+    const convo = this.convoSignal();
+    return convo?.isPending && convo?.initiatedBy !== currentUid;
   });
 
   select() {

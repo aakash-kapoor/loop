@@ -1,4 +1,5 @@
 import { Injectable, effect, inject, signal, computed } from '@angular/core';
+import { Router } from '@angular/router';
 import {
   collection,
   doc,
@@ -8,7 +9,10 @@ import {
   onSnapshot,
   addDoc,
   updateDoc,
-  getDocs
+  getDocs,
+  arrayUnion,
+  arrayRemove,
+  serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../core/firebase.config';
 import { Auth } from '../core/auth';
@@ -21,6 +25,7 @@ import { Conversation } from '../models/conversation.model';
 export class ConversationService {
   private readonly auth = inject(Auth);
   private readonly userService = inject(UserService);
+  private readonly router = inject(Router);
 
   readonly conversations = signal<Conversation[]>([]);
   readonly selectedConversationId = signal<string | null>(null);
@@ -73,6 +78,14 @@ export class ConversationService {
 
       snapshot.forEach((d) => {
         const convo = { id: d.id, ...d.data() } as Conversation;
+        
+        // Hide conversation only if user deleted it AND no new messages have arrived since
+        if (convo.deletedFor?.includes(uid)) {
+          const clearedAt = convo.clearedAt?.[uid] || 0;
+          if (convo.lastMessageAt <= clearedAt) return;
+          // New messages arrived after delete — fall through and show the conversation
+        }
+
         list.push(convo);
         convo.participants.forEach((pId) => {
           if (pId !== uid) {
@@ -111,6 +124,34 @@ export class ConversationService {
     });
   }
 
+  // Delete entire conversation for current user
+  async deleteConversationForMe(): Promise<void> {
+    const convo = this.selectedConversation();
+    const user = this.auth.currentUser();
+    if (!convo || !user) return;
+
+    this.router.navigate(['/chats']); // navigate first
+    this.selectConversation(null);    // then deselect
+
+    const convoRef = doc(db, 'conversations', convo.id);
+    await updateDoc(convoRef, {
+      deletedFor: arrayUnion(user.uid),
+      [`clearedAt.${user.uid}`]: Date.now() // capture fresh-start timestamp at delete time
+    });
+  }
+
+  // Clear all messages for current user (by timestamp)
+  async clearChatForMe(): Promise<void> {
+    const convo = this.selectedConversation();
+    const user = this.auth.currentUser();
+    if (!convo || !user) return;
+
+    const convoRef = doc(db, 'conversations', convo.id);
+    await updateDoc(convoRef, {
+      [`clearedAt.${user.uid}`]: Date.now()
+    });
+  }
+
   async startConversation(recipientUid: string): Promise<string> {
     const currentUser = this.auth.currentUser();
     if (!currentUser) throw new Error('User not logged in');
@@ -133,6 +174,11 @@ export class ConversationService {
     });
 
     if (existingId) {
+      // Restore visibility — clearedAt was already set at delete time so old messages stay hidden
+      const existingRef = doc(db, 'conversations', existingId);
+      await updateDoc(existingRef, {
+        deletedFor: arrayRemove(currentUser.uid)
+      });
       return existingId;
     }
 
@@ -156,7 +202,8 @@ export class ConversationService {
     await addDoc(collection(db, 'conversations', convoRef.id, 'messages'), {
       senderId: 'system',
       text: 'Conversation started',
-      createdAt: Date.now(),
+      createdAt: serverTimestamp(),
+      createdAtMs: Date.now(),
       reactions: {},
       replyTo: null,
     });
@@ -189,7 +236,8 @@ export class ConversationService {
     await addDoc(collection(db, 'conversations', convoRef.id, 'messages'), {
       senderId: 'system',
       text: `Group "${name.trim()}" created by ${currentUser.displayName}`,
-      createdAt: Date.now(),
+      createdAt: serverTimestamp(),
+      createdAtMs: Date.now(),
       reactions: {},
       replyTo: null,
     });

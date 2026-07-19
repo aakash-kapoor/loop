@@ -7,7 +7,9 @@ import {
   onSnapshot,
   addDoc,
   updateDoc,
-  runTransaction
+  runTransaction,
+  arrayUnion,
+  serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../core/firebase.config';
 import { Auth } from '../core/auth';
@@ -51,10 +53,33 @@ export class MessageService {
     let isFirstEmit = true;
 
     this.messagesUnsubscribe = onSnapshot(q, (snapshot) => {
-      const list: Message[] = [];
-      snapshot.forEach((d) => {
-        list.push({ id: d.id, ...d.data() } as Message);
-      });
+      const user = this.auth.currentUser();
+      const clearedAt = this.conversationService
+        .selectedConversation()?.clearedAt?.[user?.uid || ''] || 0;
+
+      const list: Message[] = snapshot.docs
+        .map(d => {
+          const msg = { id: d.id, ...d.data() } as Message;
+          let createdAt = msg.createdAtMs;
+          if (createdAt === undefined || createdAt === null) {
+            if (typeof msg.createdAt === 'number') {
+              createdAt = msg.createdAt;
+            } else if (msg.createdAt && typeof msg.createdAt.toMillis === 'function') {
+              createdAt = msg.createdAt.toMillis();
+            } else if (msg.createdAt && typeof msg.createdAt === 'object' && msg.createdAt.seconds !== undefined) {
+              createdAt = msg.createdAt.seconds * 1000 + Math.floor(msg.createdAt.nanoseconds / 1000000);
+            } else {
+              createdAt = Date.now();
+            }
+          }
+          return { ...msg, createdAt };
+        })
+        .filter(msg => 
+          msg.senderId === 'system' || (
+            !msg.deletedFor?.includes(user?.uid || '') &&
+            (msg.createdAt || 0) >= clearedAt
+          )
+        );
 
       this.activeMessages.set(list);
 
@@ -138,10 +163,12 @@ export class MessageService {
     const user = this.auth.currentUser();
     if (!convo || !user) throw new Error('No selected conversation or user');
 
+    const now = Date.now();
     const messageData = {
       senderId: user.uid,
       text: text.trim(),
-      createdAt: Date.now(),
+      createdAt: serverTimestamp(),
+      createdAtMs: now,
       reactions: {},
       replyTo: replyTo || null,
     };
@@ -153,7 +180,7 @@ export class MessageService {
     const convoRef = doc(db, 'conversations', convo.id);
     const updates: Record<string, any> = {
       lastMessage: text.trim(),
-      lastMessageAt: Date.now(),
+      lastMessageAt: now,
     };
 
     convo.participants.forEach((pId: string) => {
@@ -203,6 +230,40 @@ export class MessageService {
     } catch (err) {
       console.error('Reaction transaction failed:', err);
       throw err;
+    }
+  }
+
+  // Delete individual message for current user (soft-delete)
+  async deleteMessageForMe(messageId: string): Promise<void> {
+    const convo = this.conversationService.selectedConversation();
+    const user = this.auth.currentUser();
+    if (!convo || !user) return;
+
+    const messageRef = doc(db, 'conversations', convo.id, 'messages', messageId);
+    await updateDoc(messageRef, {
+      deletedFor: arrayUnion(user.uid)
+    });
+  }
+
+  // Delete message for everyone (within 15 minutes window check)
+  async deleteMessageForEveryone(messageId: string): Promise<void> {
+    const convo = this.conversationService.selectedConversation();
+    const user = this.auth.currentUser();
+    if (!convo || !user) return;
+
+    const messageRef = doc(db, 'conversations', convo.id, 'messages', messageId);
+    await updateDoc(messageRef, {
+      deletedForEveryone: true,
+    });
+
+    // Update conversation lastMessage preview if this was the latest message
+    const messages = this.activeMessages();
+    const isLast = messages[messages.length - 1]?.id === messageId;
+    if (isLast) {
+      const convoRef = doc(db, 'conversations', convo.id);
+      await updateDoc(convoRef, {
+        lastMessage: 'Message deleted',
+      });
     }
   }
 }

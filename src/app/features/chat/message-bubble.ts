@@ -4,16 +4,17 @@ import { Message } from '../../models/message.model';
 import { Auth } from '../../core/auth';
 import { UserService } from '../../services/user.service';
 import { MessageService } from '../../services/message.service';
+import { Avatar } from '../../shared/avatar/avatar';
 
 @Component({
   selector: 'app-message-bubble',
-  imports: [NgClass, DatePipe],
+  imports: [NgClass, DatePipe, Avatar],
   templateUrl: './message-bubble.html',
   styleUrl: './message-bubble.scss',
 })
 export class MessageBubble {
   readonly messageSignal = signal<Message | null>(null);
-  
+
   // Track tap-to-open state for mobile devices
   readonly isMenuOpen = signal<boolean>(false);
 
@@ -47,12 +48,12 @@ export class MessageBubble {
   toggleMenu(event: Event) {
     this.isMenuOpen.set(!this.isMenuOpen());
   }
-  
+
   readonly isOutgoing = computed(() => {
     const msg = this.messageSignal();
     return msg ? msg.senderId === this.currentUserId() : false;
   });
-  
+
   readonly senderProfile = computed(() => {
     const msg = this.messageSignal();
     if (!msg || msg.senderId === 'system') return null;
@@ -62,7 +63,7 @@ export class MessageBubble {
   readonly reactionsList = computed(() => {
     const msg = this.messageSignal();
     if (!msg) return [];
-    
+
     const list: { emoji: string; count: number; active: boolean; uids: string[] }[] = [];
     const rx = msg.reactions || {};
     const uid = this.currentUserId();
@@ -85,7 +86,7 @@ export class MessageBubble {
   async react(emoji: string) {
     const msg = this.messageSignal();
     if (!msg) return;
-    
+
     try {
       await this.messageService.toggleReaction(msg.id, emoji);
     } catch (err) {
@@ -97,6 +98,54 @@ export class MessageBubble {
     const msg = this.messageSignal();
     if (msg) {
       this.reply.emit(msg);
+    }
+  }
+
+  // Check if deleted for me
+  readonly isDeletedForMe = computed(() => {
+    const msg = this.messageSignal();
+    const uid = this.currentUserId();
+    return uid ? (msg?.deletedFor?.includes(uid) ?? false) : false;
+  });
+
+  // Check if deletedForEveryone
+  readonly isDeletedForEveryone = computed(() =>
+    this.messageSignal()?.deletedForEveryone === true
+  );
+
+  // Check if within 15 minute delete window and sender is current user
+  readonly canDeleteForEveryone = computed(() => {
+    const msg = this.messageSignal();
+    if (!msg || msg.senderId !== this.currentUserId()) return false;
+    if (msg.deletedForEveryone) return false;
+
+    const createdAt = msg.createdAtMs
+      ?? (msg.createdAt instanceof Object
+        ? (msg.createdAt as any).toMillis()   // Firestore Timestamp
+        : msg.createdAt);                       // plain number fallback
+
+    if (!createdAt) return false;
+    const fifteenMinutes = 15 * 60 * 1000;
+    return Date.now() - createdAt < fifteenMinutes;
+  });
+
+  async deleteForMe() {
+    const msg = this.messageSignal();
+    if (!msg) return;
+    try {
+      await this.messageService.deleteMessageForMe(msg.id);
+    } catch (err) {
+      console.error('Delete for me failed:', err);
+    }
+  }
+
+  async deleteForEveryone() {
+    const msg = this.messageSignal();
+    if (!msg || !this.canDeleteForEveryone()) return;
+    try {
+      await this.messageService.deleteMessageForEveryone(msg.id);
+    } catch (err) {
+      console.error('Delete for everyone failed:', err);
     }
   }
 }
