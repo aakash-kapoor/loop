@@ -7,10 +7,11 @@
     >
       <i class="ti ti-users text-lg"></i>
     </div>
-  } @else if (photoURL) {
+  } @else if (photoURL && !imageError()) {
     <img
       [src]="photoURL"
-      alt="avatar"
+      alt=""
+      (error)="onImageError()"
       class="object-cover border border-border-light shadow-sm"
       [ngClass]="[sizeClass, shapeClass]"
     />

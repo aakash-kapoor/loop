@@ -31,6 +31,7 @@ export class ChatViewComponent implements OnInit, OnDestroy {
   readonly text = signal<string>('');
   readonly replyingTo = signal<Message | null>(null);
   readonly isHeaderMenuOpen = signal<boolean>(false);
+  readonly isConfirmingDelete = signal<boolean>(false);
 
   private routeSub?: Subscription;
   private readonly messagesContainer = viewChild<ElementRef<HTMLElement>>('messagesContainer');
@@ -130,6 +131,7 @@ export class ChatViewComponent implements OnInit, OnDestroy {
     const inside = this.elementRef.nativeElement.contains(event.target as Node);
     if (!inside) {
       this.isHeaderMenuOpen.set(false);
+      this.isConfirmingDelete.set(false); // reset confirm state when closing
     }
   }
 
@@ -148,13 +150,17 @@ export class ChatViewComponent implements OnInit, OnDestroy {
   }
 
   async deleteConversation() {
+    if (!this.isConfirmingDelete()) {
+      this.isConfirmingDelete.set(true);
+      return;
+    }
+    // Second click — confirmed
+    this.isConfirmingDelete.set(false);
     this.isHeaderMenuOpen.set(false);
-    if (confirm('Are you sure you want to delete this conversation? This action cannot be undone.')) {
-      try {
-        await this.conversationService.deleteConversationForMe();
-      } catch (err) {
-        console.error('Delete conversation failed:', err);
-      }
+    try {
+      await this.conversationService.deleteConversationForMe();
+    } catch (err) {
+      console.error('Delete conversation failed:', err);
     }
   }
 }

@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, signal } from '@angular/core';
 import { NgClass } from '@angular/common';
 
 @Component({
@@ -24,6 +24,13 @@ export class Avatar {
 
   /** When true, renders the group icon (ti-users) instead of photo/initials. */
   @Input() isGroup = false;
+
+  /** True when the image URL failed to load — triggers initials fallback. */
+  readonly imageError = signal(false);
+
+  onImageError() {
+    this.imageError.set(true);
+  }
 
   get initials(): string {
     return this.displayName?.substring(0, 2) || 'U';
