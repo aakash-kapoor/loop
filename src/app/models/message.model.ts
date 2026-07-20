@@ -8,4 +8,5 @@ export interface Message {
     replyTo?: string;
     deletedFor?: string[];        // uids who have deleted this specific message
     deletedForEveryone?: boolean; // true — wiped for all participants
+    encryptionVersion?: number;   // version tag for E2EE messages
 }

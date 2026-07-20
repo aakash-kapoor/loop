@@ -5,36 +5,269 @@
 
   <!-- Login Card -->
   <div #loginCard class="w-full max-w-md bg-surface-0/60 backdrop-blur-md border border-border-light rounded-3xl shadow-xl p-8 md:p-10 flex flex-col items-center opacity-0">
-    <!-- Logo Badge -->
-    <div #logo class="w-16 h-16 bg-accent rounded-2xl flex items-center justify-center shadow-lg shadow-accent/20 mb-6 text-white text-3xl">
-      <i class="ti ti-message-circle-2"></i>
-    </div>
+    
+    @if (currentUser() && currentUser()?.username && !isPrivateKeyReady()) {
+      <!-- E2EE Key Restoration & Recovery Flow -->
+      <div class="w-full flex flex-col items-center">
+        <!-- Logo Badge -->
+        <div class="w-14 h-14 bg-accent rounded-2xl flex items-center justify-center shadow-lg shadow-accent/20 mb-5 text-white text-2xl animate-pulse">
+          <i class="ti ti-shield-lock"></i>
+        </div>
 
-    <!-- Title & Subtitle -->
-    <h1 #title class="text-4xl font-display font-bold tracking-tight text-text-primary mb-2">Loop</h1>
-    <p #desc class="text-text-secondary text-center mb-8 max-w-xs font-sans">
-      Connect instantly, chat securely, and stay in the loop with your friends.
-    </p>
+        <h1 class="text-2xl font-display font-bold tracking-tight text-text-primary mb-2 text-center">Restore Encrypted Chats</h1>
+        
+        @if (hasBackup() === true) {
+          <!-- Passphrase Restore screen -->
+          @if (isConfirmingReset()) {
+            <!-- Reset chat history confirmation view -->
+            <p class="text-xs text-text-secondary text-left leading-relaxed mb-6 mt-1 text-center max-w-xs">
+              <span class="text-rose-500 font-bold">WARNING:</span> Resetting your keys will permanently lock you out of your past encrypted history. You will only be able to read and send messages in future conversations.
+            </p>
 
-    <!-- Sign In Action Button -->
-    <button 
-      #actionBtn 
-      (click)="signIn()" 
-      [disabled]="isLoggingIn()"
-      class="w-full py-3.5 px-5 bg-accent hover:bg-accent-hover disabled:bg-surface-2 disabled:text-text-muted disabled:shadow-none disabled:cursor-not-allowed text-white font-medium rounded-2xl flex items-center justify-center gap-3 transition-colors duration-200 shadow-md shadow-accent/15 cursor-pointer select-none"
-    >
-      @if (isLoggingIn()) {
-        <i class="ti ti-loader-2 animate-spin text-xl"></i>
-        <span>Connecting…</span>
-      } @else {
-        <i class="ti ti-brand-google text-xl"></i>
-        <span>Sign in with Google</span>
-      }
-    </button>
+            <div class="w-full flex flex-col gap-3">
+              <div class="relative flex items-center w-full">
+                <input 
+                  [type]="showPassphrase() ? 'text' : 'password'" 
+                  [ngModel]="recoveryPassphrase()" 
+                  (ngModelChange)="recoveryPassphrase.set($event)"
+                  placeholder="New Recovery Passphrase (min. 12 chars)" 
+                  [disabled]="isRestoring()"
+                  class="w-full pl-4 pr-11 py-3 bg-surface-1/50 border border-border-light rounded-2xl text-text-primary placeholder-text-muted focus:outline-none focus:border-accent focus:bg-surface-0/90 transition-all font-medium text-sm shadow-sm"
+                />
+                <button 
+                  type="button"
+                  (click)="showPassphrase.set(!showPassphrase())"
+                  class="absolute right-4 text-text-muted hover:text-text-secondary cursor-pointer flex items-center justify-center p-1 rounded-full transition-colors select-none"
+                >
+                  @if (showPassphrase()) {
+                    <i class="ti ti-eye-off text-lg animate-fadeIn"></i>
+                  } @else {
+                    <i class="ti ti-eye text-lg animate-fadeIn"></i>
+                  }
+                </button>
+              </div>
 
-    <!-- Footer Note -->
-    <span class="mt-8 text-xs text-text-muted text-center max-w-[240px]">
-      By signing in, you agree to our Terms of Service and Privacy Policy.
-    </span>
+              <div class="relative flex items-center w-full">
+                <input 
+                  [type]="showConfirmPassphrase() ? 'text' : 'password'" 
+                  [ngModel]="recoveryConfirmPassphrase()" 
+                  (ngModelChange)="recoveryConfirmPassphrase.set($event)"
+                  placeholder="Confirm New Passphrase" 
+                  [disabled]="isRestoring()"
+                  class="w-full pl-4 pr-11 py-3 bg-surface-1/50 border border-border-light rounded-2xl text-text-primary placeholder-text-muted focus:outline-none focus:border-accent focus:bg-surface-0/90 transition-all font-medium text-sm shadow-sm"
+                />
+                <button 
+                  type="button"
+                  (click)="showConfirmPassphrase.set(!showConfirmPassphrase())"
+                  class="absolute right-4 text-text-muted hover:text-text-secondary cursor-pointer flex items-center justify-center p-1 rounded-full transition-colors select-none"
+                >
+                  @if (showConfirmPassphrase()) {
+                    <i class="ti ti-eye-off text-lg animate-fadeIn"></i>
+                  } @else {
+                    <i class="ti ti-eye text-lg animate-fadeIn"></i>
+                  }
+                </button>
+              </div>
+              
+              @if (recoveryError()) {
+                <p class="text-xs text-rose-500 font-medium px-1 flex items-center gap-1.5 animate-fadeIn">
+                  <i class="ti ti-alert-circle text-sm"></i>
+                  <span>{{ recoveryError() }}</span>
+                </p>
+              }
+
+              <button 
+                (click)="resetChatHistory()" 
+                [disabled]="isRestoring()"
+                class="w-full py-3 bg-rose-500 hover:bg-rose-600 disabled:bg-surface-2 text-white font-medium rounded-2xl flex items-center justify-center gap-2 transition-all cursor-pointer disabled:cursor-not-allowed select-none text-sm shadow-md"
+              >
+                @if (isRestoring()) {
+                  <i class="ti ti-loader-2 animate-spin text-base"></i>
+                  <span>Generating keys...</span>
+                } @else {
+                  <span>Confirm Reset (Wipe History)</span>
+                }
+              </button>
+              
+              <button 
+                (click)="isConfirmingReset.set(false); recoveryError.set('');"
+                [disabled]="isRestoring()"
+                class="w-full py-2 text-xs font-semibold text-text-secondary hover:text-text-primary transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          } @else {
+            <!-- Standard Restore view -->
+            <p class="text-xs text-text-secondary text-center mb-6 max-w-xs leading-relaxed mt-1">
+              Enter your recovery passphrase to restore your private key and decrypt your conversations on this device.
+            </p>
+
+            <div class="w-full flex flex-col gap-4">
+              <div class="relative flex items-center w-full">
+                <input 
+                  [type]="showPassphrase() ? 'text' : 'password'" 
+                  [ngModel]="recoveryPassphrase()" 
+                  (ngModelChange)="recoveryPassphrase.set($event)"
+                  placeholder="Enter Recovery Passphrase" 
+                  [disabled]="isRestoring()"
+                  class="w-full pl-4 pr-11 py-3 bg-surface-1/50 border border-border-light rounded-2xl text-text-primary placeholder-text-muted focus:outline-none focus:border-accent focus:bg-surface-0/90 transition-all font-medium text-sm shadow-sm"
+                />
+                <button 
+                  type="button"
+                  (click)="showPassphrase.set(!showPassphrase())"
+                  class="absolute right-4 text-text-muted hover:text-text-secondary cursor-pointer flex items-center justify-center p-1 rounded-full transition-colors select-none"
+                >
+                  @if (showPassphrase()) {
+                    <i class="ti ti-eye-off text-lg animate-fadeIn"></i>
+                  } @else {
+                    <i class="ti ti-eye text-lg animate-fadeIn"></i>
+                  }
+                </button>
+              </div>
+
+              @if (recoveryError()) {
+                <p class="text-xs text-rose-500 font-medium px-1 flex items-center gap-1.5 animate-fadeIn">
+                  <i class="ti ti-alert-circle text-sm"></i>
+                  <span>{{ recoveryError() }}</span>
+                </p>
+              }
+
+              <button 
+                (click)="restoreKey()" 
+                [disabled]="isRestoring() || !recoveryPassphrase()"
+                class="w-full py-3 px-5 bg-accent hover:bg-accent-hover disabled:bg-surface-2 disabled:text-text-muted text-white font-medium rounded-2xl flex items-center justify-center gap-2 transition-all duration-200 shadow-md shadow-accent/15 cursor-pointer disabled:cursor-not-allowed select-none text-sm"
+              >
+                @if (isRestoring()) {
+                  <i class="ti ti-loader-2 animate-spin text-base"></i>
+                  <span>Restoring key...</span>
+                } @else {
+                  <span>Restore Key</span>
+                }
+              </button>
+
+              <!-- Forgot passphrase escape hatch link -->
+              <button 
+                (click)="isConfirmingReset.set(true); recoveryPassphrase.set(''); recoveryConfirmPassphrase.set(''); recoveryError.set('');"
+                [disabled]="isRestoring()"
+                class="text-xs font-semibold text-rose-500 hover:text-rose-600 transition-all cursor-pointer text-center mt-2"
+              >
+                Forgot passphrase? Reset chat history
+              </button>
+            </div>
+          }
+        } @else if (hasBackup() === false) {
+          <!-- Legacy user backup setup screen -->
+          <p class="text-xs text-text-secondary text-left leading-relaxed mb-6 mt-1 text-center max-w-xs">
+            Set up encryption on your account. Create a recovery passphrase to encrypt and backup your E2EE keys.
+          </p>
+
+          <div class="w-full flex flex-col gap-3">
+            <div class="relative flex items-center w-full">
+              <input 
+                [type]="showPassphrase() ? 'text' : 'password'" 
+                [ngModel]="recoveryPassphrase()" 
+                (ngModelChange)="recoveryPassphrase.set($event)"
+                placeholder="Recovery Passphrase (min. 12 chars)" 
+                [disabled]="isRestoring()"
+                class="w-full pl-4 pr-11 py-3 bg-surface-1/50 border border-border-light rounded-2xl text-text-primary placeholder-text-muted focus:outline-none focus:border-accent focus:bg-surface-0/90 transition-all font-medium text-sm shadow-sm"
+              />
+              <button 
+                type="button"
+                (click)="showPassphrase.set(!showPassphrase())"
+                class="absolute right-4 text-text-muted hover:text-text-secondary cursor-pointer flex items-center justify-center p-1 rounded-full transition-colors select-none"
+              >
+                @if (showPassphrase()) {
+                  <i class="ti ti-eye-off text-lg animate-fadeIn"></i>
+                } @else {
+                  <i class="ti ti-eye text-lg animate-fadeIn"></i>
+                }
+              </button>
+            </div>
+
+            <div class="relative flex items-center w-full">
+              <input 
+                [type]="showConfirmPassphrase() ? 'text' : 'password'" 
+                [ngModel]="recoveryConfirmPassphrase()" 
+                (ngModelChange)="recoveryConfirmPassphrase.set($event)"
+                placeholder="Confirm Passphrase" 
+                [disabled]="isRestoring()"
+                class="w-full pl-4 pr-11 py-3 bg-surface-1/50 border border-border-light rounded-2xl text-text-primary placeholder-text-muted focus:outline-none focus:border-accent focus:bg-surface-0/90 transition-all font-medium text-sm shadow-sm"
+              />
+              <button 
+                type="button"
+                (click)="showConfirmPassphrase.set(!showConfirmPassphrase())"
+                class="absolute right-4 text-text-muted hover:text-text-secondary cursor-pointer flex items-center justify-center p-1 rounded-full transition-colors select-none"
+              >
+                @if (showConfirmPassphrase()) {
+                  <i class="ti ti-eye-off text-lg animate-fadeIn"></i>
+                } @else {
+                  <i class="ti ti-eye text-lg animate-fadeIn"></i>
+                }
+              </button>
+            </div>
+
+            @if (recoveryError()) {
+              <p class="text-xs text-rose-500 font-medium px-1 flex items-center gap-1.5 animate-fadeIn">
+                <i class="ti ti-alert-circle text-sm"></i>
+                <span>{{ recoveryError() }}</span>
+              </p>
+            }
+
+            <button 
+              (click)="setupLegacyEncryption()" 
+              [disabled]="isRestoring()"
+              class="w-full py-3 bg-accent hover:bg-accent-hover disabled:bg-surface-2 text-white font-medium rounded-2xl flex items-center justify-center gap-2 transition-all cursor-pointer disabled:cursor-not-allowed select-none text-sm"
+            >
+              @if (isRestoring()) {
+                <i class="ti ti-loader-2 animate-spin text-base"></i>
+                <span>Generating E2EE keys...</span>
+              } @else {
+                <span>Setup Encryption Backup</span>
+              }
+            </button>
+          </div>
+        } @else {
+          <!-- Checking backup state loader -->
+          <div class="flex flex-col items-center justify-center py-6 gap-3">
+            <i class="ti ti-loader-2 animate-spin text-accent text-3xl"></i>
+            <span class="text-xs text-text-secondary animate-pulse">Securing connection...</span>
+          </div>
+        }
+      </div>
+    } @else {
+      <!-- Default Google login view -->
+      <!-- Logo Badge -->
+      <div #logo class="w-16 h-16 bg-accent rounded-2xl flex items-center justify-center shadow-lg shadow-accent/20 mb-6 text-white text-3xl">
+        <i class="ti ti-message-circle-2"></i>
+      </div>
+
+      <!-- Title & Subtitle -->
+      <h1 #title class="text-4xl font-display font-bold tracking-tight text-text-primary mb-2">Loop</h1>
+      <p #desc class="text-text-secondary text-center mb-8 max-w-xs font-sans">
+        Connect instantly, chat securely, and stay in the loop with your friends.
+      </p>
+
+      <!-- Sign In Action Button -->
+      <button 
+        #actionBtn 
+        (click)="signIn()" 
+        [disabled]="isLoggingIn()"
+        class="w-full py-3.5 px-5 bg-accent hover:bg-accent-hover disabled:bg-surface-2 disabled:text-text-muted disabled:shadow-none disabled:cursor-not-allowed text-white font-medium rounded-2xl flex items-center justify-center gap-3 transition-colors duration-200 shadow-md shadow-accent/15 cursor-pointer select-none"
+      >
+        @if (isLoggingIn()) {
+          <i class="ti ti-loader-2 animate-spin text-xl"></i>
+          <span>Connecting…</span>
+        } @else {
+          <i class="ti ti-brand-google text-xl"></i>
+          <span>Sign in with Google</span>
+        }
+      </button>
+
+      <!-- Footer Note -->
+      <span class="mt-8 text-xs text-text-muted text-center max-w-[240px]">
+        By signing in, you agree to our Terms of Service and Privacy Policy.
+      </span>
+    }
   </div>
 </div>

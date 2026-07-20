@@ -96,8 +96,9 @@ export class ChatViewComponent implements OnInit, OnDestroy {
       await this.messageService.sendMessage(messageText, this.replyingTo()?.id);
       this.text.set('');
       this.replyingTo.set(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Send failed:', err);
+      alert(err.message || 'Failed to send message.');
     }
   }
 

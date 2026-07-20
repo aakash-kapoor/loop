@@ -56,6 +56,75 @@
         </p>
       }
 
+      <!-- E2EE Recovery Passphrase Section -->
+      <div class="w-full h-[1px] bg-border-light my-2"></div>
+      
+      <div class="flex flex-col gap-3.5">
+        <h2 class="text-sm font-semibold text-text-primary flex items-center gap-1.5">
+          <i class="ti ti-lock text-accent text-base"></i>
+          <span>E2EE Recovery Backup</span>
+        </h2>
+        <p class="text-xs text-text-secondary text-left leading-relaxed">
+          Create a passphrase to encrypt your private key backup. You will need this to restore your chat history when logging in on new devices.
+        </p>
+        
+        <!-- Passphrase Input -->
+        <div class="relative flex items-center w-full">
+          <i class="ti ti-key absolute left-4 text-text-muted text-lg select-none"></i>
+          <input 
+            [type]="showPassphrase() ? 'text' : 'password'" 
+            [ngModel]="passphrase()" 
+            (ngModelChange)="passphrase.set($event)"
+            placeholder="Recovery Passphrase (min. 12 chars)" 
+            [disabled]="isSubmitting()"
+            class="w-full pl-10 pr-11 py-3 bg-surface-1/50 border border-border-light rounded-2xl text-text-primary placeholder-text-muted focus:outline-none focus:border-accent focus:bg-surface-0/90 transition-all font-medium text-sm shadow-sm"
+          />
+          <button 
+            type="button"
+            (click)="showPassphrase.set(!showPassphrase())"
+            class="absolute right-4 text-text-muted hover:text-text-secondary cursor-pointer flex items-center justify-center p-1 rounded-full transition-colors select-none"
+          >
+            @if (showPassphrase()) {
+              <i class="ti ti-eye-off text-lg animate-fadeIn"></i>
+            } @else {
+              <i class="ti ti-eye text-lg animate-fadeIn"></i>
+            }
+          </button>
+        </div>
+
+        <!-- Confirm Passphrase Input -->
+        <div class="relative flex items-center w-full">
+          <i class="ti ti-key absolute left-4 text-text-muted text-lg select-none"></i>
+          <input 
+            [type]="showConfirmPassphrase() ? 'text' : 'password'" 
+            [ngModel]="confirmPassphrase()" 
+            (ngModelChange)="confirmPassphrase.set($event)"
+            placeholder="Confirm Passphrase" 
+            [disabled]="isSubmitting()"
+            class="w-full pl-10 pr-11 py-3 bg-surface-1/50 border border-border-light rounded-2xl text-text-primary placeholder-text-muted focus:outline-none focus:border-accent focus:bg-surface-0/90 transition-all font-medium text-sm shadow-sm"
+          />
+          <button 
+            type="button"
+            (click)="showConfirmPassphrase.set(!showConfirmPassphrase())"
+            class="absolute right-4 text-text-muted hover:text-text-secondary cursor-pointer flex items-center justify-center p-1 rounded-full transition-colors select-none"
+          >
+            @if (showConfirmPassphrase()) {
+              <i class="ti ti-eye-off text-lg animate-fadeIn"></i>
+            } @else {
+              <i class="ti ti-eye text-lg animate-fadeIn"></i>
+            }
+          </button>
+        </div>
+
+        <!-- Passphrase Validation Error -->
+        @if (passphraseError()) {
+          <p class="text-xs text-rose-500 font-medium px-1 flex items-center gap-1.5 animate-fadeIn">
+            <i class="ti ti-alert-circle text-sm"></i>
+            <span>{{ passphraseError() }}</span>
+          </p>
+        }
+      </div>
+
       <!-- Submit Button -->
       <button 
         (click)="submitUsername()" 
@@ -64,7 +133,7 @@
       >
         @if (isSubmitting()) {
           <i class="ti ti-loader-2 animate-spin text-lg"></i>
-          <span>Reserving handle...</span>
+          <span>Securing handle...</span>
         } @else {
           <span>Continue</span>
           <i class="ti ti-arrow-right text-lg"></i>
