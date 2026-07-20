@@ -31,6 +31,13 @@
         </span>
       }
 
+      <!-- Delete error toast -->
+      @if (deleteError()) {
+        <span class="text-[10px] text-rose-400 font-medium mb-1 self-end animate-fadeIn select-none">
+          {{ deleteError() }}
+        </span>
+      }
+
       <!-- Message Content Container -->
       <div class="relative flex flex-col">
         <!-- Hover Reaction Picker Quick Bar -->

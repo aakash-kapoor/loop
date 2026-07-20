@@ -30,11 +30,12 @@ export class MessageService {
   private messagesUnsubscribe?: () => void;
 
   constructor() {
-    // Automatically manage message subscription based on selected conversation
+    // Depend on the primitive ID, not the derived object, to avoid listener churn
+    // on every conversation list update (reactions, unread resets, lastMessage writes etc.)
     effect(() => {
-      const convo = this.conversationService.selectedConversation();
-      if (convo?.id) {
-        this.subscribeToMessages(convo.id);
+      const convoId = this.conversationService.selectedConversationId();
+      if (convoId) {
+        this.subscribeToMessages(convoId);
       } else {
         this.unsubscribe();
         this.activeMessages.set([]);
@@ -45,9 +46,11 @@ export class MessageService {
   private subscribeToMessages(convoId: string) {
     this.unsubscribe();
 
+    // Use createdAtMs (real client timestamp) for ordering — avoids reorder flicker
+    // from serverTimestamp() being null/pending in Firestore's local cache.
     const q = query(
       collection(db, 'conversations', convoId, 'messages'),
-      orderBy('createdAt', 'asc')
+      orderBy('createdAtMs', 'asc')
     );
 
     let isFirstEmit = true;
@@ -89,9 +92,10 @@ export class MessageService {
           if (change.type === 'added') {
             const newMsg = { id: change.doc.id, ...change.doc.data() } as Message;
             const currentUid = this.auth.currentUser()?.uid;
+            const activeConvoId = this.conversationService.selectedConversationId();
 
-            // Trigger alert only if sender is not the current user
-            if (newMsg.senderId !== currentUid) {
+            // Suppress if sender is current user OR message is from the currently open chat
+            if (newMsg.senderId !== currentUid && convoId !== activeConvoId) {
               this.handleIncomingNotification(newMsg);
             }
           }

@@ -18,6 +18,13 @@ export class MessageBubble {
   // Track tap-to-open state for mobile devices
   readonly isMenuOpen = signal<boolean>(false);
 
+  // Error message shown when delete-for-everyone fails (e.g. window expired)
+  readonly deleteError = signal<string | null>(null);
+
+  // Clock tick signal so canDeleteForEveryone re-evaluates as time passes (every 30s)
+  private readonly clockTick = signal(Date.now());
+  private readonly clockInterval = setInterval(() => this.clockTick.set(Date.now()), 30_000);
+
   @Input({ required: true }) set message(val: Message) {
     this.messageSignal.set(val);
   }
@@ -115,6 +122,7 @@ export class MessageBubble {
 
   // Check if within 15 minute delete window and sender is current user
   readonly canDeleteForEveryone = computed(() => {
+    this.clockTick(); // depend on clock so this re-evaluates every 30s
     const msg = this.messageSignal();
     if (!msg || msg.senderId !== this.currentUserId()) return false;
     if (msg.deletedForEveryone) return false;
@@ -146,6 +154,9 @@ export class MessageBubble {
       await this.messageService.deleteMessageForEveryone(msg.id);
     } catch (err) {
       console.error('Delete for everyone failed:', err);
+      const message = 'Delete window expired — can only delete within 15 minutes';
+      this.deleteError.set(message);
+      setTimeout(() => this.deleteError.set(null), 3000);
     }
   }
 }

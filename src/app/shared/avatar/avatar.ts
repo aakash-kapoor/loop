@@ -33,7 +33,12 @@ export class Avatar {
   }
 
   get initials(): string {
-    return this.displayName?.substring(0, 2) || 'U';
+    const name = this.displayName?.trim();
+    if (!name) return 'U';
+    const parts = name.split(/\s+/);
+    return parts.length === 1
+      ? parts[0].substring(0, 2).toUpperCase()
+      : (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   }
 
   get sizeClass(): string {
