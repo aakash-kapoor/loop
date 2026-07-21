@@ -9,13 +9,17 @@ import { AppUser } from '../models/user.model';
 })
 export class Auth {
   readonly currentUser = signal<AppUser | null | undefined>(undefined);
+  private activePresenceUid: string | null = null;
 
   constructor() {
     onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
         this.currentUser.set(null);
+        this.activePresenceUid = null;
         return;
       }
+
+      this.setupPresenceListeners(firebaseUser.uid);
 
       try {
         // Fetch user profile from firestore
@@ -28,8 +32,8 @@ export class Auth {
           await updateDoc(userRef, {
             isOnline: true,
             lastSeen: Date.now(),
-          }).catch(() => {});
-          
+          }).catch(() => { });
+
           this.currentUser.set({
             ...appUser,
             isOnline: true,
@@ -50,7 +54,7 @@ export class Auth {
         }
       } catch (error) {
         console.warn('Firestore user fetch failed. Falling back to temporary local session:', error);
-        
+
         // Fallback: Create a temporary user session to allow local preview of the application
         const tempUser: AppUser = {
           uid: firebaseUser.uid,
@@ -63,6 +67,61 @@ export class Auth {
         };
         this.currentUser.set(tempUser);
       }
+    });
+  }
+
+  private setupPresenceListeners(uid: string) {
+    if (this.activePresenceUid === uid) return;
+    this.activePresenceUid = uid;
+
+    let offlineTimer: ReturnType<typeof setTimeout> | null = null;
+    const GRACE_PERIOD_MS = 10000; // 30 seconds grace period for tab switches
+
+    const updatePresence = (isOnline: boolean) => {
+      const user = this.currentUser();
+      if (!user?.uid || user.uid !== uid) return;
+
+      const now = Date.now();
+      const userRef = doc(db, 'users', uid);
+      updateDoc(userRef, {
+        isOnline,
+        lastSeen: now,
+      }).catch(() => { });
+
+      this.currentUser.set({
+        ...user,
+        isOnline,
+        lastSeen: now,
+      });
+    };
+
+    // Update status when switching browser tabs or hiding the app window
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        // Start grace period timer before setting status to offline
+        if (offlineTimer) clearTimeout(offlineTimer);
+        offlineTimer = setTimeout(() => {
+          updatePresence(false);
+        }, GRACE_PERIOD_MS);
+      } else if (document.visibilityState === 'visible') {
+        // If user came back before grace period expired, cancel timer
+        if (offlineTimer) {
+          clearTimeout(offlineTimer);
+          offlineTimer = null;
+        }
+        updatePresence(true);
+      }
+    });
+
+    // Mark offline immediately when closing the browser window/tab (no grace delay)
+    window.addEventListener('beforeunload', () => {
+      if (offlineTimer) clearTimeout(offlineTimer);
+      updatePresence(false);
+    });
+
+    window.addEventListener('pagehide', () => {
+      if (offlineTimer) clearTimeout(offlineTimer);
+      updatePresence(false);
     });
   }
 
