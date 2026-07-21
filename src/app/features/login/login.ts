@@ -1,5 +1,5 @@
 import { Component, inject, ElementRef, viewChild, AfterViewInit, signal, effect } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { Auth } from '../../core/auth';
 import { CryptoService } from '../../services/crypto.service';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
@@ -10,7 +10,7 @@ import { evaluatePassphraseStrength } from '../../shared/passphrase-validator';
 
 @Component({
   selector: 'app-login',
-  imports: [FormsModule],
+  imports: [FormsModule, RouterLink],
   templateUrl: './login.html',
   styleUrl: './login.scss',
 })

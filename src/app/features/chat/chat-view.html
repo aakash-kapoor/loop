@@ -16,7 +16,7 @@
       class="flex items-center gap-3 px-4 py-3 border-b border-border-light bg-surface-0/80 backdrop-blur-md flex-shrink-0 z-10">
       <!-- Close / Back button -->
       <button (click)="goBack()"
-        class="text-text-secondary hover:text-accent hover:bg-surface-1 w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer mr-1"
+        class="text-text-secondary hover:text-accent hover:bg-surface-1 w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer mr-1 active-press"
         title="Close chat">
         <i class="ti ti-chevron-left text-lg"></i>
       </button>
@@ -52,7 +52,7 @@
       <div class="flex items-center gap-1 text-text-secondary relative">
         <!-- Search Messages Button -->
         <button (click)="toggleSearch()"
-          class="w-8 h-8 rounded-full hover:bg-surface-1 flex items-center justify-center transition-colors cursor-pointer text-text-muted hover:text-accent"
+          class="w-8 h-8 rounded-full hover:bg-surface-1 flex items-center justify-center transition-colors cursor-pointer text-text-muted hover:text-accent active-press"
           [ngClass]="{'text-accent bg-surface-1': isSearchOpen()}"
           title="Search messages (Ctrl+F)">
           <i class="ti ti-search text-lg"></i>
@@ -61,14 +61,14 @@
         @if (convo()?.type === 'group') {
         <!-- Group Chat: Info Icon directly opens Group Info Drawer -->
         <button (click)="isGroupInfoOpen.set(true)"
-          class="w-8 h-8 rounded-full hover:bg-surface-1 text-text-muted hover:text-accent flex items-center justify-center transition-colors cursor-pointer"
+          class="w-8 h-8 rounded-full hover:bg-surface-1 text-text-muted hover:text-accent flex items-center justify-center transition-colors cursor-pointer active-press"
           title="Group info">
           <i class="ti ti-info-circle text-xl"></i>
         </button>
         } @else {
         <!-- Direct Chat (DM): 3-Dot Menu -->
         <button (click)="toggleHeaderMenu($event)"
-          class="w-8 h-8 rounded-full hover:bg-surface-1 flex items-center justify-center transition-colors cursor-pointer"
+          class="w-8 h-8 rounded-full hover:bg-surface-1 flex items-center justify-center transition-colors cursor-pointer active-press"
           title="Chat settings">
           <i class="ti ti-dots-vertical text-lg"></i>
         </button>
@@ -76,7 +76,7 @@
         <!-- Dropdown Menu for DMs -->
         @if (isHeaderMenuOpen()) {
         <div
-          class="header-menu-dropdown absolute right-0 top-10 bg-surface-0 border border-border-light rounded-2xl shadow-xl py-1.5 z-50 animate-fadeIn min-w-[180px]">
+          class="header-menu-dropdown absolute right-0 top-10 bg-surface-0 border border-border-light rounded-2xl shadow-xl py-1.5 z-50 animate-scaleIn origin-top-right min-w-[180px]">
           <button (click)="openConfirm('clear')"
             class="w-full px-4 py-2 text-left text-xs font-semibold hover:bg-surface-1 text-text-primary transition-colors flex items-center gap-2 cursor-pointer">
             <i class="ti ti-trash-x text-sm text-text-muted"></i>
@@ -237,7 +237,7 @@
         <!-- Emoji Picker Popover -->
         @if (isEmojiPickerOpen()) {
         <div
-          class="absolute bottom-16 left-3 z-50 animate-fadeIn emoji-picker-container rounded-2xl overflow-hidden shadow-xl border border-border-light">
+          class="absolute bottom-16 left-3 z-50 animate-scaleIn origin-bottom-left emoji-picker-container rounded-2xl overflow-hidden shadow-xl border border-border-light">
           <emoji-mart [showPreview]="false" [darkMode]="isDarkTheme()" (emojiSelect)="addEmoji($event)"
             color="#378add"></emoji-mart>
         </div>
@@ -245,7 +245,7 @@
 
         <!-- Mention Autocomplete Popover -->
         @if (isMentionPickerOpen() && convo()?.type === 'group' && groupParticipantsForMention().length > 0) {
-        <div class="mention-picker-container absolute bottom-16 left-12 right-12 z-50 bg-surface-0 border border-border-light rounded-2xl shadow-2xl p-1.5 max-h-56 overflow-y-auto animate-fadeIn flex flex-col gap-0.5">
+        <div class="mention-picker-container absolute bottom-16 left-12 right-12 z-50 bg-surface-0 border border-border-light rounded-2xl shadow-2xl p-1.5 max-h-56 overflow-y-auto animate-scaleIn origin-bottom flex flex-col gap-0.5">
           <div class="px-3 py-1 text-[10px] font-bold text-text-muted uppercase tracking-wider select-none border-b border-border-light/40 mb-1 flex items-center gap-1">
             <i class="ti ti-at text-accent text-xs"></i>
             <span>Mention Group Member</span>
@@ -274,7 +274,7 @@
 
         <!-- Emoji trigger button -->
         <button (click)="toggleEmojiPicker($event)"
-          class="w-10 h-10 rounded-full hover:bg-surface-1 text-text-muted hover:text-text-secondary flex items-center justify-center transition-colors cursor-pointer flex-shrink-0"
+          class="w-10 h-10 rounded-full hover:bg-surface-1 text-text-muted hover:text-text-secondary flex items-center justify-center transition-colors cursor-pointer flex-shrink-0 active-press"
           title="Add emoji">
           <i class="ti ti-mood-smile text-lg"></i>
         </button>
@@ -283,7 +283,7 @@
           [disabled]="isPending() && initiatedByMe()"
           class="flex-1 px-4 py-3 bg-surface-1/50 border border-border-light rounded-full text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent focus:bg-surface-0 transition-all" />
         <button (click)="send()" [disabled]="!text().trim() || (isPending() && initiatedByMe())"
-          class="w-10 h-10 rounded-full bg-accent hover:bg-accent-hover disabled:bg-surface-2 disabled:text-text-muted text-white flex items-center justify-center transition-all duration-200 flex-shrink-0 cursor-pointer disabled:cursor-not-allowed shadow-md shadow-accent/15 disabled:shadow-none">
+          class="w-10 h-10 rounded-full bg-accent hover:bg-accent-hover disabled:bg-surface-2 disabled:text-text-muted text-white flex items-center justify-center transition-all duration-200 flex-shrink-0 cursor-pointer disabled:cursor-not-allowed shadow-md shadow-accent/15 disabled:shadow-none active-press">
           <i class="ti ti-send text-base"></i>
         </button>
       </div>

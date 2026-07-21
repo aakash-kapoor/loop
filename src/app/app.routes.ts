@@ -17,6 +17,16 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'terms',
+    loadComponent: () =>
+      import('./features/terms/terms').then((m) => m.TermsComponent),
+  },
+  {
+    path: 'privacy',
+    loadComponent: () =>
+      import('./features/privacy/privacy').then((m) => m.PrivacyComponent),
+  },
+  {
     path: '',
     loadComponent: () =>
       import('./features/shell/shell').then((m) => m.Shell),

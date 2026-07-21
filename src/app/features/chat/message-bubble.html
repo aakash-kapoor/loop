@@ -1,12 +1,12 @@
 @if (message.senderId === 'system') {
-<div class="flex justify-center my-3 w-full animate-fadeIn">
+<div class="flex justify-center my-3 w-full animate-slideUpFade">
   <span
     class="px-3 py-1 bg-surface-1/80 backdrop-blur-sm border border-border-light/60 text-text-muted text-[10px] font-semibold tracking-wide rounded-full">
     {{ message.text }}
   </span>
 </div>
 } @else {
-<div class="flex gap-2 w-full my-2 animate-fadeIn relative" [ngClass]="{
+<div class="flex gap-2 w-full my-2 animate-slideUpFade relative" [ngClass]="{
       'justify-end': isOutgoing(),
       'justify-start': !isOutgoing()
     }">
@@ -37,38 +37,38 @@
       <!-- Hover Reaction Picker Quick Bar -->
       @if (!isDeletedForEveryone() && !isDeletedForMe()) {
       <div
-        class="absolute -top-8 z-30 bg-surface-0 border border-border-light rounded-full p-1 shadow-md shadow-black/5 transition-all duration-200 flex items-center gap-1"
+        class="absolute -top-8 z-30 bg-surface-0 border border-border-light rounded-full p-1 shadow-md shadow-black/5 transition-all duration-150 ease-out flex items-center gap-1 origin-bottom scale-95"
         [ngClass]="{
               'right-0': isOutgoing(),
               'left-0': !isOutgoing(),
-              'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto': !isMenuOpen(),
-              'opacity-100 pointer-events-auto': isMenuOpen()
+              'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto': !isMenuOpen(),
+              'opacity-100 scale-100 pointer-events-auto': isMenuOpen()
             }">
         <!-- Invisible hover bridge to prevent cursor tracking loss -->
         <div class="absolute -bottom-2 left-0 right-0 h-2 bg-transparent pointer-events-auto"></div>
         @for (emoji of ['👍', '❤️', '😂', '😮', '😢', '🙏']; track emoji) {
         <button (click)="react(emoji)"
-          class="w-6 h-6 rounded-full hover:bg-surface-1 flex items-center justify-center text-xs transition-colors cursor-pointer">
+          class="w-6 h-6 rounded-full hover:bg-surface-1 flex items-center justify-center text-xs transition-colors cursor-pointer active-press">
           {{ emoji }}
         </button>
         }
         <div class="w-[0.5px] h-4 bg-border-light mx-0.5"></div>
         <button (click)="onReply()"
-          class="w-6 h-6 rounded-full hover:bg-surface-1 text-text-secondary flex items-center justify-center text-xs transition-colors cursor-pointer"
+          class="w-6 h-6 rounded-full hover:bg-surface-1 text-text-secondary flex items-center justify-center text-xs transition-colors cursor-pointer active-press"
           title="Reply">
           <i class="ti ti-arrow-back-up"></i>
         </button>
 
         <!-- Delete for me — always available -->
         <button (click)="deleteForMe()" class="w-6 h-6 rounded-full hover:bg-surface-1 text-text-secondary 
-                     flex items-center justify-center transition-colors cursor-pointer" title="Delete for me">
+                     flex items-center justify-center transition-colors cursor-pointer active-press" title="Delete for me">
           <i class="ti ti-eye-off text-xs"></i>
         </button>
 
         <!-- Delete for everyone — only sender, within 15 mins -->
         @if (canDeleteForEveryone()) {
         <button (click)="deleteForEveryone()" class="w-6 h-6 rounded-full hover:bg-rose-500/10 text-rose-400 
-                       flex items-center justify-center transition-colors cursor-pointer" title="Delete for everyone">
+                       flex items-center justify-center transition-colors cursor-pointer active-press" title="Delete for everyone">
           <i class="ti ti-trash text-xs"></i>
         </button>
         }
@@ -144,7 +144,7 @@
                 'bg-accent/10 border-accent/30 text-accent font-semibold': rx.active,
                 'bg-surface-1 border-border-light text-text-secondary hover:bg-surface-2': !rx.active
               }"
-        class="flex items-center gap-1 px-2 py-0.5 border rounded-full text-[11px] transition-all cursor-pointer shadow-sm"
+        class="flex items-center gap-1 px-2 py-0.5 border rounded-full text-[11px] transition-all cursor-pointer shadow-sm animate-popIn active-press"
         [title]="'Reacted by ' + rx.count + ' user(s)'">
         <span>{{ rx.emoji }}</span>
         <span class="text-[9px]">{{ rx.count }}</span>
@@ -159,4 +159,4 @@
     </span>
   </div>
 </div>
-}
+}

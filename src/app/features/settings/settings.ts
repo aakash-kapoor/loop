@@ -5,7 +5,7 @@ import { Auth } from '../../core/auth';
 
 @Component({
   selector: 'app-settings',
-  imports: [NgClass],
+  imports: [NgClass, RouterLink],
   templateUrl: './settings.html',
   styleUrl: './settings.scss',
 })

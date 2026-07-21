@@ -39,7 +39,7 @@
       <button 
         (click)="cancel.emit()" 
         [disabled]="isSubmitting"
-        class="flex-1 py-2.5 px-4 rounded-2xl bg-surface-1 hover:bg-surface-2 disabled:opacity-50 text-text-secondary text-xs font-semibold border border-border-light transition-all cursor-pointer select-none"
+        class="flex-1 py-2.5 px-4 rounded-2xl bg-surface-1 hover:bg-surface-2 disabled:opacity-50 text-text-secondary text-xs font-semibold border border-border-light transition-all cursor-pointer select-none active-press"
       >
         {{ cancelText }}
       </button>
@@ -52,7 +52,7 @@
           'bg-amber-500 hover:bg-amber-600 shadow-amber-500/20': type === 'warning',
           'bg-accent hover:bg-accent-hover shadow-accent/20': type === 'info'
         }"
-        class="flex-1 py-2.5 px-4 rounded-2xl text-white text-xs font-semibold transition-all shadow-md cursor-pointer disabled:opacity-50 select-none flex items-center justify-center gap-1.5"
+        class="flex-1 py-2.5 px-4 rounded-2xl text-white text-xs font-semibold transition-all shadow-md cursor-pointer disabled:opacity-50 select-none flex items-center justify-center gap-1.5 active-press"
       >
         @if (isSubmitting) {
           <i class="ti ti-loader-2 animate-spin text-sm"></i>
