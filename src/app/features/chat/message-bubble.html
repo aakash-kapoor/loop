@@ -6,7 +6,7 @@
   </div>
 } @else {
   <div 
-    class="group flex gap-2 w-full my-2 animate-fadeIn relative"
+    class="flex gap-2 w-full my-2 animate-fadeIn relative"
     [ngClass]="{
       'justify-end': isOutgoing(),
       'justify-start': !isOutgoing()
@@ -39,7 +39,7 @@
       }
 
       <!-- Message Content Container -->
-      <div class="relative flex flex-col">
+      <div class="group relative flex flex-col">
         <!-- Hover Reaction Picker Quick Bar -->
         @if (!isDeletedForEveryone() && !isDeletedForMe()) {
           <div 

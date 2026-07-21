@@ -75,7 +75,7 @@ export class Auth {
     this.activePresenceUid = uid;
 
     let offlineTimer: ReturnType<typeof setTimeout> | null = null;
-    const GRACE_PERIOD_MS = 10000; // 30 seconds grace period for tab switches
+    const GRACE_PERIOD_MS = 10000; // 10 seconds grace period for tab switches
 
     const updatePresence = (isOnline: boolean) => {
       const user = this.currentUser();
