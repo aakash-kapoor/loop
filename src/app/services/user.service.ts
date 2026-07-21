@@ -80,4 +80,19 @@ export class UserService implements OnDestroy {
     }
     return null;
   }
+
+  async getSuggestedUsers(currentUserUid?: string, limitCount = 20): Promise<AppUser[]> {
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, limit(limitCount));
+    const snapshot = await getDocs(q);
+    const results: AppUser[] = [];
+    snapshot.forEach((d) => {
+      const u = d.data() as AppUser;
+      if (u.uid !== currentUserUid) {
+        results.push(u);
+        this.subscribeToUserProfile(u.uid);
+      }
+    });
+    return results;
+  }
 }

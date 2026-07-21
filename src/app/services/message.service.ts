@@ -40,9 +40,13 @@ export class MessageService {
     // Depend on the primitive ID, not the derived object, to avoid listener churn
     // on every conversation list update (reactions, unread resets, lastMessage writes etc.)
     effect(() => {
-      const convoId = this.conversationService.selectedConversationId();
+      const convo = this.conversationService.selectedConversation();
+      const user = this.auth.currentUser();
+      const convoId = convo?.id;
+      const clearedAt = convo?.clearedAt?.[user?.uid || ''] || 0;
+
       if (convoId) {
-        this.subscribeToMessages(convoId);
+        this.subscribeToMessages(convoId, clearedAt);
       } else {
         this.unsubscribe();
         this.rawMessages.set([]);
@@ -91,7 +95,7 @@ export class MessageService {
     }
   }
 
-  private subscribeToMessages(convoId: string) {
+  private subscribeToMessages(convoId: string, clearedAt: number) {
     this.unsubscribe();
 
     // Use createdAtMs (real client timestamp) for ordering — avoids reorder flicker
@@ -105,8 +109,6 @@ export class MessageService {
 
     this.messagesUnsubscribe = onSnapshot(q, (snapshot) => {
       const user = this.auth.currentUser();
-      const clearedAt = this.conversationService
-        .selectedConversation()?.clearedAt?.[user?.uid || ''] || 0;
 
       const list: Message[] = snapshot.docs
         .map(d => {
@@ -126,10 +128,8 @@ export class MessageService {
           return { ...msg, createdAt };
         })
         .filter(msg => 
-          msg.senderId === 'system' || (
-            !msg.deletedFor?.includes(user?.uid || '') &&
-            (msg.createdAt || 0) >= clearedAt
-          )
+          !msg.deletedFor?.includes(user?.uid || '') &&
+          (msg.createdAt || 0) >= clearedAt
         );
 
       this.rawMessages.set(list);
@@ -340,6 +340,7 @@ export class MessageService {
       lastMessage: encryptedText,
       lastMessageAt: now,
       lastMessageEncryptionVersion: 2,
+      lastMessageIsSystem: false,
     };
 
     convo.participants.forEach((pId: string) => {

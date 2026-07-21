@@ -8,6 +8,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   onSnapshot,
   addDoc,
   updateDoc,
@@ -22,6 +23,7 @@ import { db } from '../core/firebase.config';
 import { Auth } from '../core/auth';
 import { UserService } from './user.service';
 import { Conversation } from '../models/conversation.model';
+import { AppUser } from '../models/user.model';
 import { CryptoService } from './crypto.service';
 
 @Injectable({
@@ -87,15 +89,20 @@ export class ConversationService {
       return await Promise.all(
         rawList.map(async (convo) => {
           if (convo.lastMessage && convo.lastMessageEncryptionVersion === 2) {
-            // Bypass decryption if flagged as plaintext system message or matching legacy system strings
-            if (
-              convo.lastMessageIsSystem === true ||
+            // Bypass decryption if it is a known plaintext system message
+            const isKnownSystemString = 
               convo.lastMessage === 'Conversation started' ||
               convo.lastMessage === 'Message deleted' ||
               convo.lastMessage === 'Group deleted by admin' ||
               convo.lastMessage === 'Group created' ||
-              convo.lastMessage.startsWith('Group "')
-            ) {
+              convo.lastMessage.startsWith('Group "') ||
+              convo.lastMessage.includes(' added ') ||
+              convo.lastMessage.includes(' removed ') ||
+              convo.lastMessage.endsWith(' left the group') ||
+              convo.lastMessage.includes(' promoted ') ||
+              convo.lastMessage.includes(' changed group name');
+
+            if (isKnownSystemString) {
               return convo;
             }
 
@@ -147,9 +154,7 @@ export class ConversationService {
 
         list.push(convo);
         convo.participants.forEach((pId) => {
-          if (pId !== uid) {
-            allParticipantIds.add(pId);
-          }
+          allParticipantIds.add(pId);
         });
       });
 
@@ -226,6 +231,9 @@ export class ConversationService {
     const user = this.auth.currentUser();
     if (!convo || !user) return;
 
+    this.router.navigate(['/chats']);
+    this.selectConversation(null);
+
     const convoRef = doc(db, 'conversations', convo.id);
     await updateDoc(convoRef, {
       [`clearedAt.${user.uid}`]: Date.now()
@@ -296,11 +304,21 @@ export class ConversationService {
     });
 
     if (existingId) {
-      // Restore visibility — clearedAt was already set at delete time so old messages stay hidden
       const existingRef = doc(db, 'conversations', existingId);
-      await updateDoc(existingRef, {
+      const existingSnap = await getDoc(existingRef);
+      const convoData = existingSnap.data() as Conversation;
+
+      const updates: Record<string, any> = {
         deletedFor: arrayRemove(currentUser.uid)
-      });
+      };
+
+      // If user had soft-deleted this conversation, update clearedAt so old deleted messages stay permanently hidden!
+      const isDeleted = convoData?.deletedFor?.includes(currentUser.uid);
+      if (isDeleted) {
+        updates[`clearedAt.${currentUser.uid}`] = Date.now();
+      }
+
+      await updateDoc(existingRef, updates);
       return existingId;
     }
 
@@ -382,5 +400,258 @@ export class ConversationService {
     });
 
     return convoRef.id;
+  }
+
+  private async createSystemMessage(convoId: string, text: string): Promise<void> {
+    const now = Date.now();
+    await addDoc(collection(db, 'conversations', convoId, 'messages'), {
+      senderId: 'system',
+      text,
+      createdAt: serverTimestamp(),
+      createdAtMs: now,
+      reactions: {},
+      replyTo: null,
+    });
+
+    const convoRef = doc(db, 'conversations', convoId);
+    await updateDoc(convoRef, {
+      lastMessage: text,
+      lastMessageAt: now,
+      lastMessageIsSystem: true,
+    });
+  }
+
+  async addMembersToGroup(convoId: string, newUids: string[]): Promise<void> {
+    const currentUser = this.auth.currentUser();
+    if (!currentUser) throw new Error('User not logged in');
+
+    if (!newUids.length) return;
+
+    // Verify all new users have E2EE public keys
+    await Promise.all(newUids.map(uid => this.fetchUserPublicKey(uid)));
+
+    const convoRef = doc(db, 'conversations', convoId);
+    const convoSnap = await getDoc(convoRef);
+    if (!convoSnap.exists()) throw new Error('Group conversation not found');
+
+    // Update participants list
+    await updateDoc(convoRef, {
+      participants: arrayUnion(...newUids),
+    });
+
+    // Retrieve active AES key for group conversation
+    const aesKey = await this.cryptoService.getOrDecryptConversationKey(convoId);
+    if (aesKey) {
+      // Encrypt and upload key envelopes for new members
+      const publicKeys = await Promise.all(
+        newUids.map(async (uid) => ({ uid, pk: await this.fetchUserPublicKey(uid) }))
+      );
+      await Promise.all(
+        publicKeys.map(async ({ uid, pk }) => {
+          const encryptedKey = await this.cryptoService.encryptGroupKey(aesKey, pk);
+          const envelopeRef = doc(db, 'conversations', convoId, 'keys', uid);
+          await setDoc(envelopeRef, { encryptedKey }, { merge: true });
+        })
+      );
+    }
+
+    // Fetch new user display names for system message
+    const addedUsers = await Promise.all(
+      newUids.map(async (uid) => {
+        const userSnap = await getDoc(doc(db, 'users', uid));
+        const data = userSnap.data();
+        return data ? (data['displayName'] || data['username'] || 'User') : 'User';
+      })
+    );
+
+    const adminName = currentUser.displayName || currentUser.username || 'Admin';
+    const addedNames = addedUsers.join(', ');
+    await this.createSystemMessage(convoId, `${adminName} added ${addedNames} to the group`);
+  }
+
+  async removeMemberFromGroup(convoId: string, memberUid: string): Promise<void> {
+    const currentUser = this.auth.currentUser();
+    if (!currentUser) throw new Error('User not logged in');
+
+    const convoRef = doc(db, 'conversations', convoId);
+    const convoSnap = await getDoc(convoRef);
+    if (!convoSnap.exists()) throw new Error('Group conversation not found');
+    const convo = convoSnap.data() as Conversation;
+
+    if (!convo.admins?.includes(currentUser.uid)) {
+      throw new Error('Only group administrators can remove members.');
+    }
+
+    if (memberUid === convo.creatorId) {
+      throw new Error('Group creator cannot be removed.');
+    }
+
+    await updateDoc(convoRef, {
+      participants: arrayRemove(memberUid),
+      admins: arrayRemove(memberUid),
+    });
+
+    const targetUserSnap = await getDoc(doc(db, 'users', memberUid));
+    const targetData = targetUserSnap.data();
+    const targetName = targetData ? (targetData['displayName'] || targetData['username'] || 'User') : 'User';
+
+    const adminName = currentUser.displayName || currentUser.username || 'Admin';
+    await this.createSystemMessage(convoId, `${adminName} removed ${targetName} from the group`);
+  }
+
+  async leaveGroup(convoId: string): Promise<void> {
+    const currentUser = this.auth.currentUser();
+    if (!currentUser) throw new Error('User not logged in');
+
+    const convoRef = doc(db, 'conversations', convoId);
+    const convoSnap = await getDoc(convoRef);
+    if (!convoSnap.exists()) throw new Error('Group conversation not found');
+    const convo = convoSnap.data() as Conversation;
+
+    // Create system message FIRST while user is still in participants list
+    const userName = currentUser.displayName || currentUser.username || 'User';
+    await this.createSystemMessage(convoId, `${userName} left the group`);
+
+    const remainingParticipants = convo.participants.filter(id => id !== currentUser.uid);
+    const remainingAdmins = (convo.admins || []).filter(id => id !== currentUser.uid);
+
+    const updates: Record<string, any> = {
+      participants: arrayRemove(currentUser.uid),
+      admins: arrayRemove(currentUser.uid),
+    };
+
+    if (remainingParticipants.length > 0 && remainingAdmins.length === 0) {
+      const newAdmin = remainingParticipants[0];
+      updates['admins'] = arrayUnion(newAdmin);
+    }
+
+    await updateDoc(convoRef, updates);
+
+    this.router.navigate(['/chats']);
+    this.selectConversation(null);
+  }
+
+  async promoteAdmin(convoId: string, targetUid: string): Promise<void> {
+    const currentUser = this.auth.currentUser();
+    if (!currentUser) throw new Error('User not logged in');
+
+    const convoRef = doc(db, 'conversations', convoId);
+    const convoSnap = await getDoc(convoRef);
+    if (!convoSnap.exists()) throw new Error('Group conversation not found');
+    const convo = convoSnap.data() as Conversation;
+
+    if (!convo.admins?.includes(currentUser.uid)) {
+      throw new Error('Only administrators can promote members.');
+    }
+
+    await updateDoc(convoRef, {
+      admins: arrayUnion(targetUid),
+    });
+
+    const targetUserSnap = await getDoc(doc(db, 'users', targetUid));
+    const targetData = targetUserSnap.data();
+    const targetName = targetData ? (targetData['displayName'] || targetData['username'] || 'User') : 'User';
+
+    const adminName = currentUser.displayName || currentUser.username || 'Admin';
+    await this.createSystemMessage(convoId, `${adminName} promoted ${targetName} to admin`);
+  }
+
+  async demoteAdmin(convoId: string, targetUid: string): Promise<void> {
+    const currentUser = this.auth.currentUser();
+    if (!currentUser) throw new Error('User not logged in');
+
+    const convoRef = doc(db, 'conversations', convoId);
+    const convoSnap = await getDoc(convoRef);
+    if (!convoSnap.exists()) throw new Error('Group conversation not found');
+    const convo = convoSnap.data() as Conversation;
+
+    if (!convo.admins?.includes(currentUser.uid)) {
+      throw new Error('Only administrators can demote admins.');
+    }
+
+    if (targetUid === convo.creatorId) {
+      throw new Error('Group creator cannot be demoted from admin.');
+    }
+
+    await updateDoc(convoRef, {
+      admins: arrayRemove(targetUid),
+    });
+
+    const targetUserSnap = await getDoc(doc(db, 'users', targetUid));
+    const targetData = targetUserSnap.data();
+    const targetName = targetData ? (targetData['displayName'] || targetData['username'] || 'User') : 'User';
+
+    const adminName = currentUser.displayName || currentUser.username || 'Admin';
+    await this.createSystemMessage(convoId, `${adminName} removed ${targetName} from admins`);
+  }
+
+  async updateGroupDetails(convoId: string, name: string): Promise<void> {
+    const currentUser = this.auth.currentUser();
+    if (!currentUser) throw new Error('User not logged in');
+
+    const convoRef = doc(db, 'conversations', convoId);
+    const convoSnap = await getDoc(convoRef);
+    if (!convoSnap.exists()) throw new Error('Group conversation not found');
+    const convo = convoSnap.data() as Conversation;
+
+    if (!convo.admins?.includes(currentUser.uid)) {
+      throw new Error('Only administrators can edit group details.');
+    }
+
+    const trimmedName = name.trim();
+    if (!trimmedName) throw new Error('Group name cannot be empty.');
+
+    await updateDoc(convoRef, {
+      groupName: trimmedName,
+    });
+
+    const adminName = currentUser.displayName || currentUser.username || 'Admin';
+    await this.createSystemMessage(convoId, `${adminName} changed group name to "${trimmedName}"`);
+  }
+
+  async getRecentContacts(): Promise<AppUser[]> {
+    const user = this.auth.currentUser();
+    if (!user) return [];
+
+    try {
+      const q = query(
+        collection(db, 'conversations'),
+        where('participants', 'array-contains', user.uid),
+        orderBy('lastMessageAt', 'desc'),
+        limit(50)
+      );
+
+      const snapshot = await getDocs(q);
+      const participantUids = new Set<string>();
+
+      snapshot.forEach((d) => {
+        const convo = d.data() as Conversation;
+        if (convo.deletedForEveryone) return;
+
+        convo.participants.forEach((pId) => {
+          if (pId !== user.uid) {
+            participantUids.add(pId);
+          }
+        });
+      });
+
+      const uids = Array.from(participantUids);
+      if (uids.length === 0) return [];
+
+      await this.userService.fetchParticipantProfiles(uids);
+
+      const profiles: AppUser[] = [];
+      for (const uid of uids) {
+        const p = await this.userService.getUserProfile(uid);
+        if (p) {
+          profiles.push(p);
+        }
+      }
+
+      return profiles;
+    } catch (err) {
+      console.warn('Failed to fetch recent contacts:', err);
+      return [];
+    }
   }
 }

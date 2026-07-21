@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnDestroy } from '@angular/core';
+import { Component, inject, signal, OnDestroy, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { NgClass } from '@angular/common';
@@ -15,7 +15,7 @@ import { AppUser } from '../../models/user.model';
   templateUrl: './new-conversation.html',
   styleUrl: './new-conversation.scss',
 })
-export class NewConversation implements OnDestroy {
+export class NewConversation implements OnInit, OnDestroy {
   protected readonly userService = inject(UserService);
   private readonly conversationService = inject(ConversationService);
   private readonly auth = inject(Auth);
@@ -24,6 +24,9 @@ export class NewConversation implements OnDestroy {
   readonly searchQuery = signal<string>('');
   readonly searchResults = signal<AppUser[]>([]);
   readonly isSearching = signal<boolean>(false);
+  readonly suggestedContacts = signal<AppUser[]>([]);
+  readonly isLoadingSuggested = signal<boolean>(true);
+  readonly isHistoryBased = signal<boolean>(false);
 
   // Group creation states
   readonly isGroupMode = signal<boolean>(false);
@@ -57,6 +60,30 @@ export class NewConversation implements OnDestroy {
         this.isSearching.set(false);
       }
     });
+  }
+
+  async ngOnInit() {
+    await this.loadSuggestedContacts();
+  }
+
+  private async loadSuggestedContacts() {
+    this.isLoadingSuggested.set(true);
+    try {
+      const recent = await this.conversationService.getRecentContacts();
+      if (recent.length > 0) {
+        this.suggestedContacts.set(recent);
+        this.isHistoryBased.set(true);
+      } else {
+        const currentUid = this.auth.currentUser()?.uid;
+        const suggested = await this.userService.getSuggestedUsers(currentUid);
+        this.suggestedContacts.set(suggested);
+        this.isHistoryBased.set(false);
+      }
+    } catch (err) {
+      console.error('Failed to load suggested contacts:', err);
+    } finally {
+      this.isLoadingSuggested.set(false);
+    }
   }
 
   ngOnDestroy() {
