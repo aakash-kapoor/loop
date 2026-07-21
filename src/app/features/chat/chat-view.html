@@ -243,6 +243,35 @@
         </div>
         }
 
+        <!-- Mention Autocomplete Popover -->
+        @if (isMentionPickerOpen() && convo()?.type === 'group' && groupParticipantsForMention().length > 0) {
+        <div class="mention-picker-container absolute bottom-16 left-12 right-12 z-50 bg-surface-0 border border-border-light rounded-2xl shadow-2xl p-1.5 max-h-56 overflow-y-auto animate-fadeIn flex flex-col gap-0.5">
+          <div class="px-3 py-1 text-[10px] font-bold text-text-muted uppercase tracking-wider select-none border-b border-border-light/40 mb-1 flex items-center gap-1">
+            <i class="ti ti-at text-accent text-xs"></i>
+            <span>Mention Group Member</span>
+          </div>
+          @for (candidate of groupParticipantsForMention(); track candidate.uid; let idx = $index) {
+          <button (click)="selectMention(candidate)"
+            class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition-colors cursor-pointer w-full select-none"
+            [ngClass]="{'bg-accent/15 text-accent font-semibold': mentionSelectedIndex() === idx, 'hover:bg-surface-1 text-text-primary': mentionSelectedIndex() !== idx}">
+            @if (candidate.isAll) {
+            <div class="w-7 h-7 rounded-full bg-accent/20 text-accent flex items-center justify-center font-bold text-xs flex-shrink-0">
+              @
+            </div>
+            } @else {
+            <app-avatar [photoURL]="candidate.photoURL" [displayName]="candidate.name" size="sm" class="flex-shrink-0"></app-avatar>
+            }
+            <div class="flex flex-col min-w-0 flex-1">
+              <span class="text-xs truncate font-medium">{{ candidate.name }}</span>
+              @if (candidate.username && !candidate.isAll) {
+              <span class="text-[10px] text-text-muted truncate">&#64;{{ candidate.username }}</span>
+              }
+            </div>
+          </button>
+          }
+        </div>
+        }
+
         <!-- Emoji trigger button -->
         <button (click)="toggleEmojiPicker($event)"
           class="w-10 h-10 rounded-full hover:bg-surface-1 text-text-muted hover:text-text-secondary flex items-center justify-center transition-colors cursor-pointer flex-shrink-0"
@@ -250,7 +279,7 @@
           <i class="ti ti-mood-smile text-lg"></i>
         </button>
 
-        <input #messageInput type="text" [ngModel]="text()" (ngModelChange)="text.set($event)" (keydown.enter)="send()" placeholder="Type a message…"
+        <input #messageInput type="text" [ngModel]="text()" (ngModelChange)="text.set($event)" (input)="onTextInput()" (keydown)="onInputKeydown($event)" placeholder="Type a message…"
           [disabled]="isPending() && initiatedByMe()"
           class="flex-1 px-4 py-3 bg-surface-1/50 border border-border-light rounded-full text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent focus:bg-surface-0 transition-all" />
         <button (click)="send()" [disabled]="!text().trim() || (isPending() && initiatedByMe())"

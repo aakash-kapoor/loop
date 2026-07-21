@@ -115,21 +115,21 @@
       </div>
       } @else {
       <div (click)="toggleMenu($event)"
-        class="px-3.5 py-2.5 shadow-sm text-sm break-words leading-relaxed rounded-2xl cursor-pointer select-none"
+        class="px-3.5 py-2.5 shadow-sm text-sm break-words leading-relaxed rounded-2xl cursor-pointer select-none transition-all duration-200"
         [ngClass]="{
               'bg-accent text-white rounded-tr-sm': isOutgoing(),
               'bg-surface-1 border border-border-light text-text-primary rounded-tl-sm': !isOutgoing(),
-              'rounded-t-none': replyToMessage
+              'rounded-t-none': replyToMessage,
+              'ring-2 ring-amber-400/80 dark:ring-amber-400/60 shadow-md shadow-amber-500/10': isCurrentMentioned()
             }">
-        @if (!searchTerm.trim()) {
-          {{ message.text }}
-        } @else {
-          @for (chunk of textChunks(); track $index) {
-            @if (chunk.isMatch) {
-              <mark class="bg-amber-300/80 text-amber-950 dark:bg-amber-400/50 dark:text-amber-100 rounded px-0.5 font-semibold">{{ chunk.text }}</mark>
-            } @else {
-              {{ chunk.text }}
-            }
+        @for (chunk of formattedMessageChunks(); track $index) {
+          @if (chunk.isMatch) {
+            <mark class="bg-amber-300/80 text-amber-950 dark:bg-amber-400/50 dark:text-amber-100 rounded px-0.5 font-semibold">{{ chunk.text }}</mark>
+          } @else if (chunk.isMention) {
+            <span class="px-1.5 py-0.5 mx-0.5 rounded-md font-semibold text-xs inline-block"
+              [ngClass]="isOutgoing() ? 'bg-white/20 text-white' : 'bg-accent/15 text-accent dark:bg-accent/25'">{{ chunk.text }}</span>
+          } @else {
+            {{ chunk.text }}
           }
         }
       </div>

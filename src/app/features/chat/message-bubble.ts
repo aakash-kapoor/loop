@@ -114,22 +114,42 @@ export class MessageBubble {
     return list;
   });
 
-  readonly textChunks = computed(() => {
+  readonly isCurrentMentioned = computed(() => {
+    const msg = this.messageSignal();
+    const uid = this.currentUserId();
+    if (!msg || !uid || msg.deletedForEveryone || msg.deletedFor?.includes(uid)) return false;
+    return Boolean(msg.mentions?.includes(uid) || msg.mentions?.includes('all'));
+  });
+
+  readonly formattedMessageChunks = computed(() => {
     const text = this.messageSignal()?.text || '';
-    const rawQuery = this.searchTermSignal();
-    const query = rawQuery.trim();
-    if (!query || this.isDeletedForEveryone() || this.isDeletedForMe()) {
-      return [{ text, isMatch: false }];
+    if (!text || this.isDeletedForEveryone() || this.isDeletedForMe()) {
+      return [{ text, isMatch: false, isMention: false }];
     }
 
-    const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`(${escapedQuery})`, 'gi');
-    const parts = text.split(regex);
+    const searchQuery = this.searchTermSignal().trim();
+    const mentionRegexStr = `@[A-Za-z0-9_.-]+`;
 
-    return parts.map((part) => ({
-      text: part,
-      isMatch: part.toLowerCase() === query.toLowerCase(),
-    }));
+    let fullRegex: RegExp;
+    if (searchQuery) {
+      const escapedQuery = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      fullRegex = new RegExp(`(${mentionRegexStr}|${escapedQuery})`, 'gi');
+    } else {
+      fullRegex = new RegExp(`(${mentionRegexStr})`, 'gi');
+    }
+
+    const parts = text.split(fullRegex);
+
+    return parts.map((part) => {
+      const isSearchMatch = Boolean(searchQuery && part.toLowerCase() === searchQuery.toLowerCase());
+      const isMentionTag = /^@[A-Za-z0-9_.-]+$/.test(part);
+
+      return {
+        text: part,
+        isMatch: isSearchMatch,
+        isMention: isMentionTag,
+      };
+    });
   });
 
   async react(emoji: string) {

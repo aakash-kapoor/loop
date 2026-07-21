@@ -171,7 +171,11 @@ export class MessageService {
     const notificationsEnabled = localStorage.getItem('notifications') !== 'false';
     if (notificationsEnabled && Notification.permission === 'granted') {
       const sender = this.userService.usersCache()[msg.senderId];
-      const title = sender?.displayName || 'New Message';
+      const currentUid = this.auth.currentUser()?.uid;
+      const isMentioned = currentUid && (msg.mentions?.includes(currentUid) || msg.mentions?.includes('all'));
+
+      const senderName = sender?.displayName || 'Someone';
+      const title = isMentioned ? `📌 Mentioned by ${senderName}` : senderName;
       try {
         let bodyText = msg.text;
         
@@ -222,7 +226,7 @@ export class MessageService {
     }
   }
 
-  async sendMessage(text: string, replyTo?: string): Promise<void> {
+  async sendMessage(text: string, replyTo?: string, mentions?: string[]): Promise<void> {
     const convo = this.conversationService.selectedConversation();
     const user = this.auth.currentUser();
     if (!convo || !user) throw new Error('No selected conversation or user');
@@ -328,6 +332,7 @@ export class MessageService {
       createdAtMs: now,
       reactions: {},
       replyTo: replyTo || null,
+      mentions: mentions || [],
       encryptionVersion: 2,
     };
 

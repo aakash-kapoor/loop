@@ -40,12 +40,19 @@ export class ChatViewComponent implements OnInit, OnDestroy {
   readonly isSubmittingConfirm = signal<boolean>(false);
   readonly isEmojiPickerOpen = signal<boolean>(false);
   readonly isDarkTheme = signal<boolean>(false);
+  readonly sendError = signal<string | null>(null);
 
   // Message Search State Signals
   readonly isSearchOpen = signal<boolean>(false);
   readonly searchQuery = signal<string>('');
   readonly currentMatchIndex = signal<number>(0);
   readonly activeHighlightedMessageId = signal<string | null>(null);
+
+  // Group Mention Signals
+  readonly isMentionPickerOpen = signal<boolean>(false);
+  readonly mentionQuery = signal<string>('');
+  readonly mentionSelectedIndex = signal<number>(0);
+  readonly mentionedUids = signal<string[]>([]);
 
   private routeSub?: Subscription;
   private themeObserver?: MutationObserver;
@@ -56,6 +63,43 @@ export class ChatViewComponent implements OnInit, OnDestroy {
   readonly currentUserId = computed(() => this.auth.currentUser()?.uid);
   readonly convo = computed(() => this.conversationService.selectedConversation());
   readonly messages = computed(() => this.messageService.activeMessages());
+
+  readonly groupParticipantsForMention = computed(() => {
+    const activeConvo = this.convo();
+    if (!activeConvo || activeConvo.type !== 'group') return [];
+
+    const currentUid = this.currentUserId();
+    const query = this.mentionQuery().toLowerCase().trim();
+    const cache = this.userService.usersCache();
+
+    const candidates: { uid: string; name: string; username: string; photoURL?: string; isAll?: boolean }[] = [];
+
+    if (!query || 'all'.includes(query) || 'everyone'.includes(query)) {
+      candidates.push({
+        uid: 'all',
+        name: 'all (Notify everyone)',
+        username: 'everyone',
+        isAll: true,
+      });
+    }
+
+    activeConvo.participants.forEach((uid) => {
+      if (uid === currentUid) return;
+      const user = cache[uid];
+      const name = user?.displayName || user?.username || 'User';
+      const username = user?.username || '';
+      if (!query || name.toLowerCase().includes(query) || username.toLowerCase().includes(query)) {
+        candidates.push({
+          uid,
+          name,
+          username,
+          photoURL: user?.photoURL,
+        });
+      }
+    });
+
+    return candidates;
+  });
 
   readonly matchingMessages = computed(() => {
     const query = this.searchQuery().trim().toLowerCase();
@@ -156,7 +200,96 @@ export class ChatViewComponent implements OnInit, OnDestroy {
     }
   }
 
-  readonly sendError = signal<string | null>(null);
+  onTextInput() {
+    const inputEl = this.messageInput()?.nativeElement;
+    if (!inputEl || this.convo()?.type !== 'group') {
+      this.isMentionPickerOpen.set(false);
+      return;
+    }
+
+    const val = this.text();
+    const cursorPos = inputEl.selectionStart ?? val.length;
+    const textBeforeCursor = val.slice(0, cursorPos);
+
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+    if (lastAtIndex !== -1) {
+      const charBeforeAt = lastAtIndex > 0 ? textBeforeCursor[lastAtIndex - 1] : ' ';
+      if (/\s/.test(charBeforeAt)) {
+        const queryCandidate = textBeforeCursor.slice(lastAtIndex + 1);
+        if (!/\s/.test(queryCandidate)) {
+          this.mentionQuery.set(queryCandidate);
+          this.isMentionPickerOpen.set(true);
+          this.mentionSelectedIndex.set(0);
+          return;
+        }
+      }
+    }
+
+    this.isMentionPickerOpen.set(false);
+  }
+
+  selectMention(candidate: { uid: string; name: string; username: string; isAll?: boolean }) {
+    const inputEl = this.messageInput()?.nativeElement;
+    const val = this.text();
+    const cursorPos = inputEl?.selectionStart ?? val.length;
+    const textBeforeCursor = val.slice(0, cursorPos);
+    const textAfterCursor = val.slice(cursorPos);
+
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+    if (lastAtIndex !== -1) {
+      const prefix = val.slice(0, lastAtIndex);
+      const mentionDisplayName = candidate.isAll ? 'all' : candidate.name.split(' ')[0];
+      const mentionText = `@${mentionDisplayName} `;
+      const newText = prefix + mentionText + textAfterCursor;
+      this.text.set(newText);
+
+      if (!this.mentionedUids().includes(candidate.uid)) {
+        this.mentionedUids.set([...this.mentionedUids(), candidate.uid]);
+      }
+
+      this.isMentionPickerOpen.set(false);
+
+      queueMicrotask(() => {
+        if (inputEl) {
+          const newCursorPos = lastAtIndex + mentionText.length;
+          inputEl.setSelectionRange(newCursorPos, newCursorPos);
+          inputEl.focus();
+        }
+      });
+    }
+  }
+
+  onInputKeydown(event: KeyboardEvent) {
+    if (this.isMentionPickerOpen()) {
+      const candidates = this.groupParticipantsForMention();
+      if (candidates.length > 0) {
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          this.mentionSelectedIndex.set((this.mentionSelectedIndex() + 1) % candidates.length);
+          return;
+        } else if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          this.mentionSelectedIndex.set((this.mentionSelectedIndex() - 1 + candidates.length) % candidates.length);
+          return;
+        } else if (event.key === 'Enter' || event.key === 'Tab') {
+          event.preventDefault();
+          const selected = candidates[this.mentionSelectedIndex()];
+          if (selected) {
+            this.selectMention(selected);
+          }
+          return;
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          this.isMentionPickerOpen.set(false);
+          return;
+        }
+      }
+    }
+
+    if (event.key === 'Enter') {
+      this.send();
+    }
+  }
 
   async send() {
     const messageText = this.text().trim();
@@ -164,9 +297,11 @@ export class ChatViewComponent implements OnInit, OnDestroy {
 
     this.sendError.set(null);
     try {
-      await this.messageService.sendMessage(messageText, this.replyingTo()?.id);
+      await this.messageService.sendMessage(messageText, this.replyingTo()?.id, this.mentionedUids());
       this.text.set('');
       this.replyingTo.set(null);
+      this.mentionedUids.set([]);
+      this.isMentionPickerOpen.set(false);
     } catch (err: any) {
       console.error('Send failed:', err);
       this.sendError.set(err.message || 'Failed to send message.');
