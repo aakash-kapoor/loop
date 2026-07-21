@@ -1,6 +1,33 @@
 export interface PassphraseValidationResult {
   isValid: boolean;
   message?: string;
+  entropyBits?: number;
+}
+
+export function calculatePassphraseEntropy(passphrase: string): number {
+  if (!passphrase) return 0;
+
+  // Determine character set size (N)
+  let poolSize = 0;
+  if (/[a-z]/.test(passphrase)) poolSize += 26;
+  if (/[A-Z]/.test(passphrase)) poolSize += 26;
+  if (/[0-9]/.test(passphrase)) poolSize += 10;
+  // Symbols and whitespace (space, punctuation, special characters = 33 symbols)
+  if (/[^a-zA-Z0-9]/.test(passphrase)) poolSize += 33;
+
+  if (poolSize === 0) return 0;
+
+  // Base information entropy: E = L * log2(N)
+  const rawEntropy = passphrase.length * Math.log2(poolSize);
+
+  // Penalize character repetition (e.g. "aaaaaa", "12121212")
+  const uniqueChars = new Set(passphrase).size;
+  const uniquenessRatio = uniqueChars / passphrase.length;
+  
+  // Scale entropy down if uniqueness ratio is low
+  const effectiveEntropy = rawEntropy * Math.min(1, uniquenessRatio * 1.25);
+
+  return Math.round(effectiveEntropy * 10) / 10;
 }
 
 export function evaluatePassphraseStrength(passphrase: string): PassphraseValidationResult {
@@ -13,7 +40,7 @@ export function evaluatePassphraseStrength(passphrase: string): PassphraseValida
 
   const lower = passphrase.toLowerCase().trim();
 
-  // Check single repeated character (e.g., "aaaaaaaaaaaa", "111111111111")
+  // Rejection rule 1: Single repeated character
   if (/^(.)\1+$/.test(lower)) {
     return { 
       isValid: false, 
@@ -21,32 +48,25 @@ export function evaluatePassphraseStrength(passphrase: string): PassphraseValida
     };
   }
 
-  // Common weak passphrases / predictable sequences
-  const commonWeakPatterns = [
-    'password1234', '123456789012', 'qwertyuiop12', 'abcdefghijkl',
-    'password12345', 'administrator', 'welcome12345', 'change_me_123',
-    'loopchat1234', 'masterkey123', 'iloveyou12345'
-  ];
+  // Rejection rule 2: Common weak dictionary roots and keyboard sequences (word-level matching)
+  const commonWeakRegex = /\b(password|123456|qwerty|admin|welcome|change_me|masterkey|iloveyou|letmein)\b/i;
 
-  if (commonWeakPatterns.some(pattern => lower.includes(pattern))) {
+  if (commonWeakRegex.test(lower)) {
     return { 
       isValid: false, 
-      message: 'Passphrase is too common or predictable. Choose a unique phrase.' 
+      message: 'Passphrase contains a common word or keyboard pattern. Choose a unique phrase.' 
     };
   }
 
-  // Check character diversity (passphrases should have multiple words, digits, or symbols)
-  const hasLetters = /[a-zA-Z]/.test(passphrase);
-  const hasDigitsOrSymbols = /[^a-zA-Z]/.test(passphrase);
-  const hasSpaces = /\s/.test(passphrase);
-
-  // If it's single word under 16 chars without numbers, spaces, or symbols, require higher entropy
-  if (hasLetters && !hasDigitsOrSymbols && !hasSpaces && passphrase.length < 16) {
+  // Rejection rule 3: Entropy threshold check (must be at least 50 bits of entropy)
+  const entropyBits = calculatePassphraseEntropy(passphrase);
+  if (entropyBits < 50) {
     return { 
       isValid: false, 
+      entropyBits,
       message: 'Passphrase is too simple. Use spaces between words (e.g. "correct horse battery staple"), numbers, or symbols.' 
     };
   }
 
-  return { isValid: true };
+  return { isValid: true, entropyBits };
 }

@@ -199,8 +199,10 @@ export class ConversationService {
     const user = this.auth.currentUser();
     if (!user) throw new Error('User not logged in');
 
-    this.router.navigate(['/chats']); // navigate first
-    this.selectConversation(null);    // then deselect
+    const convo = this.selectedConversation();
+    if (!convo || convo.id !== convoId || convo.type !== 'group' || !convo.admins?.includes(user.uid)) {
+      throw new Error('Only group administrators can delete this group for everyone.');
+    }
 
     const convoRef = doc(db, 'conversations', convoId);
     await updateDoc(convoRef, {
@@ -208,6 +210,9 @@ export class ConversationService {
       lastMessage: 'Group deleted by admin',
       lastMessageAt: Date.now(),
     });
+
+    this.router.navigate(['/chats']); // navigate after write success
+    this.selectConversation(null);    // then deselect
   }
 
   // Clear all messages for current user (by timestamp)

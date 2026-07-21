@@ -35,8 +35,10 @@ export class ChatViewComponent implements OnInit, OnDestroy {
   readonly isConfirmingDelete = signal<boolean>(false);
   readonly isConfirmingDeleteForEveryone = signal<boolean>(false);
   readonly isEmojiPickerOpen = signal<boolean>(false);
+  readonly isDarkTheme = signal<boolean>(false);
 
   private routeSub?: Subscription;
+  private themeObserver?: MutationObserver;
   private readonly messagesContainer = viewChild<ElementRef<HTMLElement>>('messagesContainer');
   private readonly messageInput = viewChild<ElementRef<HTMLInputElement>>('messageInput');
 
@@ -84,11 +86,20 @@ export class ChatViewComponent implements OnInit, OnDestroy {
       this.replyingTo.set(null);
       this.text.set('');
       this.isEmojiPickerOpen.set(false);
+      this.sendError.set(null);
     });
+
+    // Reactive Theme Observer
+    this.isDarkTheme.set(document.documentElement.classList.contains('dark'));
+    this.themeObserver = new MutationObserver(() => {
+      this.isDarkTheme.set(document.documentElement.classList.contains('dark'));
+    });
+    this.themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
   }
 
   ngOnDestroy() {
     this.routeSub?.unsubscribe();
+    this.themeObserver?.disconnect();
     // Deselect conversation on destroy
     this.conversationService.selectConversation(null);
   }
@@ -170,19 +181,15 @@ export class ChatViewComponent implements OnInit, OnDestroy {
     if (emojiStr) {
       this.text.set(this.text() + emojiStr);
     }
-    // Focus back to input immediately for continuous typing
-    setTimeout(() => {
+    // Clean queueMicrotask focus
+    queueMicrotask(() => {
       this.messageInput()?.nativeElement.focus();
-    }, 10);
+    });
   }
 
   toggleHeaderMenu(event: Event) {
     event.stopPropagation();
     this.isHeaderMenuOpen.set(!this.isHeaderMenuOpen());
-  }
-
-  isDarkTheme(): boolean {
-    return document.documentElement.classList.contains('dark');
   }
 
   async clearChat() {
@@ -204,8 +211,9 @@ export class ChatViewComponent implements OnInit, OnDestroy {
     this.isHeaderMenuOpen.set(false);
     try {
       await this.conversationService.deleteConversationForMe();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Delete conversation failed:', err);
+      this.sendError.set(err.message || 'Failed to delete conversation.');
     }
   }
 
@@ -223,8 +231,9 @@ export class ChatViewComponent implements OnInit, OnDestroy {
     this.isHeaderMenuOpen.set(false);
     try {
       await this.conversationService.deleteGroupForEveryone(activeConvo.id);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Delete group failed:', err);
+      this.sendError.set(err.message || 'Failed to delete group for everyone.');
     }
   }
 }
