@@ -1,4 +1,6 @@
 import { Injectable, effect, inject, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
+import { switchMap, from } from 'rxjs';
 import {
   collection,
   doc,
@@ -48,49 +50,45 @@ export class MessageService {
       }
     });
 
-    // Reactive decryption of incoming active messages
-    effect(async () => {
-      const rawList = this.rawMessages();
-      const convoId = this.conversationService.selectedConversationId();
-      const isReady = this.cryptoService.isPrivateKeyReady();
-
-      if (!convoId) {
-        this.activeMessages.set([]);
-        return;
-      }
-
-      if (!isReady) {
-        this.activeMessages.set(rawList);
-        return;
-      }
-
-      try {
-        const aesKey = await this.cryptoService.getOrDecryptConversationKey(convoId);
-        if (!aesKey) {
-          this.activeMessages.set(rawList);
-          return;
-        }
-
-        const decryptedList = await Promise.all(
-          rawList.map(async (msg) => {
-            if (msg.text && msg.encryptionVersion === 2) {
-              try {
-                const decrypted = await this.cryptoService.decryptText(msg.text, aesKey);
-                return { ...msg, text: decrypted };
-              } catch (e) {
-                console.warn('Failed to decrypt message:', msg.id, e);
-                return { ...msg, text: '[Decryption Error]' };
-              }
-            }
-            return msg;
-          })
-        );
+    // Reactive decryption pipeline using toObservable + switchMap to avoid race conditions
+    toObservable(this.rawMessages)
+      .pipe(
+        switchMap((rawList) => from(this.decryptMessagesList(rawList)))
+      )
+      .subscribe((decryptedList) => {
         this.activeMessages.set(decryptedList);
-      } catch (err) {
-        console.error('Error during message decryption stream:', err);
-        this.activeMessages.set(rawList);
-      }
-    });
+      });
+  }
+
+  private async decryptMessagesList(rawList: Message[]): Promise<Message[]> {
+    const convoId = this.conversationService.selectedConversationId();
+    const isReady = this.cryptoService.isPrivateKeyReady();
+
+    if (!convoId) return [];
+    if (!isReady) return rawList;
+
+    try {
+      const aesKey = await this.cryptoService.getOrDecryptConversationKey(convoId);
+      if (!aesKey) return rawList;
+
+      return await Promise.all(
+        rawList.map(async (msg) => {
+          if (msg.text && msg.encryptionVersion === 2) {
+            try {
+              const decrypted = await this.cryptoService.decryptText(msg.text, aesKey);
+              return { ...msg, text: decrypted };
+            } catch (e) {
+              console.warn('Failed to decrypt message:', msg.id, e);
+              return { ...msg, text: '[Decryption Error]' };
+            }
+          }
+          return msg;
+        })
+      );
+    } catch (err) {
+      console.error('Error during message decryption stream:', err);
+      return rawList;
+    }
   }
 
   private subscribeToMessages(convoId: string) {
@@ -450,9 +448,12 @@ export class MessageService {
 
     await Promise.all(
       publicKeys.map(async ({ uid, pk }) => {
-        const encryptedKey = await this.cryptoService.encryptGroupKey(newAesKey, pk);
         const envelopeRef = doc(db, 'conversations', convoId, 'keys', uid);
-        await setDoc(envelopeRef, { encryptedKey });
+        const envelopeSnap = await getDoc(envelopeRef);
+        if (!envelopeSnap.exists()) {
+          const encryptedKey = await this.cryptoService.encryptGroupKey(newAesKey, pk);
+          await setDoc(envelopeRef, { encryptedKey });
+        }
       })
     );
 

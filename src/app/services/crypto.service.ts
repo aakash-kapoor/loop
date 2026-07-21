@@ -6,7 +6,6 @@ import { db } from '../core/firebase.config';
 const DB_NAME = 'loop_crypto_db';
 const STORE_NAME = 'private_keys';
 const PBKDF2_ITERATIONS = 210000;
-const PBKDF2_SALT_CONST = new TextEncoder().encode('loop-e2ee-pbkdf2-salt-key-rotation');
 
 function openIndexedDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -325,14 +324,10 @@ export class CryptoService {
     return new TextDecoder().decode(decrypted);
   }
 
-  // Clear in-memory caches and delete keys on logout
+  // Clear in-memory caches on logout (preserves local IndexedDB private key)
   clearCache() {
     this.groupKeysCache.clear();
     this.localPrivateKey = null;
     this.isPrivateKeyReady.set(false);
-    const user = this.auth.currentUser();
-    if (user?.uid) {
-      deleteKeyFromLocal(user.uid).catch(() => {});
-    }
   }
 }

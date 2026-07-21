@@ -1,4 +1,6 @@
 import { Injectable, effect, inject, signal, computed } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
+import { switchMap, from } from 'rxjs';
 import { Router } from '@angular/router';
 import {
   collection,
@@ -55,51 +57,14 @@ export class ConversationService {
       }
     });
 
-    // Reactive decryption of conversation preview lastMessages
-    effect(async () => {
-      const rawList = this.rawConversations();
-      const isReady = this.cryptoService.isPrivateKeyReady();
-
-      if (!isReady) {
-        this.conversations.set(rawList);
-        return;
-      }
-
-      try {
-        const decryptedList = await Promise.all(
-          rawList.map(async (convo) => {
-            if (convo.lastMessage && convo.lastMessageEncryptionVersion === 2) {
-              // Bypass decryption if it's a plaintext system/meta message
-              if (
-                convo.lastMessage === 'Conversation started' ||
-                convo.lastMessage === 'Message deleted' ||
-                convo.lastMessage === 'Group deleted by admin' ||
-                convo.lastMessage === 'Group created' ||
-                convo.lastMessage.startsWith('Group "')
-              ) {
-                return convo;
-              }
-
-              try {
-                const aesKey = await this.cryptoService.getOrDecryptConversationKey(convo.id);
-                if (aesKey) {
-                  const decrypted = await this.cryptoService.decryptText(convo.lastMessage, aesKey);
-                  return { ...convo, lastMessage: decrypted };
-                }
-              } catch (e) {
-                console.warn('Failed to decrypt preview for convo:', convo.id, e);
-                return { ...convo, lastMessage: '[Decryption Error]' };
-              }
-            }
-            return convo;
-          })
-        );
+    // Reactive decryption pipeline using toObservable + switchMap to avoid race conditions
+    toObservable(this.rawConversations)
+      .pipe(
+        switchMap((rawList) => from(this.decryptConversationsList(rawList)))
+      )
+      .subscribe((decryptedList) => {
         this.conversations.set(decryptedList);
-      } catch (err) {
-        console.error('Error during batch conversation preview decryption:', err);
-        this.conversations.set(rawList);
-      }
-    });
+      });
 
     // Reset unread count when a conversation is selected or the authenticated user finishes loading
     effect(() => {
@@ -112,6 +77,46 @@ export class ConversationService {
         }).catch(() => {});
       }
     });
+  }
+
+  private async decryptConversationsList(rawList: Conversation[]): Promise<Conversation[]> {
+    const isReady = this.cryptoService.isPrivateKeyReady();
+    if (!isReady) return rawList;
+
+    try {
+      return await Promise.all(
+        rawList.map(async (convo) => {
+          if (convo.lastMessage && convo.lastMessageEncryptionVersion === 2) {
+            // Bypass decryption if flagged as plaintext system message or matching legacy system strings
+            if (
+              convo.lastMessageIsSystem === true ||
+              convo.lastMessage === 'Conversation started' ||
+              convo.lastMessage === 'Message deleted' ||
+              convo.lastMessage === 'Group deleted by admin' ||
+              convo.lastMessage === 'Group created' ||
+              convo.lastMessage.startsWith('Group "')
+            ) {
+              return convo;
+            }
+
+            try {
+              const aesKey = await this.cryptoService.getOrDecryptConversationKey(convo.id);
+              if (aesKey) {
+                const decrypted = await this.cryptoService.decryptText(convo.lastMessage, aesKey);
+                return { ...convo, lastMessage: decrypted };
+              }
+            } catch (e) {
+              console.warn('Failed to decrypt preview for convo:', convo.id, e);
+              return { ...convo, lastMessage: '[Decryption Error]' };
+            }
+          }
+          return convo;
+        })
+      );
+    } catch (err) {
+      console.error('Error during batch conversation preview decryption:', err);
+      return rawList;
+    }
   }
 
   private subscribeToConversations(uid: string) {
