@@ -12,12 +12,15 @@ import {
   getDocs,
   arrayUnion,
   arrayRemove,
-  serverTimestamp
+  serverTimestamp,
+  setDoc,
+  getDoc
 } from 'firebase/firestore';
 import { db } from '../core/firebase.config';
 import { Auth } from '../core/auth';
 import { UserService } from './user.service';
 import { Conversation } from '../models/conversation.model';
+import { CryptoService } from './crypto.service';
 
 @Injectable({
   providedIn: 'root',
@@ -26,8 +29,10 @@ export class ConversationService {
   private readonly auth = inject(Auth);
   private readonly userService = inject(UserService);
   private readonly router = inject(Router);
+  private readonly cryptoService = inject(CryptoService);
 
   readonly conversations = signal<Conversation[]>([]);
+  private readonly rawConversations = signal<Conversation[]>([]);
   readonly selectedConversationId = signal<string | null>(null);
 
   readonly selectedConversation = computed(() => {
@@ -45,8 +50,54 @@ export class ConversationService {
         this.subscribeToConversations(user.uid);
       } else {
         this.unsubscribe();
-        this.conversations.set([]);
+        this.rawConversations.set([]);
         this.selectedConversationId.set(null);
+      }
+    });
+
+    // Reactive decryption of conversation preview lastMessages
+    effect(async () => {
+      const rawList = this.rawConversations();
+      const isReady = this.cryptoService.isPrivateKeyReady();
+
+      if (!isReady) {
+        this.conversations.set(rawList);
+        return;
+      }
+
+      try {
+        const decryptedList = await Promise.all(
+          rawList.map(async (convo) => {
+            if (convo.lastMessage && convo.lastMessageEncryptionVersion === 2) {
+              // Bypass decryption if it's a plaintext system/meta message
+              if (
+                convo.lastMessage === 'Conversation started' ||
+                convo.lastMessage === 'Message deleted' ||
+                convo.lastMessage === 'Group deleted by admin' ||
+                convo.lastMessage === 'Group created' ||
+                convo.lastMessage.startsWith('Group "')
+              ) {
+                return convo;
+              }
+
+              try {
+                const aesKey = await this.cryptoService.getOrDecryptConversationKey(convo.id);
+                if (aesKey) {
+                  const decrypted = await this.cryptoService.decryptText(convo.lastMessage, aesKey);
+                  return { ...convo, lastMessage: decrypted };
+                }
+              } catch (e) {
+                console.warn('Failed to decrypt preview for convo:', convo.id, e);
+                return { ...convo, lastMessage: '[Decryption Error]' };
+              }
+            }
+            return convo;
+          })
+        );
+        this.conversations.set(decryptedList);
+      } catch (err) {
+        console.error('Error during batch conversation preview decryption:', err);
+        this.conversations.set(rawList);
       }
     });
 
@@ -79,6 +130,9 @@ export class ConversationService {
       snapshot.forEach((d) => {
         const convo = { id: d.id, ...d.data() } as Conversation;
         
+        // Hide completely if conversation is deleted for everyone
+        if (convo.deletedForEveryone) return;
+
         // Hide conversation only if user deleted it AND no new messages have arrived since
         if (convo.deletedFor?.includes(uid)) {
           const clearedAt = convo.clearedAt?.[uid] || 0;
@@ -94,7 +148,7 @@ export class ConversationService {
         });
       });
 
-      this.conversations.set(list);
+      this.rawConversations.set(list);
 
       // Pre-fetch profiles for other participants
       if (allParticipantIds.size > 0) {
@@ -140,6 +194,27 @@ export class ConversationService {
     });
   }
 
+  // Delete group for everyone (Admin capability)
+  async deleteGroupForEveryone(convoId: string): Promise<void> {
+    const user = this.auth.currentUser();
+    if (!user) throw new Error('User not logged in');
+
+    const convo = this.selectedConversation();
+    if (!convo || convo.id !== convoId || convo.type !== 'group' || !convo.admins?.includes(user.uid)) {
+      throw new Error('Only group administrators can delete this group for everyone.');
+    }
+
+    const convoRef = doc(db, 'conversations', convoId);
+    await updateDoc(convoRef, {
+      deletedForEveryone: true,
+      lastMessage: 'Group deleted by admin',
+      lastMessageAt: Date.now(),
+    });
+
+    this.router.navigate(['/chats']); // navigate after write success
+    this.selectConversation(null);    // then deselect
+  }
+
   // Clear all messages for current user (by timestamp)
   async clearChatForMe(): Promise<void> {
     const convo = this.selectedConversation();
@@ -150,6 +225,48 @@ export class ConversationService {
     await updateDoc(convoRef, {
       [`clearedAt.${user.uid}`]: Date.now()
     });
+  }
+
+  private async fetchUserPublicKey(uid: string): Promise<string> {
+    const userRef = doc(db, 'users', uid);
+    const userSnap = await getDoc(userRef);
+    if (!userSnap.exists()) {
+      throw new Error('User not found.');
+    }
+    const data = userSnap.data();
+    if (!data['publicKey']) {
+      const name = data['displayName'] || data['username'] || 'User';
+      throw new Error(`E2EE_UPGRADE_REQUIRED:${name}`);
+    }
+    return data['publicKey'];
+  }
+
+  private async generateAndUploadEnvelopes(
+    convoId: string,
+    participants: string[]
+  ): Promise<CryptoKey> {
+    const aesKey = await this.cryptoService.generateGroupKey();
+    
+    // Fetch all public keys in parallel directly from Firestore (no cache)
+    const publicKeys = await Promise.all(
+      participants.map(async (uid) => {
+        const pk = await this.fetchUserPublicKey(uid);
+        return { uid, pk };
+      })
+    );
+    
+    // Encrypt the AES key for each participant and write envelopes
+    await Promise.all(
+      publicKeys.map(async ({ uid, pk }) => {
+        const encryptedKey = await this.cryptoService.encryptGroupKey(aesKey, pk);
+        const envelopeRef = doc(db, 'conversations', convoId, 'keys', uid);
+        await setDoc(envelopeRef, { encryptedKey });
+      })
+    );
+    
+    // Cache the AES key locally
+    this.cryptoService.groupKeysCache.set(convoId, aesKey);
+    return aesKey;
   }
 
   async startConversation(recipientUid: string): Promise<string> {
@@ -182,6 +299,10 @@ export class ConversationService {
       return existingId;
     }
 
+    // Verify both participants have E2EE setup before creating conversation
+    await this.fetchUserPublicKey(currentUser.uid);
+    await this.fetchUserPublicKey(recipientUid);
+
     // Create a new DM
     const newConvo: Omit<Conversation, 'id'> = {
       type: 'dm',
@@ -194,11 +315,15 @@ export class ConversationService {
         [recipientUid]: 1,
         [currentUser.uid]: 0,
       },
+      lastMessageEncryptionVersion: 2,
     };
 
     const convoRef = await addDoc(collection(db, 'conversations'), newConvo);
 
-    // Initial message
+    // Distribute envelopes
+    await this.generateAndUploadEnvelopes(convoRef.id, [currentUser.uid, recipientUid]);
+
+    // Initial message (kept as plaintext system message)
     await addDoc(collection(db, 'conversations', convoRef.id, 'messages'), {
       senderId: 'system',
       text: 'Conversation started',
@@ -217,6 +342,9 @@ export class ConversationService {
 
     const allParticipants = [currentUser.uid, ...participantUids];
 
+    // Verify all participants have E2EE setup before creating group
+    await Promise.all(allParticipants.map(uid => this.fetchUserPublicKey(uid)));
+
     const newGroupConvo: Omit<Conversation, 'id'> = {
       type: 'group',
       participants: allParticipants,
@@ -228,9 +356,15 @@ export class ConversationService {
         acc[pId] = pId === currentUser.uid ? 0 : 1;
         return acc;
       }, {} as Record<string, number>),
+      lastMessageEncryptionVersion: 2,
+      admins: [currentUser.uid],
+      creatorId: currentUser.uid,
     };
 
     const convoRef = await addDoc(collection(db, 'conversations'), newGroupConvo);
+
+    // Distribute envelopes
+    await this.generateAndUploadEnvelopes(convoRef.id, allParticipants);
 
     // Initial message
     await addDoc(collection(db, 'conversations', convoRef.id, 'messages'), {

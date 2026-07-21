@@ -1,0 +1,181 @@
+rules_version = '2';
+
+// =========================================================================
+// LOOP — Firestore Security Rules
+// Covers: user profiles, E2EE key material, conversations, and messages
+// (including soft-delete, delete-for-everyone, and reaction support).
+// =========================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -----------------------------------------------------------------
+    // Helper: true if the request is coming from a signed-in Firebase user.
+    // Used as the baseline gate on almost every rule below.
+    // -----------------------------------------------------------------
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // -----------------------------------------------------------------
+    // Helper: true if the requesting user is a participant of the given
+    // conversation. Requires an extra document read (get()), so it's only
+    // used where resource.data.participants isn't already available for
+    // free (i.e. inside the messages/keys subcollections, not on the
+    // conversation document itself).
+    // -----------------------------------------------------------------
+    function isConvoParticipant(convoId) {
+      return isAuthenticated() && 
+        request.auth.uid in get(/databases/$(database)/documents/conversations/$(convoId)).data.participants;
+    }
+
+    // =====================================================================
+    // USERS
+    // =====================================================================
+    match /users/{userId} {
+
+      // Any signed-in user can read any profile document. This is required
+      // because usernames need to be searchable and public keys (used to
+      // encrypt AES group keys for E2EE) must be fetchable by anyone
+      // starting a new conversation with this user.
+      allow read: if isAuthenticated();
+
+      // Only the profile owner can create or modify their own document
+      // (display name, username, public key, presence, etc.).
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+
+      // -------------------------------------------------------------
+      // Restricted subcollection: holds the user's encrypted private-key
+      // backup and its PBKDF2 salt (used for E2EE recovery on a new
+      // device). This must NEVER be readable by anyone but the owner —
+      // unlike the public key above, this is the one piece of key
+      // material that must stay fully private, since it's the only
+      // thing standing between an attacker and the user's private key
+      // if they can also guess the recovery passphrase.
+      // -------------------------------------------------------------
+      match /private/keyBackup {
+        allow read, write: if isAuthenticated() && request.auth.uid == userId;
+      }
+    }
+
+    // =====================================================================
+    // CONVERSATIONS (DMs and Groups)
+    // =====================================================================
+    match /conversations/{convoId} {
+
+      // Only participants can read the conversation summary/metadata
+      // (participants list, lastMessage preview, unread counts, etc.).
+      allow read: if isAuthenticated() && request.auth.uid in resource.data.participants;
+
+      // A user can create a conversation only if they include themselves
+      // in the participants list — prevents creating conversations on
+      // someone else's behalf.
+      allow create: if isAuthenticated() && request.auth.uid in request.resource.data.participants;
+
+      // Any participant can update conversation metadata — covers unread
+      // count resets, message-request acceptance, clearedAt/deletedFor
+      // soft-delete flags, and lastMessage preview updates on send.
+      // Crucially, the 'deletedForEveryone' flag can only be set or changed
+      // by active group administrators to prevent unauthorized wipes.
+      allow update: if isAuthenticated() && 
+        request.auth.uid in resource.data.participants && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['deletedForEveryone']) ||
+          (resource.data.type == 'group' && request.auth.uid in resource.data.admins)
+        );
+
+      // Conversations are never hard-deleted from the client. "Delete for
+      // me" is implemented as a soft-delete flag (deletedFor) instead, so
+      // the other participant's copy of the conversation is unaffected.
+      allow delete: if false;
+
+      // -------------------------------------------------------------
+      // KEY ENVELOPES (E2EE)
+      // One document per participant, holding that user's copy of the
+      // conversation's AES-256 group key, encrypted to their personal
+      // RSA public key. This is what lets each participant independently
+      // decrypt messages without the group key ever existing in plaintext
+      // anywhere in Firestore.
+      // -------------------------------------------------------------
+      match /keys/{envelopeUid} {
+
+        // A user can only read their OWN envelope — reading someone
+        // else's envelope would be useless to them anyway (it's
+        // encrypted to that person's public key), but this rule ensures
+        // envelopes aren't even exposed for inspection.
+        allow read: if isAuthenticated() && request.auth.uid == envelopeUid;
+
+        // Any participant can create envelopes for the group — needed
+        // because the conversation creator generates and distributes the
+        // group key to every member (including a lazy "upgrade" path for
+        // legacy pre-E2EE conversations).
+        allow create: if isAuthenticated() && 
+          request.auth.uid in get(/databases/$(database)/documents/conversations/$(convoId)).data.participants;
+
+        // Envelopes are immutable once written. If a group key ever needs
+        // to rotate (e.g. member removal in the future), that should be
+        // modeled as a brand-new set of envelope documents, not an edit
+        // of existing ones — updating in place would risk silently
+        // invalidating another member's ability to decrypt.
+        allow update, delete: if false;
+      }
+
+      // -------------------------------------------------------------
+      // MESSAGES
+      // -------------------------------------------------------------
+      match /messages/{messageId} {
+
+        // Only participants of the parent conversation can read messages.
+        allow read: if isConvoParticipant(convoId);
+
+        // A participant can send a message only if they sign it with
+        // their own UID as senderId — prevents spoofing messages as
+        // someone else. The 'system' sender is allowed separately for
+        // auto-generated messages like "Conversation started" or
+        // "Group X created", which aren't sent by any real user.
+        // SECURITY NOTE: 'system' senderId is reserved strictly for non-privileged
+        // client-side UI informational logs. App logic MUST NOT grant administrative 
+        // access or trigger privilege elevation based on senderId == 'system'.
+        allow create: if isConvoParticipant(convoId) && 
+          (request.auth.uid == request.resource.data.senderId ||
+           request.resource.data.senderId == 'system');
+
+        // Updates to an existing message are only allowed for two very
+        // specific, narrowly-scoped purposes — nothing else about a
+        // message (text, sender, timestamp, etc.) can ever be edited:
+        allow update: if isConvoParticipant(convoId) && (
+
+          // (a) Reaction toggles and "delete for me" — any participant
+          //     may touch these fields, since reactions are a shared
+          //     feature and "delete for me" only ever affects the
+          //     requesting user's own view (their UID is added to the
+          //     deletedFor array).
+          request.resource.data.diff(resource.data)
+            .affectedKeys().hasOnly(['reactions', 'deletedFor']) ||
+
+          // (b) "Delete for everyone" — restricted to the original
+          //     sender only, and only within a 15-minute window of the
+          //     message being sent (mirrors WhatsApp/Telegram-style
+          //     limits so old messages can't be silently erased).
+          //     The ternary below supports both Firestore Timestamp
+          //     values (current messages, using serverTimestamp()) and
+          //     legacy plain-number createdAt values from before that
+          //     migration, so old messages don't break this check.
+          (
+            request.resource.data.diff(resource.data)
+              .affectedKeys().hasOnly(['deletedForEveryone']) &&
+            request.auth.uid == resource.data.senderId &&
+            (resource.data.createdAt is timestamp
+              ? request.time < resource.data.createdAt + duration.value(15, 'm')
+              : request.time.toMillis() < resource.data.createdAt + 15 * 60 * 1000
+            )
+          )
+        );
+
+        // Messages are never hard-deleted from the client — both delete
+        // paths above are soft-deletes implemented via flags/arrays, so
+        // the original document always remains for audit/consistency.
+        allow delete: if false;
+      }
+    }
+  }
+}

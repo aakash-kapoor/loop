@@ -75,6 +75,29 @@
                 </div>
               }
             </div>
+
+            @if (isAdmin()) {
+              <div class="border-t border-border-light">
+                @if (!isConfirmingDeleteForEveryone()) {
+                  <button (click)="deleteGroupForEveryone()" class="w-full px-4 py-2 text-left text-xs font-semibold hover:bg-surface-1 text-rose-500 hover:text-rose-600 transition-colors flex items-center gap-2 cursor-pointer">
+                    <i class="ti ti-alert-triangle text-sm"></i>
+                    <span>Delete group for everyone</span>
+                  </button>
+                } @else {
+                  <div class="px-4 py-2 flex flex-col gap-1.5">
+                    <span class="text-[10px] text-rose-500 font-bold">Wipe group for all members?</span>
+                    <div class="flex gap-2">
+                      <button (click)="deleteGroupForEveryone()" class="flex-1 py-1 text-xs font-semibold bg-rose-500 hover:bg-rose-600 text-white rounded-lg cursor-pointer transition-colors">
+                        Wipe
+                      </button>
+                      <button (click)="isConfirmingDeleteForEveryone.set(false)" class="flex-1 py-1 text-xs font-semibold bg-surface-1 hover:bg-surface-2 text-text-secondary rounded-lg cursor-pointer transition-colors">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                }
+              </div>
+            }
           </div>
         }
       </div>
@@ -135,9 +158,44 @@
           </div>
         }
 
+        <!-- Send Error Banner -->
+        @if (sendError()) {
+          <div class="px-4 py-2 bg-rose-500/10 border-b border-rose-500/20 text-rose-500 text-xs font-medium flex items-center justify-between animate-fadeIn">
+            <div class="flex items-center gap-2 pr-4">
+              <i class="ti ti-alert-circle text-base flex-shrink-0"></i>
+              <span>{{ sendError() }}</span>
+            </div>
+            <button (click)="sendError.set(null)" class="p-1 hover:bg-rose-500/20 rounded-full cursor-pointer transition-colors">
+              <i class="ti ti-x text-xs"></i>
+            </button>
+          </div>
+        }
+
         <!-- Text input area -->
-        <div class="flex items-center gap-2 p-3">
+        <div class="flex items-center gap-2 p-3 relative">
+          <!-- Emoji Picker Popover -->
+          @if (isEmojiPickerOpen()) {
+            <div class="absolute bottom-16 left-3 z-50 animate-fadeIn emoji-picker-container rounded-2xl overflow-hidden shadow-xl border border-border-light">
+              <emoji-mart 
+                [showPreview]="false" 
+                [darkMode]="isDarkTheme()"
+                (emojiSelect)="addEmoji($event)"
+                color="#378add"
+              ></emoji-mart>
+            </div>
+          }
+
+          <!-- Emoji trigger button -->
+          <button 
+            (click)="toggleEmojiPicker($event)"
+            class="w-10 h-10 rounded-full hover:bg-surface-1 text-text-muted hover:text-text-secondary flex items-center justify-center transition-colors cursor-pointer flex-shrink-0"
+            title="Add emoji"
+          >
+            <i class="ti ti-mood-smile text-lg"></i>
+          </button>
+
           <input 
+            #messageInput
             type="text" 
             [(ngModel)]="text" 
             (keydown.enter)="send()"

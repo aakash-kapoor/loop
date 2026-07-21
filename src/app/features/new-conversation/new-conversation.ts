@@ -75,13 +75,22 @@ export class NewConversation implements OnDestroy {
     this.searchSubject.next(cleaned);
   }
 
+  readonly creationError = signal<string>('');
+
   async startDM(recipientUid: string) {
+    this.creationError.set('');
     try {
       const id = await this.conversationService.startConversation(recipientUid);
       this.conversationService.selectConversation(id);
       this.router.navigate(['/chats', id]);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to start DM:', err);
+      if (err.message?.startsWith('E2EE_UPGRADE_REQUIRED:')) {
+        const name = err.message.split(':')[1];
+        this.creationError.set(`Cannot start chat: ${name} needs to update their application to support encryption.`);
+      } else {
+        this.creationError.set('Failed to start conversation. Please try again.');
+      }
     }
   }
 
@@ -102,12 +111,19 @@ export class NewConversation implements OnDestroy {
     if (!name || uids.length === 0 || this.isCreatingGroup()) return;
 
     this.isCreatingGroup.set(true);
+    this.creationError.set('');
     try {
       const id = await this.conversationService.startGroupConversation(name, uids);
       this.conversationService.selectConversation(id);
       this.router.navigate(['/chats', id]);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to create group:', err);
+      if (err.message?.startsWith('E2EE_UPGRADE_REQUIRED:')) {
+        const pName = err.message.split(':')[1];
+        this.creationError.set(`Cannot create group: ${pName} needs to update their application to support encryption.`);
+      } else {
+        this.creationError.set('Failed to create group. Please try again.');
+      }
     } finally {
       this.isCreatingGroup.set(false);
     }

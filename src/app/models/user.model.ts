@@ -6,4 +6,5 @@ export interface AppUser {
     photoURL?: string;
     isOnline: boolean;
     lastSeen: number;
+    publicKey?: string;      // JWK public key format
 }

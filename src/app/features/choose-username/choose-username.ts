@@ -1,10 +1,13 @@
 import { Component, inject, signal, ElementRef, viewChild, AfterViewInit, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
 import { Auth } from '../../core/auth';
+import { CryptoService } from '../../services/crypto.service';
 import { animate } from 'motion';
 import { FormsModule } from '@angular/forms';
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
+
+import { evaluatePassphraseStrength } from '../../shared/passphrase-validator';
 
 @Component({
   selector: 'app-choose-username',
@@ -15,12 +18,20 @@ import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 export class ChooseUsername implements AfterViewInit, OnDestroy {
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
+  private readonly cryptoService = inject(CryptoService);
 
   readonly username = signal<string>('');
   readonly isChecking = signal<boolean>(false);
   readonly isAvailable = signal<boolean | null>(null);
   readonly errorMessage = signal<string>('');
   readonly isSubmitting = signal<boolean>(false);
+
+  readonly passphrase = signal<string>('');
+  readonly confirmPassphrase = signal<string>('');
+  readonly passphraseError = signal<string>('');
+
+  readonly showPassphrase = signal<boolean>(false);
+  readonly showConfirmPassphrase = signal<boolean>(false);
 
   private readonly usernameSubject = new Subject<string>();
   private checkSubscription?: Subscription;
@@ -95,12 +106,50 @@ export class ChooseUsername implements AfterViewInit, OnDestroy {
       return;
     }
 
+    const pass = this.passphrase();
+    const confirmPass = this.confirmPassphrase();
+
+    const strength = evaluatePassphraseStrength(pass);
+    if (!strength.isValid) {
+      this.passphraseError.set(strength.message || 'Passphrase is not strong enough.');
+      return;
+    }
+
+    if (pass !== confirmPass) {
+      this.passphraseError.set('Passphrases do not match.');
+      return;
+    }
+
+    this.passphraseError.set('');
     this.isSubmitting.set(true);
     try {
-      await this.auth.claimUsername(finalUsername);
+      const user = this.auth.currentUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Generate RSA key pair locally
+      const keyPair = await this.cryptoService.generateUserKeyPair();
+
+      // Encrypt and backup the private key using the passphrase
+      const backup = await this.cryptoService.backupPrivateKey(user.uid, keyPair.privateKey, pass);
+
+      // Export public key to JWK
+      const publicJwk = await window.crypto.subtle.exportKey('jwk', keyPair.publicKey);
+      const publicKeyString = JSON.stringify(publicJwk);
+
+      // Claim username and write public key & backup to Firestore
+      await this.auth.claimUsername(
+        finalUsername,
+        publicKeyString,
+        backup.encryptedKey,
+        backup.salt
+      );
+
+      // Store private key locally in IndexedDB
+      await this.cryptoService.savePrivateKeyToLocal(user.uid, keyPair.privateKey);
+
       this.router.navigate(['/']);
     } catch (err: any) {
-      console.error('Claim failed:', err);
+      console.error('Claim/Key generation failed:', err);
       this.errorMessage.set(err.message || 'Failed to claim username. Please try again.');
       this.isAvailable.set(null);
     } finally {

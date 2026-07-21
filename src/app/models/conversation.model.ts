@@ -11,4 +11,8 @@ export interface Conversation {
     unreadCount: Record<string, number>;
     deletedFor?: string[];        // uids who have "deleted" this conversation
     clearedAt?: Record<string, number>; // uid -> timestamp, hides messages before this time
+    lastMessageEncryptionVersion?: number; // version tag for E2EE previews
+    admins?: string[];             // group administrators
+    creatorId?: string;           // creator of the group
+    deletedForEveryone?: boolean; // soft-delete for everyone flag
 }

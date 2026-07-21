@@ -1,6 +1,7 @@
 import { Component, inject, computed, effect } from '@angular/core';
 import { Router, RouterOutlet } from '@angular/router';
 import { Auth } from './core/auth';
+import { CryptoService } from './services/crypto.service';
 
 @Component({
   selector: 'app-root',
@@ -11,6 +12,7 @@ import { Auth } from './core/auth';
 export class App {
   private readonly authService = inject(Auth);
   private readonly router = inject(Router);
+  private readonly cryptoService = inject(CryptoService);
 
   // App is loading while the initial authentication state is unresolved (undefined)
   readonly isLoading = computed(() => this.authService.currentUser() === undefined);
@@ -36,9 +38,16 @@ export class App {
           this.router.navigate(['/choose-username']);
         }
       } else {
-        // Fully authenticated: redirect from auth screens to chats dashboard
-        if (currentPath === '/login' || currentPath === '/choose-username' || currentPath === '/') {
-          this.router.navigate(['/chats']);
+        // Fully authenticated: redirect to chats dashboard ONLY if their local private key is ready.
+        // Otherwise, redirect them to the /login view to perform key recovery.
+        if (!this.cryptoService.isPrivateKeyReady()) {
+          if (currentPath !== '/login') {
+            this.router.navigate(['/login']);
+          }
+        } else {
+          if (currentPath === '/login' || currentPath === '/choose-username' || currentPath === '/') {
+            this.router.navigate(['/chats']);
+          }
         }
       }
     });

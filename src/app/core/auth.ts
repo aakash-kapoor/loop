@@ -93,7 +93,12 @@ export class Auth {
     return querySnapshot.empty;
   }
 
-  async claimUsername(username: string): Promise<void> {
+  async claimUsername(
+    username: string,
+    publicKey?: string,
+    encryptedPrivateKey?: string,
+    salt?: string
+  ): Promise<void> {
     const user = this.currentUser();
     if (!user) {
       throw new Error('No user is currently signed in');
@@ -113,8 +118,22 @@ export class Auth {
       lastSeen: Date.now(),
     };
 
+    if (publicKey) {
+      updatedUser.publicKey = publicKey;
+    }
+
     const userRef = doc(db, 'users', user.uid);
     await setDoc(userRef, updatedUser);
+
+    if (encryptedPrivateKey && salt) {
+      const backupRef = doc(db, 'users', user.uid, 'private', 'keyBackup');
+      await setDoc(backupRef, {
+        encryptedPrivateKey,
+        salt,
+        iterations: 210000
+      });
+    }
+
     this.currentUser.set(updatedUser);
   }
 }
