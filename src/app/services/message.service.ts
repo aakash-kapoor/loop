@@ -6,6 +6,7 @@ import {
   orderBy,
   onSnapshot,
   addDoc,
+  setDoc,
   updateDoc,
   runTransaction,
   arrayUnion,
@@ -305,7 +306,17 @@ export class MessageService {
     }
 
     if (!aesKey) {
-      throw new Error('Failed to resolve encryption key for this conversation.');
+      if (!this.cryptoService.getLoadedPrivateKey()) {
+        throw new Error('Encryption key not loaded. Please unlock your account passphrase to send encrypted messages.');
+      }
+
+      console.warn(`Key envelope missing for conversation ${convoId}. Running self-healing E2EE key distribution...`);
+      try {
+        aesKey = await this.selfHealGroupKeys(convoId, convo.participants);
+      } catch (err: any) {
+        console.error('Self-healing E2EE key distribution failed:', err);
+        throw new Error(err.message || 'Failed to resolve encryption key for this conversation.');
+      }
     }
 
     // Encrypt message text
@@ -415,5 +426,40 @@ export class MessageService {
         lastMessage: 'Message deleted',
       });
     }
+  }
+
+  // Self-heal E2EE key distribution if envelope subcollection is missing in Firestore
+  private async selfHealGroupKeys(convoId: string, participants: string[]): Promise<CryptoKey> {
+    const userRefs = participants.map((pId) => doc(db, 'users', pId));
+    const userSnaps = await Promise.all(userRefs.map((ref) => getDoc(ref)));
+
+    const publicKeys = userSnaps.map((snap, index) => {
+      const pId = participants[index];
+      if (!snap.exists()) {
+        throw new Error('User profile not found');
+      }
+      const uData = snap.data();
+      if (!uData['publicKey']) {
+        const name = uData['displayName'] || uData['username'] || 'User';
+        throw new Error(`Cannot encrypt chat: ${name} needs to setup encryption first.`);
+      }
+      return { uid: pId, pk: uData['publicKey'] };
+    });
+
+    const newAesKey = await this.cryptoService.generateGroupKey();
+
+    await Promise.all(
+      publicKeys.map(async ({ uid, pk }) => {
+        const encryptedKey = await this.cryptoService.encryptGroupKey(newAesKey, pk);
+        const envelopeRef = doc(db, 'conversations', convoId, 'keys', uid);
+        await setDoc(envelopeRef, { encryptedKey });
+      })
+    );
+
+    const convoRef = doc(db, 'conversations', convoId);
+    await updateDoc(convoRef, { lastMessageEncryptionVersion: 2 });
+
+    this.cryptoService.groupKeysCache.set(convoId, newAesKey);
+    return newAesKey;
   }
 }

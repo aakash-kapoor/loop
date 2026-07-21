@@ -4,12 +4,12 @@ import { Conversation } from '../../../models/conversation.model';
 import { Auth } from '../../../core/auth';
 import { UserService } from '../../../services/user.service';
 import { ConversationService } from '../../../services/conversation.service';
-import { DatePipe, NgClass } from '@angular/common';
+import { NgClass } from '@angular/common';
 import { Avatar } from '../../../shared/avatar/avatar';
 
 @Component({
   selector: 'app-conversation-item',
-  imports: [NgClass, DatePipe, Avatar],
+  imports: [NgClass, Avatar],
   templateUrl: './conversation-item.html',
   styleUrl: './conversation-item.scss',
 })
@@ -69,6 +69,34 @@ export class ConversationItem {
     const currentUid = this.auth.currentUser()?.uid;
     const convo = this.convoSignal();
     return convo?.isPending && convo?.initiatedBy !== currentUid;
+  });
+
+  // Smart sidebar timestamp (Today -> 3:37 PM, Yesterday -> Yesterday, Older -> 19 Jul)
+  readonly formattedTime = computed(() => {
+    const timestamp = this.convoSignal()?.lastMessageAt;
+    if (!timestamp) return '';
+
+    const date = new Date(timestamp);
+    const now = new Date();
+
+    const isToday = date.toDateString() === now.toDateString();
+
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    const isYesterday = date.toDateString() === yesterday.toDateString();
+
+    if (isToday) {
+      return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    } else if (isYesterday) {
+      return 'Yesterday';
+    } else {
+      const isSameYear = date.getFullYear() === now.getFullYear();
+      return date.toLocaleDateString([], {
+        day: 'numeric',
+        month: 'short',
+        ...(isSameYear ? {} : { year: '2-digit' }),
+      });
+    }
   });
 
   select() {

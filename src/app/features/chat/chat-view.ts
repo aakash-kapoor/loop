@@ -128,6 +128,35 @@ export class ChatViewComponent implements OnInit, OnDestroy {
     }
   }
 
+  formatLastSeen(timestamp?: number): string {
+    if (!timestamp) return 'Offline';
+
+    const date = new Date(timestamp);
+    const now = new Date();
+
+    const isToday = date.toDateString() === now.toDateString();
+
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    const isYesterday = date.toDateString() === yesterday.toDateString();
+
+    const timeStr = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+    if (isToday) {
+      return `Last seen today at ${timeStr}`;
+    } else if (isYesterday) {
+      return `Last seen yesterday at ${timeStr}`;
+    } else {
+      const isSameYear = date.getFullYear() === now.getFullYear();
+      const dateStr = date.toLocaleDateString([], {
+        day: 'numeric',
+        month: 'short',
+        ...(isSameYear ? {} : { year: 'numeric' }),
+      });
+      return `Last seen on ${dateStr} at ${timeStr}`;
+    }
+  }
+
   async acceptRequest() {
     try {
       await this.conversationService.acceptMessageRequest();

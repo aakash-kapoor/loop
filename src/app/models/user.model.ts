@@ -6,5 +6,6 @@ export interface AppUser {
     photoURL?: string;
     isOnline: boolean;
     lastSeen: number;
+    showLastSeen?: boolean;   // privacy preference: toggle visibility of last seen timestamp
     publicKey?: string;      // JWK public key format
 }

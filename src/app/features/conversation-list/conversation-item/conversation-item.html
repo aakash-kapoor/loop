@@ -22,7 +22,7 @@
         {{ convo.type === 'dm' ? (otherProfile()?.displayName || 'Loading...') : convo.groupName }}
       </span>
       <span class="text-[10px] text-text-muted flex-shrink-0">
-        {{ convo.lastMessageAt | date:'shortTime' }}
+        {{ formattedTime() }}
       </span>
     </div>
 

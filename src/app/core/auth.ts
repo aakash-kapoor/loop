@@ -136,5 +136,20 @@ export class Auth {
 
     this.currentUser.set(updatedUser);
   }
+
+  async updatePrivacySettings(settings: { showLastSeen?: boolean }): Promise<void> {
+    const user = this.currentUser();
+    if (!user?.uid) return;
+
+    const userRef = doc(db, 'users', user.uid);
+    await updateDoc(userRef, {
+      ...settings,
+    });
+
+    this.currentUser.set({
+      ...user,
+      ...settings,
+    });
+  }
 }
 

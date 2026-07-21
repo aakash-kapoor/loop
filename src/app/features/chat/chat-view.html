@@ -33,6 +33,8 @@
           @if (convo()?.type === 'dm') {
             @if (chatPartner()?.isOnline) {
               Active now
+            } @else if (chatPartner()?.showLastSeen !== false && chatPartner()?.lastSeen) {
+              {{ formatLastSeen(chatPartner()?.lastSeen) }}
             } @else {
               Offline
             }

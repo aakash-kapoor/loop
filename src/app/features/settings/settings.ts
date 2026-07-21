@@ -18,6 +18,7 @@ export class Settings implements OnInit {
   readonly darkModeEnabled = signal<boolean>(false);
   readonly notificationsEnabled = signal<boolean>(true);
   readonly soundEnabled = signal<boolean>(true);
+  readonly showLastSeenEnabled = signal<boolean>(true);
 
   ngOnInit() {
     // Check initial dark mode state from document root
@@ -27,6 +28,10 @@ export class Settings implements OnInit {
     // Read stored preferences
     this.soundEnabled.set(localStorage.getItem('sound_effects') !== 'false');
     this.notificationsEnabled.set(localStorage.getItem('notifications') !== 'false');
+    
+    // Read user privacy preference
+    const user = this.currentUser();
+    this.showLastSeenEnabled.set(user?.showLastSeen ?? true);
   }
 
   toggleDarkMode() {
@@ -55,6 +60,17 @@ export class Settings implements OnInit {
     const nextVal = !this.soundEnabled();
     this.soundEnabled.set(nextVal);
     localStorage.setItem('sound_effects', nextVal ? 'true' : 'false');
+  }
+
+  async toggleShowLastSeen() {
+    const nextVal = !this.showLastSeenEnabled();
+    this.showLastSeenEnabled.set(nextVal);
+    try {
+      await this.auth.updatePrivacySettings({ showLastSeen: nextVal });
+    } catch (err) {
+      console.error('Failed to update last seen preference:', err);
+      this.showLastSeenEnabled.set(!nextVal);
+    }
   }
 
   async logout() {

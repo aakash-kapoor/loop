@@ -89,7 +89,7 @@
       <!-- Option Row: Push Notifications -->
       <div 
         (click)="toggleNotifications()"
-        class="flex items-center justify-between px-4 py-3.5 hover:bg-surface-1/40 cursor-pointer transition-colors"
+        class="flex items-center justify-between px-4 py-3.5 border-b border-border-light/40 hover:bg-surface-1/40 cursor-pointer transition-colors"
       >
         <div class="flex items-center gap-3">
           <div class="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
@@ -105,6 +105,32 @@
           <div 
             class="w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200"
             [ngClass]="notificationsEnabled() ? 'translate-x-4' : 'translate-x-0'"
+          ></div>
+        </div>
+      </div>
+
+      <!-- Option Row: Share Last Seen -->
+      <div 
+        (click)="toggleShowLastSeen()"
+        class="flex items-center justify-between px-4 py-3.5 hover:bg-surface-1/40 cursor-pointer transition-colors"
+      >
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+            <i class="ti ti-clock text-lg"></i>
+          </div>
+          <div class="flex flex-col">
+            <span class="text-sm font-semibold text-text-primary">Share Last Seen Status</span>
+            <span class="text-[11px] text-text-muted">Allow others to see when you were last active</span>
+          </div>
+        </div>
+        <!-- Toggle Switch component -->
+        <div 
+          class="w-10 h-6 rounded-full p-0.5 transition-colors duration-200 flex-shrink-0 ml-2"
+          [ngClass]="showLastSeenEnabled() ? 'bg-accent' : 'bg-border-strong'"
+        >
+          <div 
+            class="w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200"
+            [ngClass]="showLastSeenEnabled() ? 'translate-x-4' : 'translate-x-0'"
           ></div>
         </div>
       </div>
