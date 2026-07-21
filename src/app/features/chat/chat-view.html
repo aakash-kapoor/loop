@@ -50,6 +50,14 @@
 
       <!-- Action buttons -->
       <div class="flex items-center gap-1 text-text-secondary relative">
+        <!-- Search Messages Button -->
+        <button (click)="toggleSearch()"
+          class="w-8 h-8 rounded-full hover:bg-surface-1 flex items-center justify-center transition-colors cursor-pointer text-text-muted hover:text-accent"
+          [ngClass]="{'text-accent bg-surface-1': isSearchOpen()}"
+          title="Search messages (Ctrl+F)">
+          <i class="ti ti-search text-lg"></i>
+        </button>
+
         @if (convo()?.type === 'group') {
         <!-- Group Chat: Info Icon directly opens Group Info Drawer -->
         <button (click)="isGroupInfoOpen.set(true)"
@@ -88,6 +96,67 @@
       </div>
     </div>
 
+    <!-- Search Bar Sub-Header -->
+    @if (isSearchOpen()) {
+    <div class="flex flex-col border-b border-border-light bg-surface-0/95 backdrop-blur-md px-4 py-2.5 flex-shrink-0 animate-slideDown z-10 shadow-sm">
+      <div class="flex items-center gap-2">
+        <div class="relative flex-1 flex items-center">
+          <i class="ti ti-search text-text-muted text-base absolute left-3 pointer-events-none"></i>
+          <input #searchInput type="text" [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" (keydown.enter)="onSearchEnter($event)"
+            placeholder="Search in conversation..."
+            class="w-full pl-9 pr-8 py-1.5 bg-surface-1 border border-border-light rounded-xl text-xs text-text-primary placeholder-text-muted focus:outline-none focus:border-accent transition-all" />
+          @if (searchQuery()) {
+          <button (click)="searchQuery.set('')"
+            class="absolute right-2 text-text-muted hover:text-text-primary p-1 rounded-full cursor-pointer transition-colors"
+            title="Clear text">
+            <i class="ti ti-x text-xs"></i>
+          </button>
+          }
+        </div>
+
+        <!-- Counter & Navigation Buttons -->
+        <div class="flex items-center gap-1.5 text-xs text-text-muted flex-shrink-0">
+          @if (searchQuery().trim()) {
+            @if (matchingMessages().length > 0) {
+            <span class="text-[11px] font-semibold text-text-primary px-1.5 py-0.5 bg-surface-1 rounded-md border border-border-light select-none">
+              {{ currentMatchIndex() + 1 }} of {{ matchingMessages().length }}
+            </span>
+            } @else {
+            <span class="text-[11px] font-medium text-rose-500 px-1.5 py-0.5 bg-rose-500/10 rounded-md border border-rose-500/20 select-none">
+              No results
+            </span>
+            }
+          }
+
+          <button (click)="prevMatch()" [disabled]="matchingMessages().length === 0"
+            class="w-7 h-7 rounded-lg hover:bg-surface-1 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-text-secondary transition-colors cursor-pointer"
+            title="Previous match (Shift+Enter)">
+            <i class="ti ti-chevron-up text-sm"></i>
+          </button>
+          <button (click)="nextMatch()" [disabled]="matchingMessages().length === 0"
+            class="w-7 h-7 rounded-lg hover:bg-surface-1 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-text-secondary transition-colors cursor-pointer"
+            title="Next match (Enter)">
+            <i class="ti ti-chevron-down text-sm"></i>
+          </button>
+
+          <div class="w-[1px] h-4 bg-border-light mx-0.5"></div>
+
+          <button (click)="closeSearch()"
+            class="w-7 h-7 rounded-lg hover:bg-surface-1 flex items-center justify-center text-text-muted hover:text-text-primary transition-colors cursor-pointer"
+            title="Close search (Esc)">
+            <i class="ti ti-x text-sm"></i>
+          </button>
+        </div>
+      </div>
+      @if (searchQuery().trim()) {
+      <div class="flex items-center justify-between text-[10px] text-text-muted mt-1 px-1 select-none">
+        <span>Searching loaded messages</span>
+        <span>Press Enter / Shift+Enter to navigate</span>
+      </div>
+      }
+    </div>
+    }
+
     <!-- Messages Container -->
     <div #messagesContainer class="flex-1 overflow-y-auto px-4 py-3 flex flex-col bg-bg-main scroll-smooth">
       @if (messages().length === 0) {
@@ -98,8 +167,11 @@
       } @else {
       <!-- Render message bubbles -->
       @for (msg of messages(); track msg.id; let i = $index) {
-      <app-message-bubble [message]="msg" [replyToMessage]="getReplyMessage(msg.replyTo)"
-        [showSenderName]="convo()?.type === 'group'" (reply)="onReplyTrigger($event)"></app-message-bubble>
+      <div [id]="'msg-' + msg.id" class="transition-all duration-300 rounded-2xl"
+        [ngClass]="{'ring-2 ring-accent shadow-md shadow-accent/20 bg-accent/5': activeHighlightedMessageId() === msg.id}">
+        <app-message-bubble [message]="msg" [replyToMessage]="getReplyMessage(msg.replyTo)"
+          [showSenderName]="convo()?.type === 'group'" [searchTerm]="searchQuery()" (reply)="onReplyTrigger($event)"></app-message-bubble>
+      </div>
       }
       }
     </div>
@@ -178,7 +250,7 @@
           <i class="ti ti-mood-smile text-lg"></i>
         </button>
 
-        <input #messageInput type="text" [(ngModel)]="text" (keydown.enter)="send()" placeholder="Type a message…"
+        <input #messageInput type="text" [ngModel]="text()" (ngModelChange)="text.set($event)" (keydown.enter)="send()" placeholder="Type a message…"
           [disabled]="isPending() && initiatedByMe()"
           class="flex-1 px-4 py-3 bg-surface-1/50 border border-border-light rounded-full text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent focus:bg-surface-0 transition-all" />
         <button (click)="send()" [disabled]="!text().trim() || (isPending() && initiatedByMe())"

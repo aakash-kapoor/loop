@@ -121,7 +121,17 @@
               'bg-surface-1 border border-border-light text-text-primary rounded-tl-sm': !isOutgoing(),
               'rounded-t-none': replyToMessage
             }">
-        {{ message.text }}
+        @if (!searchTerm.trim()) {
+          {{ message.text }}
+        } @else {
+          @for (chunk of textChunks(); track $index) {
+            @if (chunk.isMatch) {
+              <mark class="bg-amber-300/80 text-amber-950 dark:bg-amber-400/50 dark:text-amber-100 rounded px-0.5 font-semibold">{{ chunk.text }}</mark>
+            } @else {
+              {{ chunk.text }}
+            }
+          }
+        }
       </div>
       }
     </div>

@@ -41,14 +41,42 @@ export class ChatViewComponent implements OnInit, OnDestroy {
   readonly isEmojiPickerOpen = signal<boolean>(false);
   readonly isDarkTheme = signal<boolean>(false);
 
+  // Message Search State Signals
+  readonly isSearchOpen = signal<boolean>(false);
+  readonly searchQuery = signal<string>('');
+  readonly currentMatchIndex = signal<number>(0);
+  readonly activeHighlightedMessageId = signal<string | null>(null);
+
   private routeSub?: Subscription;
   private themeObserver?: MutationObserver;
   private readonly messagesContainer = viewChild<ElementRef<HTMLElement>>('messagesContainer');
   private readonly messageInput = viewChild<ElementRef<HTMLInputElement>>('messageInput');
+  private readonly searchInput = viewChild<ElementRef<HTMLInputElement>>('searchInput');
 
   readonly currentUserId = computed(() => this.auth.currentUser()?.uid);
   readonly convo = computed(() => this.conversationService.selectedConversation());
   readonly messages = computed(() => this.messageService.activeMessages());
+
+  readonly matchingMessages = computed(() => {
+    const query = this.searchQuery().trim().toLowerCase();
+    const currentUid = this.currentUserId();
+    if (!query) return [];
+
+    return this.messages().filter(
+      (m) =>
+        m.text &&
+        !m.deletedForEveryone &&
+        !m.deletedFor?.includes(currentUid || '') &&
+        m.text.toLowerCase().includes(query)
+    );
+  });
+
+  readonly currentMatch = computed(() => {
+    const matches = this.matchingMessages();
+    const idx = this.currentMatchIndex();
+    if (matches.length === 0 || idx < 0 || idx >= matches.length) return null;
+    return matches[idx];
+  });
 
   readonly isAdmin = computed(() => {
     const c = this.convo();
@@ -74,11 +102,23 @@ export class ChatViewComponent implements OnInit, OnDestroy {
   });
 
   constructor() {
-    // Auto-scroll to bottom when new messages arrive
+    // Auto-scroll to bottom when new messages arrive (only if search query is empty)
     effect(() => {
       const msgs = this.messages();
-      if (msgs.length > 0) {
+      if (msgs.length > 0 && !this.searchQuery().trim()) {
         setTimeout(() => this.scrollToBottom(), 30);
+      }
+    });
+
+    // Reset match index and scroll to first match when searchQuery changes
+    effect(() => {
+      const matches = this.matchingMessages();
+      if (matches.length > 0) {
+        this.currentMatchIndex.set(0);
+        const firstMatchId = matches[0].id;
+        setTimeout(() => this.scrollToMatch(firstMatchId), 50);
+      } else {
+        this.activeHighlightedMessageId.set(null);
       }
     });
   }
@@ -91,6 +131,7 @@ export class ChatViewComponent implements OnInit, OnDestroy {
       this.text.set('');
       this.isEmojiPickerOpen.set(false);
       this.sendError.set(null);
+      this.closeSearch();
     });
 
     // Reactive Theme Observer
@@ -193,6 +234,16 @@ export class ChatViewComponent implements OnInit, OnDestroy {
     this.router.navigate(['/chats']);
   }
 
+  @HostListener('document:keydown', ['$event'])
+  onKeydown(event: KeyboardEvent) {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
+      event.preventDefault();
+      this.toggleSearch();
+    } else if (event.key === 'Escape' && this.isSearchOpen()) {
+      this.closeSearch();
+    }
+  }
+
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent) {
     const target = event.target as HTMLElement;
@@ -209,6 +260,58 @@ export class ChatViewComponent implements OnInit, OnDestroy {
     const isEmojiPicker = target.closest('emoji-mart') || target.closest('.emoji-picker-container');
     if (!isEmojiBtn && !isEmojiPicker) {
       this.isEmojiPickerOpen.set(false);
+    }
+  }
+
+  toggleSearch() {
+    if (this.isSearchOpen()) {
+      this.closeSearch();
+    } else {
+      this.isSearchOpen.set(true);
+      this.isHeaderMenuOpen.set(false);
+      queueMicrotask(() => {
+        this.searchInput()?.nativeElement.focus();
+      });
+    }
+  }
+
+  closeSearch() {
+    this.isSearchOpen.set(false);
+    this.searchQuery.set('');
+    this.currentMatchIndex.set(0);
+    this.activeHighlightedMessageId.set(null);
+  }
+
+  onSearchEnter(event: Event) {
+    const kbEvent = event as KeyboardEvent;
+    if (kbEvent.shiftKey) {
+      this.prevMatch();
+    } else {
+      this.nextMatch();
+    }
+  }
+
+  nextMatch() {
+    const matches = this.matchingMessages();
+    if (matches.length === 0) return;
+    const nextIdx = (this.currentMatchIndex() + 1) % matches.length;
+    this.currentMatchIndex.set(nextIdx);
+    this.scrollToMatch(matches[nextIdx].id);
+  }
+
+  prevMatch() {
+    const matches = this.matchingMessages();
+    if (matches.length === 0) return;
+    const prevIdx = (this.currentMatchIndex() - 1 + matches.length) % matches.length;
+    this.currentMatchIndex.set(prevIdx);
+    this.scrollToMatch(matches[prevIdx].id);
+  }
+
+  scrollToMatch(messageId: string) {
+    this.activeHighlightedMessageId.set(messageId);
+    const el = document.getElementById('msg-' + messageId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }
 

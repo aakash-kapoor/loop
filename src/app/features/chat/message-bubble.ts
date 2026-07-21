@@ -43,6 +43,14 @@ export class MessageBubble {
 
   @Input() showSenderName = false;
 
+  readonly searchTermSignal = signal<string>('');
+  @Input() set searchTerm(val: string) {
+    this.searchTermSignal.set(val || '');
+  }
+  get searchTerm(): string {
+    return this.searchTermSignal();
+  }
+
   @Output() reply = new EventEmitter<Message>();
 
   private readonly auth = inject(Auth);
@@ -104,6 +112,24 @@ export class MessageBubble {
     });
 
     return list;
+  });
+
+  readonly textChunks = computed(() => {
+    const text = this.messageSignal()?.text || '';
+    const rawQuery = this.searchTermSignal();
+    const query = rawQuery.trim();
+    if (!query || this.isDeletedForEveryone() || this.isDeletedForMe()) {
+      return [{ text, isMatch: false }];
+    }
+
+    const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escapedQuery})`, 'gi');
+    const parts = text.split(regex);
+
+    return parts.map((part) => ({
+      text: part,
+      isMatch: part.toLowerCase() === query.toLowerCase(),
+    }));
   });
 
   async react(emoji: string) {
