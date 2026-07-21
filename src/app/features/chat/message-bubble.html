@@ -1,173 +1,152 @@
 @if (message.senderId === 'system') {
-  <div class="flex justify-center my-3 w-full animate-fadeIn">
-    <span class="px-3 py-1 bg-surface-1/80 backdrop-blur-sm border border-border-light/60 text-text-muted text-[10px] font-semibold tracking-wide rounded-full uppercase">
-      {{ message.text }}
-    </span>
-  </div>
+<div class="flex justify-center my-3 w-full animate-fadeIn">
+  <span
+    class="px-3 py-1 bg-surface-1/80 backdrop-blur-sm border border-border-light/60 text-text-muted text-[10px] font-semibold tracking-wide rounded-full">
+    {{ message.text }}
+  </span>
+</div>
 } @else {
-  <div 
-    class="flex gap-2 w-full my-2 animate-fadeIn relative"
-    [ngClass]="{
+<div class="flex gap-2 w-full my-2 animate-fadeIn relative" [ngClass]="{
       'justify-end': isOutgoing(),
       'justify-start': !isOutgoing()
-    }"
-  >
-    <!-- Incoming Avatar -->
-    @if (!isOutgoing()) {
-      <app-avatar
-        [photoURL]="senderProfile()?.photoURL"
-        [displayName]="senderProfile()?.displayName"
-        size="sm"
-        class="self-end mb-1"
-      ></app-avatar>
+    }">
+  <!-- Incoming Avatar -->
+  @if (!isOutgoing()) {
+  <app-avatar [photoURL]="senderProfile()?.photoURL" [displayName]="senderProfile()?.displayName" size="sm"
+    class="self-end mb-1"></app-avatar>
+  }
+
+  <!-- Bubble Wrapper -->
+  <div class="flex flex-col max-w-[70%]" [ngClass]="{'items-end': isOutgoing(), 'items-start': !isOutgoing()}">
+    <!-- Sender Name (Group DM incoming only) -->
+    @if (showSenderName && !isOutgoing()) {
+    <span class="text-[10px] font-semibold text-text-muted mb-1 ml-1 select-none">
+      {{ senderProfile()?.displayName || 'Loading...' }}
+    </span>
     }
 
-    <!-- Bubble Wrapper -->
-    <div class="flex flex-col max-w-[70%]" [ngClass]="{'items-end': isOutgoing(), 'items-start': !isOutgoing()}">
-      <!-- Sender Name (Group DM incoming only) -->
-      @if (showSenderName && !isOutgoing()) {
-        <span class="text-[10px] font-semibold text-text-muted mb-1 ml-1 select-none">
-          {{ senderProfile()?.displayName || 'Loading...' }}
-        </span>
-      }
+    <!-- Delete error toast -->
+    @if (deleteError()) {
+    <span class="text-[10px] text-rose-400 font-medium mb-1 self-end animate-fadeIn select-none">
+      {{ deleteError() }}
+    </span>
+    }
 
-      <!-- Delete error toast -->
-      @if (deleteError()) {
-        <span class="text-[10px] text-rose-400 font-medium mb-1 self-end animate-fadeIn select-none">
-          {{ deleteError() }}
-        </span>
-      }
-
-      <!-- Message Content Container -->
-      <div class="group relative flex flex-col">
-        <!-- Hover Reaction Picker Quick Bar -->
-        @if (!isDeletedForEveryone() && !isDeletedForMe()) {
-          <div 
-            class="absolute -top-8 z-30 bg-surface-0 border border-border-light rounded-full p-1 shadow-md shadow-black/5 transition-all duration-200 flex items-center gap-1"
-            [ngClass]="{
+    <!-- Message Content Container -->
+    <div class="group relative flex flex-col">
+      <!-- Hover Reaction Picker Quick Bar -->
+      @if (!isDeletedForEveryone() && !isDeletedForMe()) {
+      <div
+        class="absolute -top-8 z-30 bg-surface-0 border border-border-light rounded-full p-1 shadow-md shadow-black/5 transition-all duration-200 flex items-center gap-1"
+        [ngClass]="{
               'right-0': isOutgoing(),
               'left-0': !isOutgoing(),
               'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto': !isMenuOpen(),
               'opacity-100 pointer-events-auto': isMenuOpen()
-            }"
-          >
-            <!-- Invisible hover bridge to prevent cursor tracking loss -->
-            <div class="absolute -bottom-2 left-0 right-0 h-2 bg-transparent pointer-events-auto"></div>
-            @for (emoji of ['👍', '❤️', '😂', '😮', '😢', '🙏']; track emoji) {
-              <button 
-                (click)="react(emoji)" 
-                class="w-6 h-6 rounded-full hover:bg-surface-1 flex items-center justify-center text-xs transition-colors cursor-pointer"
-              >
-                {{ emoji }}
-              </button>
-            }
-            <div class="w-[0.5px] h-4 bg-border-light mx-0.5"></div>
-            <button (click)="onReply()" class="w-6 h-6 rounded-full hover:bg-surface-1 text-text-secondary flex items-center justify-center text-xs transition-colors cursor-pointer" title="Reply">
-              <i class="ti ti-arrow-back-up"></i>
-            </button>
-
-            <!-- Delete for me — always available -->
-            <button 
-              (click)="deleteForMe()" 
-              class="w-6 h-6 rounded-full hover:bg-surface-1 text-text-secondary 
-                     flex items-center justify-center transition-colors cursor-pointer"
-              title="Delete for me">
-              <i class="ti ti-eye-off text-xs"></i>
-            </button>
-
-            <!-- Delete for everyone — only sender, within 15 mins -->
-            @if (canDeleteForEveryone()) {
-              <button 
-                (click)="deleteForEveryone()" 
-                class="w-6 h-6 rounded-full hover:bg-rose-500/10 text-rose-400 
-                       flex items-center justify-center transition-colors cursor-pointer"
-                title="Delete for everyone">
-                <i class="ti ti-trash text-xs"></i>
-              </button>
-            }
-          </div>
+            }">
+        <!-- Invisible hover bridge to prevent cursor tracking loss -->
+        <div class="absolute -bottom-2 left-0 right-0 h-2 bg-transparent pointer-events-auto"></div>
+        @for (emoji of ['👍', '❤️', '😂', '😮', '😢', '🙏']; track emoji) {
+        <button (click)="react(emoji)"
+          class="w-6 h-6 rounded-full hover:bg-surface-1 flex items-center justify-center text-xs transition-colors cursor-pointer">
+          {{ emoji }}
+        </button>
         }
+        <div class="w-[0.5px] h-4 bg-border-light mx-0.5"></div>
+        <button (click)="onReply()"
+          class="w-6 h-6 rounded-full hover:bg-surface-1 text-text-secondary flex items-center justify-center text-xs transition-colors cursor-pointer"
+          title="Reply">
+          <i class="ti ti-arrow-back-up"></i>
+        </button>
 
-        <!-- Reply Block Preview -->
-        @if (replyToMessage && !isDeletedForEveryone() && !isDeletedForMe()) {
-          <div 
-            class="px-3.5 py-1.5 rounded-t-2xl text-xs flex flex-col gap-0.5 border-l-2 bg-surface-1/40 border-border-strong text-text-secondary select-none opacity-85"
-            [ngClass]="{
+        <!-- Delete for me — always available -->
+        <button (click)="deleteForMe()" class="w-6 h-6 rounded-full hover:bg-surface-1 text-text-secondary 
+                     flex items-center justify-center transition-colors cursor-pointer" title="Delete for me">
+          <i class="ti ti-eye-off text-xs"></i>
+        </button>
+
+        <!-- Delete for everyone — only sender, within 15 mins -->
+        @if (canDeleteForEveryone()) {
+        <button (click)="deleteForEveryone()" class="w-6 h-6 rounded-full hover:bg-rose-500/10 text-rose-400 
+                       flex items-center justify-center transition-colors cursor-pointer" title="Delete for everyone">
+          <i class="ti ti-trash text-xs"></i>
+        </button>
+        }
+      </div>
+      }
+
+      <!-- Reply Block Preview -->
+      @if (replyToMessage && !isDeletedForEveryone() && !isDeletedForMe()) {
+      <div
+        class="px-3.5 py-1.5 rounded-t-2xl text-xs flex flex-col gap-0.5 border-l-2 bg-surface-1/40 border-border-strong text-text-secondary select-none opacity-85"
+        [ngClass]="{
               'mr-1': isOutgoing(),
               'ml-1': !isOutgoing()
-            }"
-          >
-            <span class="text-[9px] font-bold uppercase tracking-wider text-text-muted">{{ replyToSenderName() }}</span>
-            <span class="truncate max-w-[200px] italic">"{{ replyToMessage.text }}"</span>
-          </div>
-        }
+            }">
+        <span class="text-[9px] font-bold tracking-wider text-text-muted">{{ replyToSenderName() }}</span>
+        <span class="truncate max-w-[200px] italic">"{{ replyToMessage.text }}"</span>
+      </div>
+      }
 
-        <!-- Speech Bubble itself (Taps toggle the menu) -->
-        @if (isDeletedForEveryone()) {
-          <!-- Shown to ALL participants -->
-          <div 
-            class="px-3.5 py-2.5 shadow-sm text-xs text-text-muted italic bg-surface-1 border border-border-light rounded-2xl flex items-center gap-1.5 select-none"
-            [ngClass]="{
+      <!-- Speech Bubble itself (Taps toggle the menu) -->
+      @if (isDeletedForEveryone()) {
+      <!-- Shown to ALL participants -->
+      <div
+        class="px-3.5 py-2.5 shadow-sm text-xs text-text-muted italic bg-surface-1 border border-border-light rounded-2xl flex items-center gap-1.5 select-none"
+        [ngClass]="{
               'rounded-tr-sm': isOutgoing(),
               'rounded-tl-sm': !isOutgoing(),
               'rounded-t-none': replyToMessage
-            }"
-          >
-            <i class="ti ti-ban text-xs"></i>
-            <span>This message was deleted</span>
-          </div>
-        } @else if (isDeletedForMe()) {
-          <!-- Shown only to current user -->
-          <div 
-            class="px-3.5 py-2.5 shadow-sm text-xs text-text-muted italic bg-surface-1 border border-border-light rounded-2xl flex items-center gap-1.5 select-none"
-            [ngClass]="{
+            }">
+        <i class="ti ti-ban text-xs"></i>
+        <span>This message was deleted</span>
+      </div>
+      } @else if (isDeletedForMe()) {
+      <!-- Shown only to current user -->
+      <div
+        class="px-3.5 py-2.5 shadow-sm text-xs text-text-muted italic bg-surface-1 border border-border-light rounded-2xl flex items-center gap-1.5 select-none"
+        [ngClass]="{
               'rounded-tr-sm': isOutgoing(),
               'rounded-tl-sm': !isOutgoing(),
               'rounded-t-none': replyToMessage
-            }"
-          >
-            <i class="ti ti-eye-off text-xs"></i>
-            <span>You deleted this message</span>
-          </div>
-        } @else {
-          <div 
-            (click)="toggleMenu($event)"
-            class="px-3.5 py-2.5 shadow-sm text-sm break-words leading-relaxed rounded-2xl cursor-pointer select-none"
-            [ngClass]="{
+            }">
+        <i class="ti ti-eye-off text-xs"></i>
+        <span>You deleted this message</span>
+      </div>
+      } @else {
+      <div (click)="toggleMenu($event)"
+        class="px-3.5 py-2.5 shadow-sm text-sm break-words leading-relaxed rounded-2xl cursor-pointer select-none"
+        [ngClass]="{
               'bg-accent text-white rounded-tr-sm': isOutgoing(),
               'bg-surface-1 border border-border-light text-text-primary rounded-tl-sm': !isOutgoing(),
               'rounded-t-none': replyToMessage
-            }"
-          >
-            {{ message.text }}
-          </div>
-        }
+            }">
+        {{ message.text }}
       </div>
+      }
+    </div>
 
-      <!-- Emoji Reactions Bar -->
-      @if (reactionsList().length > 0 && !isDeletedForEveryone() && !isDeletedForMe()) {
-        <div class="flex flex-wrap gap-1 mt-1.5" [ngClass]="{'justify-end': isOutgoing(), 'justify-start': !isOutgoing()}">
-          @for (rx of reactionsList(); track rx.emoji) {
-            <button 
-              (click)="react(rx.emoji)"
-              [ngClass]="{
+    <!-- Emoji Reactions Bar -->
+    @if (reactionsList().length > 0 && !isDeletedForEveryone() && !isDeletedForMe()) {
+    <div class="flex flex-wrap gap-1 mt-1.5" [ngClass]="{'justify-end': isOutgoing(), 'justify-start': !isOutgoing()}">
+      @for (rx of reactionsList(); track rx.emoji) {
+      <button (click)="react(rx.emoji)" [ngClass]="{
                 'bg-accent/10 border-accent/30 text-accent font-semibold': rx.active,
                 'bg-surface-1 border-border-light text-text-secondary hover:bg-surface-2': !rx.active
               }"
-              class="flex items-center gap-1 px-2 py-0.5 border rounded-full text-[11px] transition-all cursor-pointer shadow-sm"
-              [title]="'Reacted by ' + rx.count + ' user(s)'"
-            >
-              <span>{{ rx.emoji }}</span>
-              <span class="text-[9px]">{{ rx.count }}</span>
-            </button>
-          }
-        </div>
+        class="flex items-center gap-1 px-2 py-0.5 border rounded-full text-[11px] transition-all cursor-pointer shadow-sm"
+        [title]="'Reacted by ' + rx.count + ' user(s)'">
+        <span>{{ rx.emoji }}</span>
+        <span class="text-[9px]">{{ rx.count }}</span>
+      </button>
       }
-
-      <!-- Timestamp -->
-      <span class="text-[9px] text-text-muted mt-1 select-none" [ngClass]="{'mr-1': isOutgoing(), 'ml-1': !isOutgoing()}">
-        {{ message.createdAt | date:'shortTime' }}
-      </span>
     </div>
+    }
+
+    <!-- Timestamp -->
+    <span class="text-[9px] text-text-muted mt-1 select-none" [ngClass]="{'mr-1': isOutgoing(), 'ml-1': !isOutgoing()}">
+      {{ message.createdAt | date:'shortTime' }}
+    </span>
   </div>
+</div>
 }

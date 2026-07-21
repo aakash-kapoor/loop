@@ -13,9 +13,12 @@ import { Message } from '../../models/message.model';
 import { AppUser } from '../../models/user.model';
 import { PickerComponent } from '@ctrl/ngx-emoji-mart';
 
+import { GroupInfoModal } from './group-info-modal/group-info-modal';
+import { ConfirmModal } from '../../shared/confirm-modal/confirm-modal';
+
 @Component({
   selector: 'app-chat-view',
-  imports: [FormsModule, MessageBubble, NgClass, Avatar, PickerComponent],
+  imports: [FormsModule, MessageBubble, NgClass, Avatar, PickerComponent, GroupInfoModal, ConfirmModal],
   templateUrl: './chat-view.html',
   styleUrl: './chat-view.scss',
 })
@@ -32,8 +35,9 @@ export class ChatViewComponent implements OnInit, OnDestroy {
   readonly text = signal<string>('');
   readonly replyingTo = signal<Message | null>(null);
   readonly isHeaderMenuOpen = signal<boolean>(false);
-  readonly isConfirmingDelete = signal<boolean>(false);
-  readonly isConfirmingDeleteForEveryone = signal<boolean>(false);
+  readonly isGroupInfoOpen = signal<boolean>(false);
+  readonly activeConfirmAction = signal<'clear' | 'delete' | null>(null);
+  readonly isSubmittingConfirm = signal<boolean>(false);
   readonly isEmojiPickerOpen = signal<boolean>(false);
   readonly isDarkTheme = signal<boolean>(false);
 
@@ -191,19 +195,20 @@ export class ChatViewComponent implements OnInit, OnDestroy {
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent) {
-    const inside = this.elementRef.nativeElement.contains(event.target as Node);
-    if (!inside) {
+    const target = event.target as HTMLElement;
+
+    // Header 3-dot dropdown menu close check
+    const isMenuBtn = target.closest('[title="Chat settings"]');
+    const isMenuDropdown = target.closest('.header-menu-dropdown');
+    if (!isMenuBtn && !isMenuDropdown) {
       this.isHeaderMenuOpen.set(false);
-      this.isConfirmingDelete.set(false); // reset confirm state when closing
-      this.isConfirmingDeleteForEveryone.set(false);
+    }
+
+    // Emoji picker close check
+    const isEmojiBtn = target.closest('[title="Add emoji"]');
+    const isEmojiPicker = target.closest('emoji-mart') || target.closest('.emoji-picker-container');
+    if (!isEmojiBtn && !isEmojiPicker) {
       this.isEmojiPickerOpen.set(false);
-    } else {
-      const target = event.target as HTMLElement;
-      const isEmojiBtn = target.closest('[title="Add emoji"]');
-      const isEmojiPicker = target.closest('emoji-mart') || target.closest('.emoji-picker-container');
-      if (!isEmojiBtn && !isEmojiPicker) {
-        this.isEmojiPickerOpen.set(false);
-      }
     }
   }
 
@@ -228,48 +233,32 @@ export class ChatViewComponent implements OnInit, OnDestroy {
     this.isHeaderMenuOpen.set(!this.isHeaderMenuOpen());
   }
 
-  async clearChat() {
+  openConfirm(action: 'clear' | 'delete') {
     this.isHeaderMenuOpen.set(false);
-    try {
-      await this.conversationService.clearChatForMe();
-    } catch (err) {
-      console.error('Clear chat failed:', err);
-    }
+    this.activeConfirmAction.set(action);
   }
 
-  async deleteConversation() {
-    if (!this.isConfirmingDelete()) {
-      this.isConfirmingDelete.set(true);
-      return;
-    }
-    // Second click — confirmed
-    this.isConfirmingDelete.set(false);
-    this.isHeaderMenuOpen.set(false);
-    try {
-      await this.conversationService.deleteConversationForMe();
-    } catch (err: any) {
-      console.error('Delete conversation failed:', err);
-      this.sendError.set(err.message || 'Failed to delete conversation.');
-    }
+  closeConfirm() {
+    this.activeConfirmAction.set(null);
   }
 
-  async deleteGroupForEveryone() {
-    const activeConvo = this.convo();
-    if (!activeConvo) return;
+  async handleConfirm() {
+    const action = this.activeConfirmAction();
+    if (!action) return;
 
-    if (!this.isConfirmingDeleteForEveryone()) {
-      this.isConfirmingDeleteForEveryone.set(true);
-      return;
-    }
-
-    // Second click — confirmed
-    this.isConfirmingDeleteForEveryone.set(false);
-    this.isHeaderMenuOpen.set(false);
+    this.isSubmittingConfirm.set(true);
     try {
-      await this.conversationService.deleteGroupForEveryone(activeConvo.id);
+      if (action === 'clear') {
+        await this.conversationService.clearChatForMe();
+      } else if (action === 'delete') {
+        await this.conversationService.deleteConversationForMe();
+      }
+      this.closeConfirm();
     } catch (err: any) {
-      console.error('Delete group failed:', err);
-      this.sendError.set(err.message || 'Failed to delete group for everyone.');
+      console.error(`${action} failed:`, err);
+      this.sendError.set(err.message || `Failed to ${action} chat.`);
+    } finally {
+      this.isSubmittingConfirm.set(false);
     }
   }
 }
