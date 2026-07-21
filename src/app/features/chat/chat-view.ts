@@ -178,6 +178,13 @@ export class ChatViewComponent implements OnInit, OnDestroy {
     return this.messages().find((m) => m.id === replyToId) || null;
   }
 
+  getReplySenderName(msg: Message | null): string {
+    if (!msg) return '';
+    if (msg.senderId === this.currentUserId()) return 'You';
+    const user = this.userService.usersCache()[msg.senderId];
+    return user?.displayName || user?.username || 'User';
+  }
+
   goBack() {
     this.router.navigate(['/chats']);
   }

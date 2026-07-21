@@ -151,7 +151,7 @@
           <div class="flex items-center justify-between px-4 py-2 bg-surface-1 border-b border-border-light text-xs text-text-secondary animate-slideDown">
             <div class="flex items-center gap-2 truncate pr-4">
               <i class="ti ti-arrow-back-up text-sm text-accent"></i>
-              <span class="font-semibold text-text-muted uppercase text-[9px] tracking-wide">Replying to:</span>
+              <span class="font-semibold text-text-muted uppercase text-[9px] tracking-wide">Replying to {{ getReplySenderName(replyingTo()) }}:</span>
               <span class="truncate italic font-normal">"{{ replyingTo()?.text }}"</span>
             </div>
             <button (click)="cancelReply()" class="w-6 h-6 rounded-full hover:bg-surface-2 flex items-center justify-center transition-colors cursor-pointer">

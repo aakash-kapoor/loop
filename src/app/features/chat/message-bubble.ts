@@ -32,7 +32,15 @@ export class MessageBubble {
     return this.messageSignal()!;
   }
 
-  @Input() replyToMessage: Message | null = null;
+  readonly replyToMessageSignal = signal<Message | null>(null);
+
+  @Input() set replyToMessage(val: Message | null) {
+    this.replyToMessageSignal.set(val);
+  }
+  get replyToMessage(): Message | null {
+    return this.replyToMessageSignal();
+  }
+
   @Input() showSenderName = false;
 
   @Output() reply = new EventEmitter<Message>();
@@ -65,6 +73,14 @@ export class MessageBubble {
     const msg = this.messageSignal();
     if (!msg || msg.senderId === 'system') return null;
     return this.userService.usersCache()[msg.senderId] || null;
+  });
+
+  readonly replyToSenderName = computed(() => {
+    const replyMsg = this.replyToMessageSignal();
+    if (!replyMsg) return '';
+    if (replyMsg.senderId === this.currentUserId()) return 'You';
+    const user = this.userService.usersCache()[replyMsg.senderId];
+    return user?.displayName || user?.username || 'User';
   });
 
   readonly reactionsList = computed(() => {
