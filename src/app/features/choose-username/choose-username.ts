@@ -7,6 +7,8 @@ import { FormsModule } from '@angular/forms';
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 
+import { evaluatePassphraseStrength } from '../../shared/passphrase-validator';
+
 @Component({
   selector: 'app-choose-username',
   imports: [FormsModule],
@@ -107,8 +109,9 @@ export class ChooseUsername implements AfterViewInit, OnDestroy {
     const pass = this.passphrase();
     const confirmPass = this.confirmPassphrase();
 
-    if (pass.length < 12) {
-      this.passphraseError.set('Passphrase must be at least 12 characters.');
+    const strength = evaluatePassphraseStrength(pass);
+    if (!strength.isValid) {
+      this.passphraseError.set(strength.message || 'Passphrase is not strong enough.');
       return;
     }
 

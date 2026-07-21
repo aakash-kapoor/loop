@@ -233,6 +233,14 @@ export class CryptoService {
     return privateKey;
   }
 
+  /**
+   * TODO: Key Rotation Architecture
+   * Envelopes in /conversations/{convoId}/keys/{uid} are immutable-by-design (allow update, delete: if false).
+   * To perform a key rotation in the future:
+   * 1. Generate a new AES-256 group key.
+   * 2. Upload a new envelope set (e.g., to /conversations/{convoId}/keys_v2/{uid}).
+   * 3. Increment lastMessageEncryptionVersion on the parent conversation document.
+   */
   // Generate AES Symmetric Key
   async generateGroupKey(): Promise<CryptoKey> {
     return window.crypto.subtle.generateKey(

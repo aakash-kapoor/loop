@@ -11,10 +11,11 @@ import { MessageBubble } from './message-bubble';
 import { Avatar } from '../../shared/avatar/avatar';
 import { Message } from '../../models/message.model';
 import { AppUser } from '../../models/user.model';
+import { PickerComponent } from '@ctrl/ngx-emoji-mart';
 
 @Component({
   selector: 'app-chat-view',
-  imports: [FormsModule, MessageBubble, NgClass, Avatar],
+  imports: [FormsModule, MessageBubble, NgClass, Avatar, PickerComponent],
   templateUrl: './chat-view.html',
   styleUrl: './chat-view.scss',
 })
@@ -32,13 +33,23 @@ export class ChatViewComponent implements OnInit, OnDestroy {
   readonly replyingTo = signal<Message | null>(null);
   readonly isHeaderMenuOpen = signal<boolean>(false);
   readonly isConfirmingDelete = signal<boolean>(false);
+  readonly isConfirmingDeleteForEveryone = signal<boolean>(false);
+  readonly isEmojiPickerOpen = signal<boolean>(false);
 
   private routeSub?: Subscription;
   private readonly messagesContainer = viewChild<ElementRef<HTMLElement>>('messagesContainer');
+  private readonly messageInput = viewChild<ElementRef<HTMLInputElement>>('messageInput');
 
   readonly currentUserId = computed(() => this.auth.currentUser()?.uid);
   readonly convo = computed(() => this.conversationService.selectedConversation());
   readonly messages = computed(() => this.messageService.activeMessages());
+
+  readonly isAdmin = computed(() => {
+    const c = this.convo();
+    const uid = this.currentUserId();
+    if (!c || !uid) return false;
+    return c.type === 'group' && c.admins?.includes(uid);
+  });
 
   // Check if DM is pending acceptance
   readonly isPending = computed(() => this.convo()?.isPending || false);
@@ -72,6 +83,7 @@ export class ChatViewComponent implements OnInit, OnDestroy {
       this.conversationService.selectConversation(id);
       this.replyingTo.set(null);
       this.text.set('');
+      this.isEmojiPickerOpen.set(false);
     });
   }
 
@@ -88,17 +100,20 @@ export class ChatViewComponent implements OnInit, OnDestroy {
     }
   }
 
+  readonly sendError = signal<string | null>(null);
+
   async send() {
     const messageText = this.text().trim();
     if (!messageText) return;
 
+    this.sendError.set(null);
     try {
       await this.messageService.sendMessage(messageText, this.replyingTo()?.id);
       this.text.set('');
       this.replyingTo.set(null);
     } catch (err: any) {
       console.error('Send failed:', err);
-      alert(err.message || 'Failed to send message.');
+      this.sendError.set(err.message || 'Failed to send message.');
     }
   }
 
@@ -133,12 +148,41 @@ export class ChatViewComponent implements OnInit, OnDestroy {
     if (!inside) {
       this.isHeaderMenuOpen.set(false);
       this.isConfirmingDelete.set(false); // reset confirm state when closing
+      this.isConfirmingDeleteForEveryone.set(false);
+      this.isEmojiPickerOpen.set(false);
+    } else {
+      const target = event.target as HTMLElement;
+      const isEmojiBtn = target.closest('[title="Add emoji"]');
+      const isEmojiPicker = target.closest('emoji-mart') || target.closest('.emoji-picker-container');
+      if (!isEmojiBtn && !isEmojiPicker) {
+        this.isEmojiPickerOpen.set(false);
+      }
     }
+  }
+
+  toggleEmojiPicker(event: Event) {
+    event.stopPropagation();
+    this.isEmojiPickerOpen.set(!this.isEmojiPickerOpen());
+  }
+
+  addEmoji(event: any) {
+    const emojiStr = event.emoji?.native;
+    if (emojiStr) {
+      this.text.set(this.text() + emojiStr);
+    }
+    // Focus back to input immediately for continuous typing
+    setTimeout(() => {
+      this.messageInput()?.nativeElement.focus();
+    }, 10);
   }
 
   toggleHeaderMenu(event: Event) {
     event.stopPropagation();
     this.isHeaderMenuOpen.set(!this.isHeaderMenuOpen());
+  }
+
+  isDarkTheme(): boolean {
+    return document.documentElement.classList.contains('dark');
   }
 
   async clearChat() {
@@ -162,6 +206,25 @@ export class ChatViewComponent implements OnInit, OnDestroy {
       await this.conversationService.deleteConversationForMe();
     } catch (err) {
       console.error('Delete conversation failed:', err);
+    }
+  }
+
+  async deleteGroupForEveryone() {
+    const activeConvo = this.convo();
+    if (!activeConvo) return;
+
+    if (!this.isConfirmingDeleteForEveryone()) {
+      this.isConfirmingDeleteForEveryone.set(true);
+      return;
+    }
+
+    // Second click — confirmed
+    this.isConfirmingDeleteForEveryone.set(false);
+    this.isHeaderMenuOpen.set(false);
+    try {
+      await this.conversationService.deleteGroupForEveryone(activeConvo.id);
+    } catch (err) {
+      console.error('Delete group failed:', err);
     }
   }
 }

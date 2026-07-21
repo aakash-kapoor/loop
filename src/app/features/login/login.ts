@@ -6,6 +6,7 @@ import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../core/firebase.config';
 import { animate } from 'motion';
 import { FormsModule } from '@angular/forms';
+import { evaluatePassphraseStrength } from '../../shared/passphrase-validator';
 
 @Component({
   selector: 'app-login',
@@ -136,8 +137,9 @@ export class Login implements AfterViewInit {
     const pass = this.recoveryPassphrase();
     const confirm = this.recoveryConfirmPassphrase();
 
-    if (pass.length < 12) {
-      this.recoveryError.set('Passphrase must be at least 12 characters.');
+    const strength = evaluatePassphraseStrength(pass);
+    if (!strength.isValid) {
+      this.recoveryError.set(strength.message || 'Passphrase is not strong enough.');
       return;
     }
     if (pass !== confirm) {
@@ -186,8 +188,9 @@ export class Login implements AfterViewInit {
     const pass = this.recoveryPassphrase();
     const confirm = this.recoveryConfirmPassphrase();
 
-    if (pass.length < 12) {
-      this.recoveryError.set('Passphrase must be at least 12 characters.');
+    const strength = evaluatePassphraseStrength(pass);
+    if (!strength.isValid) {
+      this.recoveryError.set(strength.message || 'Passphrase is not strong enough.');
       return;
     }
     if (pass !== confirm) {

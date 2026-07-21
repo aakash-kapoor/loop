@@ -73,6 +73,7 @@ export class ConversationService {
               if (
                 convo.lastMessage === 'Conversation started' ||
                 convo.lastMessage === 'Message deleted' ||
+                convo.lastMessage === 'Group deleted by admin' ||
                 convo.lastMessage === 'Group created' ||
                 convo.lastMessage.startsWith('Group "')
               ) {
@@ -129,6 +130,9 @@ export class ConversationService {
       snapshot.forEach((d) => {
         const convo = { id: d.id, ...d.data() } as Conversation;
         
+        // Hide completely if conversation is deleted for everyone
+        if (convo.deletedForEveryone) return;
+
         // Hide conversation only if user deleted it AND no new messages have arrived since
         if (convo.deletedFor?.includes(uid)) {
           const clearedAt = convo.clearedAt?.[uid] || 0;
@@ -187,6 +191,22 @@ export class ConversationService {
     await updateDoc(convoRef, {
       deletedFor: arrayUnion(user.uid),
       [`clearedAt.${user.uid}`]: Date.now() // capture fresh-start timestamp at delete time
+    });
+  }
+
+  // Delete group for everyone (Admin capability)
+  async deleteGroupForEveryone(convoId: string): Promise<void> {
+    const user = this.auth.currentUser();
+    if (!user) throw new Error('User not logged in');
+
+    this.router.navigate(['/chats']); // navigate first
+    this.selectConversation(null);    // then deselect
+
+    const convoRef = doc(db, 'conversations', convoId);
+    await updateDoc(convoRef, {
+      deletedForEveryone: true,
+      lastMessage: 'Group deleted by admin',
+      lastMessageAt: Date.now(),
     });
   }
 
@@ -332,6 +352,8 @@ export class ConversationService {
         return acc;
       }, {} as Record<string, number>),
       lastMessageEncryptionVersion: 2,
+      admins: [currentUser.uid],
+      creatorId: currentUser.uid,
     };
 
     const convoRef = await addDoc(collection(db, 'conversations'), newGroupConvo);

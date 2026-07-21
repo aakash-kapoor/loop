@@ -75,7 +75,13 @@ service cloud.firestore {
       // Any participant can update conversation metadata — covers unread
       // count resets, message-request acceptance, clearedAt/deletedFor
       // soft-delete flags, and lastMessage preview updates on send.
-      allow update: if isAuthenticated() && request.auth.uid in resource.data.participants;
+      // Crucially, the 'deletedForEveryone' flag can only be set or changed
+      // by active group administrators to prevent unauthorized wipes.
+      allow update: if isAuthenticated() && 
+        request.auth.uid in resource.data.participants && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['deletedForEveryone']) ||
+          (resource.data.type == 'group' && request.auth.uid in resource.data.admins)
+        );
 
       // Conversations are never hard-deleted from the client. "Delete for
       // me" is implemented as a soft-delete flag (deletedFor) instead, so
@@ -126,6 +132,9 @@ service cloud.firestore {
         // someone else. The 'system' sender is allowed separately for
         // auto-generated messages like "Conversation started" or
         // "Group X created", which aren't sent by any real user.
+        // SECURITY NOTE: 'system' senderId is reserved strictly for non-privileged
+        // client-side UI informational logs. App logic MUST NOT grant administrative 
+        // access or trigger privilege elevation based on senderId == 'system'.
         allow create: if isConvoParticipant(convoId) && 
           (request.auth.uid == request.resource.data.senderId ||
            request.resource.data.senderId == 'system');
