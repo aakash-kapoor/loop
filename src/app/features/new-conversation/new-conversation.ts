@@ -8,14 +8,19 @@ import { UserService } from '../../services/user.service';
 import { ConversationService } from '../../services/conversation.service';
 import { Auth } from '../../core/auth';
 import { AppUser } from '../../models/user.model';
+import { Avatar } from '../../shared/avatar/avatar';
 
 @Component({
   selector: 'app-new-conversation',
-  imports: [FormsModule, NgClass],
+  imports: [FormsModule, NgClass, Avatar],
   templateUrl: './new-conversation.html',
   styleUrl: './new-conversation.scss',
+  host: {
+    class: 'block h-full w-full min-h-0 overflow-hidden',
+  },
 })
 export class NewConversation implements OnInit, OnDestroy {
+  // Protected visibility to allow direct template binding to userService.usersCache()
   protected readonly userService = inject(UserService);
   private readonly conversationService = inject(ConversationService);
   private readonly auth = inject(Auth);

@@ -1,5 +1,5 @@
 import { Injectable, signal, OnDestroy } from '@angular/core';
-import { collection, doc, query, where, getDoc, getDocs, limit, onSnapshot } from 'firebase/firestore';
+import { collection, doc, query, where, getDoc, getDocs, limit, onSnapshot, orderBy } from 'firebase/firestore';
 import { db } from '../core/firebase.config';
 import { AppUser } from '../models/user.model';
 
@@ -83,7 +83,7 @@ export class UserService implements OnDestroy {
 
   async getSuggestedUsers(currentUserUid?: string, limitCount = 20): Promise<AppUser[]> {
     const usersRef = collection(db, 'users');
-    const q = query(usersRef, limit(limitCount));
+    const q = query(usersRef, orderBy('lastSeen', 'desc'), limit(limitCount));
     const snapshot = await getDocs(q);
     const results: AppUser[] = [];
     snapshot.forEach((d) => {

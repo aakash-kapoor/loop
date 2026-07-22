@@ -19,6 +19,7 @@
       <button 
         (click)="close.emit()" 
         class="w-8 h-8 rounded-full hover:bg-surface-2 flex items-center justify-center transition-colors text-text-muted hover:text-text-primary cursor-pointer"
+        aria-label="Close group info"
       >
         <i class="ti ti-x text-lg"></i>
       </button>
@@ -28,7 +29,7 @@
     @if (errorMessage()) {
       <div class="px-4 py-2 bg-rose-500/10 border-b border-rose-500/20 text-rose-500 text-xs font-medium flex items-center justify-between animate-fadeIn">
         <span>{{ errorMessage() }}</span>
-        <button (click)="errorMessage.set(null)" class="hover:text-rose-700">
+        <button (click)="errorMessage.set(null)" class="hover:text-rose-700" aria-label="Dismiss error">
           <i class="ti ti-x text-sm"></i>
         </button>
       </div>
@@ -51,6 +52,7 @@
                 (click)="startEditingName()" 
                 class="p-1 rounded-md text-text-muted hover:text-accent hover:bg-surface-2 transition-colors cursor-pointer"
                 title="Edit Group Name"
+                aria-label="Edit group name"
               >
                 <i class="ti ti-pencil text-sm"></i>
               </button>
@@ -60,7 +62,8 @@
           <div class="flex items-center gap-2 w-full max-w-xs">
             <input 
               type="text" 
-              [(ngModel)]="editedName" 
+              [ngModel]="editedName()" 
+              (ngModelChange)="editedName.set($event)"
               class="flex-1 px-3 py-1.5 rounded-lg bg-surface-2 border border-border-strong text-text-primary text-sm focus:outline-none focus:ring-1 focus:ring-accent"
               placeholder="Group Name"
               [disabled]="isSubmitting()"
@@ -76,6 +79,7 @@
               (click)="cancelEditingName()" 
               [disabled]="isSubmitting()"
               class="p-1.5 rounded-lg bg-surface-2 text-text-muted hover:text-text-primary text-xs cursor-pointer"
+              aria-label="Cancel editing group name"
             >
               <i class="ti ti-x text-sm"></i>
             </button>
@@ -138,7 +142,7 @@
           </span>
         </div>
 
-        <div class="flex flex-col divide-y divide-border-light bg-surface-1/40 rounded-2xl border border-border-light relative z-0">
+        <div class="flex flex-col divide-y divide-border-light bg-surface-1/40 rounded-2xl border border-border-light relative" [ngClass]="activeMemberMenuId() ? 'z-20 overflow-visible' : 'z-0'">
           @for (member of members(); track member.uid; let isLast = $last) {
             <div class="flex items-center justify-between p-3 hover:bg-surface-2/50 transition-colors relative first:rounded-t-2xl last:rounded-b-2xl">
               
@@ -176,6 +180,7 @@
                   <button 
                     (click)="toggleMemberMenu(member.uid)"
                     class="member-menu-btn w-7 h-7 rounded-lg hover:bg-surface-2 flex items-center justify-center text-text-muted hover:text-text-primary transition-colors cursor-pointer"
+                    aria-label="Member options"
                   >
                     <i class="ti ti-dots-vertical text-sm"></i>
                   </button>
@@ -183,8 +188,8 @@
                   <!-- Popup Context Menu -->
                   @if (activeMemberMenuId() === member.uid) {
                     <div 
-                      class="member-menu-popup absolute right-3 z-30 w-44 bg-surface-1 border border-border-strong rounded-xl shadow-xl p-1 flex flex-col gap-0.5 animate-fadeIn"
-                      [ngClass]="isLast ? 'bottom-10' : 'top-12'"
+                      class="member-menu-popup absolute right-3 z-50 w-44 bg-surface-1 border border-border-strong rounded-xl shadow-xl p-1 flex flex-col gap-0.5 animate-fadeIn"
+                      [ngClass]="isLast ? 'bottom-10 origin-bottom-right' : 'top-12 origin-top-right'"
                     >
                       
                       @if (!member.isAdmin) {
@@ -236,7 +241,7 @@
       <!-- Modal Header -->
       <div class="flex items-center justify-between p-4 border-b border-border-light bg-surface-1">
         <h4 class="font-semibold text-text-primary text-sm">Add Members to Group</h4>
-        <button (click)="isAddMembersOpen.set(false)" class="text-text-muted hover:text-text-primary">
+        <button (click)="isAddMembersOpen.set(false)" class="text-text-muted hover:text-text-primary" aria-label="Close modal">
           <i class="ti ti-x text-lg"></i>
         </button>
       </div>
@@ -247,7 +252,8 @@
           <i class="ti ti-search absolute left-3 top-2.5 text-text-muted text-sm"></i>
           <input 
             type="text" 
-            [(ngModel)]="userSearchQuery" 
+            [ngModel]="userSearchQuery()" 
+            (ngModelChange)="userSearchQuery.set($event)"
             (input)="onSearchUsers()" 
             placeholder="Search users by name..."
             class="w-full pl-9 pr-3 py-2 rounded-xl bg-surface-1 border border-border-light text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"

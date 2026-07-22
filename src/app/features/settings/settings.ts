@@ -8,6 +8,9 @@ import { Auth } from '../../core/auth';
   imports: [NgClass, RouterLink],
   templateUrl: './settings.html',
   styleUrl: './settings.scss',
+  host: {
+    class: 'block h-full w-full min-h-0 overflow-hidden',
+  },
 })
 export class Settings implements OnInit {
   private readonly auth = inject(Auth);

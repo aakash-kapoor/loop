@@ -21,20 +21,20 @@
 <ng-template #listTemplate>
   <div class="flex flex-col h-full bg-surface-0 w-full overflow-hidden">
     <!-- Sidebar Header -->
-    <div class="flex items-center justify-between p-4 flex-shrink-0 border-b border-border-light">
+    <div class="flex items-center justify-between p-4 flex-shrink-0 border-b border-border-light/60 bg-surface-0/80 backdrop-blur-xl">
       <span class="text-xl font-display font-bold tracking-tight text-text-primary">Loop</span>
       <div class="flex items-center gap-2">
-        <a routerLink="/new" class="w-8 h-8 rounded-full hover:bg-surface-1 text-text-secondary flex items-center justify-center transition-colors cursor-pointer active-press" title="New conversation">
+        <a routerLink="/new" class="w-8 h-8 rounded-full hover:bg-surface-1 text-text-secondary flex items-center justify-center transition-colors cursor-pointer active-press" title="New conversation" aria-label="New conversation">
           <i class="ti ti-plus text-lg"></i>
         </a>
-        <a routerLink="/settings" class="w-8 h-8 rounded-full hover:bg-surface-1 text-text-secondary flex items-center justify-center transition-colors cursor-pointer active-press" title="Settings">
+        <a routerLink="/settings" class="w-8 h-8 rounded-full hover:bg-surface-1 text-text-secondary flex items-center justify-center transition-colors cursor-pointer active-press" title="Settings" aria-label="Settings">
           <i class="ti ti-settings text-lg"></i>
         </a>
       </div>
     </div>
 
     <!-- Scrollable Chat List -->
-    <div class="flex-1 overflow-y-auto">
+    <div class="flex-1 min-h-0 overflow-y-auto pb-24 md:pb-0">
       @if (conversations().length === 0) {
         <div class="flex flex-col items-center justify-center p-8 text-center text-text-muted mt-8">
           <div class="w-12 h-12 bg-surface-1 rounded-xl flex items-center justify-center text-text-muted text-xl mb-3 border border-border-light">

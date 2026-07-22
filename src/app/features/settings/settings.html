@@ -1,18 +1,18 @@
 <div class="flex flex-col h-full bg-bg-main overflow-hidden w-full relative">
   <!-- Top Bar -->
   <div class="flex items-center gap-2 px-4 py-3 border-b border-border-light bg-surface-0 flex-shrink-0 z-10">
-    <button (click)="goBack()" class="text-accent hover:bg-surface-1 w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer mr-1">
+    <button (click)="goBack()" class="text-accent hover:bg-surface-1 w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer mr-1" aria-label="Go back">
       <i class="ti ti-arrow-left text-xl"></i>
     </button>
     <h1 class="text-base font-semibold text-text-primary font-display">Settings</h1>
   </div>
 
   <!-- Scrollable Settings Container -->
-  <div class="flex-1 overflow-y-auto p-4 flex flex-col gap-6">
+  <div class="flex-1 min-h-0 overflow-y-auto p-4 pb-24 space-y-6">
     
     <!-- Profile Summary Card -->
     @if (currentUser()) {
-      <div class="flex items-center gap-4 p-4 bg-surface-0 border border-border-light rounded-3xl shadow-sm">
+      <div class="flex items-center gap-4 p-4 bg-surface-0 border border-border-light rounded-3xl shadow-sm flex-shrink-0">
         <!-- Avatar/Initials -->
         @if (currentUser()?.photoURL) {
           <img [src]="currentUser()?.photoURL" alt="Profile avatar" class="w-14 h-14 rounded-full object-cover border border-border-light shadow-sm" />
@@ -35,7 +35,7 @@
     }
 
     <!-- Preference Options -->
-    <div class="flex flex-col bg-surface-0 border border-border-light rounded-3xl overflow-hidden shadow-sm">
+    <div class="flex flex-col bg-surface-0 border border-border-light rounded-3xl overflow-hidden shadow-sm flex-shrink-0">
       <div class="px-4 pt-3.5 pb-1 select-none">
         <span class="text-[10px] font-bold uppercase tracking-wider text-text-muted">Preferences</span>
       </div>
@@ -112,7 +112,7 @@
       <!-- Option Row: Share Last Seen -->
       <div 
         (click)="toggleShowLastSeen()"
-        class="flex items-center justify-between px-4 py-3.5 hover:bg-surface-1/40 cursor-pointer transition-colors"
+        class="flex items-center justify-between px-4 py-4 hover:bg-surface-1/40 cursor-pointer transition-colors"
       >
         <div class="flex items-center gap-3">
           <div class="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
@@ -137,7 +137,7 @@
     </div>
 
     <!-- Legal & About Section -->
-    <div class="flex flex-col bg-surface-0 border border-border-light rounded-3xl overflow-hidden shadow-sm">
+    <div class="flex flex-col bg-surface-0 border border-border-light rounded-3xl overflow-hidden shadow-sm flex-shrink-0">
       <div class="px-4 pt-3.5 pb-1 select-none">
         <span class="text-[10px] font-bold uppercase tracking-wider text-text-muted">Legal & Information</span>
       </div>
@@ -172,7 +172,7 @@
     </div>
 
     <!-- Account Actions -->
-    <div class="flex flex-col bg-surface-0 border border-border-light rounded-3xl overflow-hidden shadow-sm">
+    <div class="flex flex-col bg-surface-0 border border-border-light rounded-3xl overflow-hidden shadow-sm flex-shrink-0">
       <div class="px-4 pt-3.5 pb-1 select-none">
         <span class="text-[10px] font-bold uppercase tracking-wider text-text-muted">Account</span>
       </div>

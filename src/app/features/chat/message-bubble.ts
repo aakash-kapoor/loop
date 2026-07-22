@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, inject, computed, signal, HostListener, ElementRef } from '@angular/core';
+import { Component, Input, Output, EventEmitter, inject, computed, signal, HostListener, ElementRef, OnDestroy } from '@angular/core';
 import { DatePipe, NgClass } from '@angular/common';
 import { Message } from '../../models/message.model';
 import { Auth } from '../../core/auth';
@@ -12,7 +12,7 @@ import { Avatar } from '../../shared/avatar/avatar';
   templateUrl: './message-bubble.html',
   styleUrl: './message-bubble.scss',
 })
-export class MessageBubble {
+export class MessageBubble implements OnDestroy {
   readonly messageSignal = signal<Message | null>(null);
 
   // Track tap-to-open state for mobile devices
@@ -198,6 +198,12 @@ export class MessageBubble {
     const fifteenMinutes = 15 * 60 * 1000;
     return Date.now() - createdAt < fifteenMinutes;
   });
+
+  ngOnDestroy() {
+    if (this.clockInterval) {
+      clearInterval(this.clockInterval);
+    }
+  }
 
   async deleteForMe() {
     const msg = this.messageSignal();

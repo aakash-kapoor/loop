@@ -104,12 +104,18 @@ service cloud.firestore {
         // envelopes aren't even exposed for inspection.
         allow read: if isAuthenticated() && request.auth.uid == envelopeUid;
 
-        // Any active participant can create or update key envelopes for the group — needed
-        // when creating a group, adding new members, or re-adding previously departed members.
-        allow create, update: if isAuthenticated() && 
+        // Any active participant can CREATE envelopes for the group —
+        // needed when creating a conversation or adding new members.
+        // Envelopes are intentionally immutable once written (no update).
+        // If a key needs rotating in the future (e.g. after member removal),
+        // the correct approach is to model it as a new versioned collection
+        // (keys_v2/, etc.) rather than overwriting existing envelopes,
+        // since an overwrite would silently break decryption for anyone
+        // whose cached key no longer matches the envelope on disk.
+        allow create: if isAuthenticated() && 
           request.auth.uid in get(/databases/$(database)/documents/conversations/$(convoId)).data.participants;
 
-        allow delete: if false;
+        allow update, delete: if false;
       }
 
       // -------------------------------------------------------------

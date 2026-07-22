@@ -136,7 +136,7 @@
               <button 
                 (click)="restoreKey()" 
                 [disabled]="isRestoring() || !recoveryPassphrase()"
-                class="w-full py-3 px-5 bg-accent hover:bg-accent-hover disabled:bg-surface-2 disabled:text-text-muted text-white font-medium rounded-2xl flex items-center justify-center gap-2 transition-all duration-200 shadow-md shadow-accent/15 cursor-pointer disabled:cursor-not-allowed select-none text-sm"
+                class="w-full py-3 px-5 bg-accent hover:bg-accent-hover disabled:opacity-50 text-white font-medium rounded-2xl flex items-center justify-center gap-2 transition-all duration-200 shadow-md shadow-accent/15 cursor-pointer disabled:cursor-not-allowed select-none text-sm"
               >
                 @if (isRestoring()) {
                   <i class="ti ti-loader-2 animate-spin text-base"></i>
@@ -231,7 +231,7 @@
           <!-- Checking backup state loader -->
           <div class="flex flex-col items-center justify-center py-6 gap-3">
             <i class="ti ti-loader-2 animate-spin text-accent text-3xl"></i>
-            <span class="text-xs text-text-secondary animate-pulse">Securing connection...</span>
+            <span class="text-xs text-text-primary font-medium animate-pulse">Securing connection...</span>
           </div>
         }
       </div>
@@ -253,14 +253,14 @@
         #actionBtn 
         (click)="signIn()" 
         [disabled]="isLoggingIn()"
-        class="w-full py-3.5 px-5 bg-accent hover:bg-accent-hover disabled:bg-surface-2 disabled:text-text-muted disabled:shadow-none disabled:cursor-not-allowed text-white font-medium rounded-2xl flex items-center justify-center gap-3 transition-colors duration-200 shadow-md shadow-accent/15 cursor-pointer select-none"
+        class="w-full py-3.5 px-5 bg-accent-gradient hover:opacity-95 disabled:opacity-75 disabled:shadow-none disabled:cursor-not-allowed text-white font-medium rounded-2xl flex items-center justify-center gap-3 transition-all duration-200 shadow-lg shadow-indigo-500/25 cursor-pointer select-none active-press"
       >
         @if (isLoggingIn()) {
-          <i class="ti ti-loader-2 animate-spin text-xl"></i>
-          <span>Connecting…</span>
+          <i class="ti ti-loader-2 animate-spin text-xl text-white"></i>
+          <span class="text-white font-semibold">Connecting…</span>
         } @else {
-          <i class="ti ti-brand-google text-xl"></i>
-          <span>Sign in with Google</span>
+          <i class="ti ti-brand-google text-xl text-white"></i>
+          <span class="text-white font-semibold">Sign in with Google</span>
         }
       </button>
 

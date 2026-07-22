@@ -432,41 +432,80 @@ export class MessageService {
     }
   }
 
-  // Self-heal E2EE key distribution if envelope subcollection is missing in Firestore
+  // Self-heal E2EE key distribution transactionally if envelope subcollection is missing in Firestore
   private async selfHealGroupKeys(convoId: string, participants: string[]): Promise<CryptoKey> {
-    const userRefs = participants.map((pId) => doc(db, 'users', pId));
-    const userSnaps = await Promise.all(userRefs.map((ref) => getDoc(ref)));
-
-    const publicKeys = userSnaps.map((snap, index) => {
-      const pId = participants[index];
-      if (!snap.exists()) {
-        throw new Error('User profile not found');
-      }
-      const uData = snap.data();
-      if (!uData['publicKey']) {
-        const name = uData['displayName'] || uData['username'] || 'User';
-        throw new Error(`Cannot encrypt chat: ${name} needs to setup encryption first.`);
-      }
-      return { uid: pId, pk: uData['publicKey'] };
-    });
-
+    // ── Phase 1: All async crypto BEFORE the transaction ─────────────────────
+    // RSA-OAEP encrypt operations can take 10-50ms each on slow devices.
+    // Running them inside the Firestore transaction window (typically ~5s)
+    // risks a spurious timeout-abort on larger groups. Pre-compute everything
+    // so the transaction only does reads + synchronous writes.
     const newAesKey = await this.cryptoService.generateGroupKey();
 
-    await Promise.all(
-      publicKeys.map(async ({ uid, pk }) => {
-        const envelopeRef = doc(db, 'conversations', convoId, 'keys', uid);
-        const envelopeSnap = await getDoc(envelopeRef);
-        if (!envelopeSnap.exists()) {
-          const encryptedKey = await this.cryptoService.encryptGroupKey(newAesKey, pk);
-          await setDoc(envelopeRef, { encryptedKey });
+    const publicKeys = await Promise.all(
+      participants.map(async (uid) => {
+        const userSnap = await getDoc(doc(db, 'users', uid));
+        if (!userSnap.exists()) throw new Error('User profile not found');
+        const uData = userSnap.data();
+        if (!uData['publicKey']) {
+          const name = uData['displayName'] || uData['username'] || 'User';
+          throw new Error(`Cannot encrypt chat: ${name} needs to setup encryption first.`);
         }
+        return { uid, pk: uData['publicKey'] };
       })
     );
 
-    const convoRef = doc(db, 'conversations', convoId);
-    await updateDoc(convoRef, { lastMessageEncryptionVersion: 2 });
+    const encryptedKeys = await Promise.all(
+      publicKeys.map(async ({ uid, pk }) => ({
+        uid,
+        encryptedKey: await this.cryptoService.encryptGroupKey(newAesKey, pk),
+      }))
+    );
 
-    this.cryptoService.groupKeysCache.set(convoId, newAesKey);
-    return newAesKey;
+    // ── Phase 2: Transaction does reads + writes only — no async crypto ───────
+    try {
+      const resultKey = await runTransaction(db, async (transaction) => {
+        const currentUser = this.auth.currentUser();
+        if (!currentUser) throw new Error('User not authenticated');
+
+        const convoRef = doc(db, 'conversations', convoId);
+        const convoSnap = await transaction.get(convoRef);
+
+        // The only safe abort signal is whether MY envelope actually exists —
+        // not the version flag. The version can be 2 while envelopes are missing
+        // (e.g. data corruption, manual deletion, or a previous partial write).
+        // Aborting on version alone would leave us unable to decrypt anything.
+        const myEnvelopeRef = doc(db, 'conversations', convoId, 'keys', currentUser.uid);
+        const myEnvelopeSnap = await transaction.get(myEnvelopeRef);
+        if (myEnvelopeSnap.exists()) {
+          return null; // Envelope exists and is readable — fetch it externally
+        }
+
+        // All reads done — now write synchronously (no async allowed after this)
+        for (const { uid, encryptedKey } of encryptedKeys) {
+          const envelopeRef = doc(db, 'conversations', convoId, 'keys', uid);
+          transaction.set(envelopeRef, { encryptedKey });
+        }
+
+        // Update version only if it was not already 2 (avoids a no-op write on
+        // the conversation doc when only some envelopes were missing)
+        if ((convoSnap.data()?.['lastMessageEncryptionVersion'] ?? 0) !== 2) {
+          transaction.update(convoRef, { lastMessageEncryptionVersion: 2 });
+        }
+
+        return newAesKey;
+      });
+
+      if (resultKey === null) {
+        const existingKey = await this.cryptoService.getOrDecryptConversationKey(convoId);
+        if (!existingKey) throw new Error('Failed to resolve self-healed E2EE key');
+        return existingKey;
+      }
+
+      this.cryptoService.groupKeysCache.set(convoId, resultKey);
+      return resultKey;
+    } catch (err: any) {
+      console.error('Transactional self-heal failed:', err);
+      throw err;
+    }
   }
 }

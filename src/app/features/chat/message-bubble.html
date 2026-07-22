@@ -117,8 +117,8 @@
       <div (click)="toggleMenu($event)"
         class="px-3.5 py-2.5 shadow-sm text-sm break-words leading-relaxed rounded-2xl cursor-pointer select-none transition-all duration-200"
         [ngClass]="{
-              'bg-accent text-white rounded-tr-sm': isOutgoing(),
-              'bg-surface-1 border border-border-light text-text-primary rounded-tl-sm': !isOutgoing(),
+              'bg-accent-gradient text-white rounded-tr-sm shadow-md shadow-indigo-500/15 font-sans': isOutgoing(),
+              'bg-surface-1 border border-border-light/80 text-text-primary rounded-tl-sm font-sans': !isOutgoing(),
               'rounded-t-none': replyToMessage,
               'ring-2 ring-amber-400/80 dark:ring-amber-400/60 shadow-md shadow-amber-500/10': isCurrentMentioned()
             }">

@@ -13,11 +13,11 @@
     } @else {
     <!-- Chat Header -->
     <div
-      class="flex items-center gap-3 px-4 py-3 border-b border-border-light bg-surface-0/80 backdrop-blur-md flex-shrink-0 z-10">
+      class="flex items-center gap-3 px-4 py-3 border-b border-border-light/60 bg-surface-0/75 backdrop-blur-xl flex-shrink-0 z-10">
       <!-- Close / Back button -->
       <button (click)="goBack()"
         class="text-text-secondary hover:text-accent hover:bg-surface-1 w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer mr-1 active-press"
-        title="Close chat">
+        title="Close chat" aria-label="Close chat">
         <i class="ti ti-chevron-left text-lg"></i>
       </button>
 
@@ -54,7 +54,7 @@
         <button (click)="toggleSearch()"
           class="w-8 h-8 rounded-full hover:bg-surface-1 flex items-center justify-center transition-colors cursor-pointer text-text-muted hover:text-accent active-press"
           [ngClass]="{'text-accent bg-surface-1': isSearchOpen()}"
-          title="Search messages (Ctrl+F)">
+          title="Search messages (Ctrl+F)" aria-label="Search messages">
           <i class="ti ti-search text-lg"></i>
         </button>
 
@@ -62,14 +62,14 @@
         <!-- Group Chat: Info Icon directly opens Group Info Drawer -->
         <button (click)="isGroupInfoOpen.set(true)"
           class="w-8 h-8 rounded-full hover:bg-surface-1 text-text-muted hover:text-accent flex items-center justify-center transition-colors cursor-pointer active-press"
-          title="Group info">
+          title="Group info" aria-label="Group info">
           <i class="ti ti-info-circle text-xl"></i>
         </button>
         } @else {
         <!-- Direct Chat (DM): 3-Dot Menu -->
         <button (click)="toggleHeaderMenu($event)"
           class="w-8 h-8 rounded-full hover:bg-surface-1 flex items-center justify-center transition-colors cursor-pointer active-press"
-          title="Chat settings">
+          title="Chat settings" aria-label="Chat settings">
           <i class="ti ti-dots-vertical text-lg"></i>
         </button>
 
@@ -108,7 +108,7 @@
           @if (searchQuery()) {
           <button (click)="searchQuery.set('')"
             class="absolute right-2 text-text-muted hover:text-text-primary p-1 rounded-full cursor-pointer transition-colors"
-            title="Clear text">
+            title="Clear text" aria-label="Clear search text">
             <i class="ti ti-x text-xs"></i>
           </button>
           }
@@ -130,12 +130,12 @@
 
           <button (click)="prevMatch()" [disabled]="matchingMessages().length === 0"
             class="w-7 h-7 rounded-lg hover:bg-surface-1 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-text-secondary transition-colors cursor-pointer"
-            title="Previous match (Shift+Enter)">
+            title="Previous match (Shift+Enter)" aria-label="Previous match">
             <i class="ti ti-chevron-up text-sm"></i>
           </button>
           <button (click)="nextMatch()" [disabled]="matchingMessages().length === 0"
             class="w-7 h-7 rounded-lg hover:bg-surface-1 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-text-secondary transition-colors cursor-pointer"
-            title="Next match (Enter)">
+            title="Next match (Enter)" aria-label="Next match">
             <i class="ti ti-chevron-down text-sm"></i>
           </button>
 
@@ -143,7 +143,7 @@
 
           <button (click)="closeSearch()"
             class="w-7 h-7 rounded-lg hover:bg-surface-1 flex items-center justify-center text-text-muted hover:text-text-primary transition-colors cursor-pointer"
-            title="Close search (Esc)">
+            title="Close search (Esc)" aria-label="Close search">
             <i class="ti ti-x text-sm"></i>
           </button>
         </div>
@@ -158,7 +158,7 @@
     }
 
     <!-- Messages Container -->
-    <div #messagesContainer class="flex-1 overflow-y-auto px-4 py-3 flex flex-col bg-bg-main scroll-smooth">
+    <div #messagesContainer class="flex-1 overflow-y-auto px-4 py-3 flex flex-col bg-bg-main bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-accent/5 via-transparent to-transparent scroll-smooth">
       @if (messages().length === 0) {
       <div class="flex-1 flex flex-col items-center justify-center text-text-muted/60 p-8 select-none">
         <i class="ti ti-message-2 text-4xl mb-2 text-border-strong/60 animate-pulse"></i>
@@ -189,16 +189,15 @@
         connect with you. Accepting this request allows them to start messaging and see read receipts.
       </p>
       <button (click)="acceptRequest()"
-        class="w-full max-w-xs py-2.5 px-4 bg-accent hover:bg-accent-hover text-white text-xs font-bold rounded-2xl transition-all duration-200 shadow-md shadow-accent/15 cursor-pointer text-center select-none">
+        class="w-full max-w-xs py-2.5 px-4 bg-accent-gradient hover:opacity-95 text-white text-xs font-bold rounded-2xl transition-all duration-200 shadow-md shadow-indigo-500/20 cursor-pointer text-center select-none active-press">
         Accept Request
       </button>
     </div>
     }
 
-    <!-- Input Bar -->
-    <!-- Input is active if not pending, or if it is pending but initiated by ME -->
+    <!-- Bottom Input Dock -->
     @if (!isPending() || initiatedByMe()) {
-    <div class="flex flex-col border-t border-border-light bg-surface-0 flex-shrink-0 relative">
+    <div class="flex flex-col border-t border-border-light/60 bg-surface-0/75 backdrop-blur-xl flex-shrink-0 relative">
 
       <!-- Reply Target Preview Bar -->
       @if (replyingTo()) {
@@ -211,7 +210,8 @@
           <span class="truncate italic font-normal">"{{ replyingTo()?.text }}"</span>
         </div>
         <button (click)="cancelReply()"
-          class="w-6 h-6 rounded-full hover:bg-surface-2 flex items-center justify-center transition-colors cursor-pointer">
+          class="w-6 h-6 rounded-full hover:bg-surface-2 flex items-center justify-center transition-colors cursor-pointer"
+          aria-label="Cancel reply">
           <i class="ti ti-x text-sm text-text-muted"></i>
         </button>
       </div>
@@ -226,7 +226,8 @@
           <span>{{ sendError() }}</span>
         </div>
         <button (click)="sendError.set(null)"
-          class="p-1 hover:bg-rose-500/20 rounded-full cursor-pointer transition-colors">
+          class="p-1 hover:bg-rose-500/20 rounded-full cursor-pointer transition-colors"
+          aria-label="Dismiss error">
           <i class="ti ti-x text-xs"></i>
         </button>
       </div>
@@ -275,7 +276,7 @@
         <!-- Emoji trigger button -->
         <button (click)="toggleEmojiPicker($event)"
           class="w-10 h-10 rounded-full hover:bg-surface-1 text-text-muted hover:text-text-secondary flex items-center justify-center transition-colors cursor-pointer flex-shrink-0 active-press"
-          title="Add emoji">
+          title="Add emoji" aria-label="Add emoji">
           <i class="ti ti-mood-smile text-lg"></i>
         </button>
 
@@ -283,7 +284,11 @@
           [disabled]="isPending() && initiatedByMe()"
           class="flex-1 px-4 py-3 bg-surface-1/50 border border-border-light rounded-full text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent focus:bg-surface-0 transition-all" />
         <button (click)="send()" [disabled]="!text().trim() || (isPending() && initiatedByMe())"
-          class="w-10 h-10 rounded-full bg-accent hover:bg-accent-hover disabled:bg-surface-2 disabled:text-text-muted text-white flex items-center justify-center transition-all duration-200 flex-shrink-0 cursor-pointer disabled:cursor-not-allowed shadow-md shadow-accent/15 disabled:shadow-none active-press">
+          class="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 flex-shrink-0 select-none"
+          [ngClass]="text().trim() && !(isPending() && initiatedByMe()) 
+            ? 'bg-accent-gradient text-white shadow-md shadow-indigo-500/25 hover:opacity-95 cursor-pointer active-press' 
+            : 'bg-surface-1 text-text-muted/50 border border-border-light/40 cursor-not-allowed opacity-60'"
+          aria-label="Send message">
           <i class="ti ti-send text-base"></i>
         </button>
       </div>

@@ -76,7 +76,7 @@ export class ConversationService {
         const convoRef = doc(db, 'conversations', convoId);
         updateDoc(convoRef, {
           [`unreadCount.${currentUser.uid}`]: 0,
-        }).catch(() => {});
+        }).catch(() => { });
       }
     });
   }
@@ -90,7 +90,7 @@ export class ConversationService {
         rawList.map(async (convo) => {
           if (convo.lastMessage && convo.lastMessageEncryptionVersion === 2) {
             // Bypass decryption if it is a known plaintext system message
-            const isKnownSystemString = 
+            const isKnownSystemString =
               convo.lastMessage === 'Conversation started' ||
               convo.lastMessage === 'Message deleted' ||
               convo.lastMessage === 'Group deleted by admin' ||
@@ -141,7 +141,7 @@ export class ConversationService {
 
       snapshot.forEach((d) => {
         const convo = { id: d.id, ...d.data() } as Conversation;
-        
+
         // Hide completely if conversation is deleted for everyone
         if (convo.deletedForEveryone) return;
 
@@ -204,7 +204,13 @@ export class ConversationService {
     });
   }
 
-  // Delete group for everyone (Admin capability)
+  /**
+   * Delete group for everyone (Admin capability with client-side & server-side guard).
+   * Note: Production Firestore rule for updating deletedForEveryone:
+   *   allow update: if isAuthenticated() &&
+   *     request.auth.uid in resource.data.admins &&
+   *     request.resource.data.deletedForEveryone == true;
+   */
   async deleteGroupForEveryone(convoId: string): Promise<void> {
     const user = this.auth.currentUser();
     if (!user) throw new Error('User not logged in');
@@ -259,7 +265,7 @@ export class ConversationService {
     participants: string[]
   ): Promise<CryptoKey> {
     const aesKey = await this.cryptoService.generateGroupKey();
-    
+
     // Fetch all public keys in parallel directly from Firestore (no cache)
     const publicKeys = await Promise.all(
       participants.map(async (uid) => {
@@ -267,7 +273,7 @@ export class ConversationService {
         return { uid, pk };
       })
     );
-    
+
     // Encrypt the AES key for each participant and write envelopes
     await Promise.all(
       publicKeys.map(async ({ uid, pk }) => {
@@ -276,7 +282,7 @@ export class ConversationService {
         await setDoc(envelopeRef, { encryptedKey });
       })
     );
-    
+
     // Cache the AES key locally
     this.cryptoService.groupKeysCache.set(convoId, aesKey);
     return aesKey;
@@ -424,38 +430,47 @@ export class ConversationService {
   async addMembersToGroup(convoId: string, newUids: string[]): Promise<void> {
     const currentUser = this.auth.currentUser();
     if (!currentUser) throw new Error('User not logged in');
-
     if (!newUids.length) return;
 
     // Verify all new users have E2EE public keys
-    await Promise.all(newUids.map(uid => this.fetchUserPublicKey(uid)));
+    const publicKeys = await Promise.all(
+      newUids.map(async (uid) => ({ uid, pk: await this.fetchUserPublicKey(uid) }))
+    );
 
-    const convoRef = doc(db, 'conversations', convoId);
-    const convoSnap = await getDoc(convoRef);
-    if (!convoSnap.exists()) throw new Error('Group conversation not found');
-
-    // Update participants list
-    await updateDoc(convoRef, {
-      participants: arrayUnion(...newUids),
-    });
-
-    // Retrieve active AES key for group conversation
+    // Retrieve active AES key for this conversation
     const aesKey = await this.cryptoService.getOrDecryptConversationKey(convoId);
     if (aesKey) {
-      // Encrypt and upload key envelopes for new members
-      const publicKeys = await Promise.all(
-        newUids.map(async (uid) => ({ uid, pk: await this.fetchUserPublicKey(uid) }))
-      );
+      // 1. Write envelopes FIRST for each member.
+      //    For new members this is a create (succeeds).
+      //    For re-added members the envelope path already exists — setDoc fires as an
+      //    update which the rule denies (allow update: if false). We catch that specific
+      //    error and silently skip it: the existing envelope is still valid because the
+      //    conversation's AES key never rotated, so the re-added member can still decrypt.
       await Promise.all(
         publicKeys.map(async ({ uid, pk }) => {
-          const encryptedKey = await this.cryptoService.encryptGroupKey(aesKey, pk);
           const envelopeRef = doc(db, 'conversations', convoId, 'keys', uid);
-          await setDoc(envelopeRef, { encryptedKey }, { merge: true });
+          try {
+            const encryptedKey = await this.cryptoService.encryptGroupKey(aesKey, pk);
+            await setDoc(envelopeRef, { encryptedKey });
+          } catch (err: any) {
+            // Envelope already exists (permission-denied on update) — existing key is still valid.
+            if (err?.code === 'permission-denied') {
+              console.info(`Envelope for ${uid} already exists — re-added member retains valid key.`);
+            } else {
+              throw err; // Propagate unexpected errors
+            }
+          }
         })
       );
     }
 
-    // Fetch new user display names for system message
+    // 2. Only after envelopes are written, add to participants
+    const convoRef = doc(db, 'conversations', convoId);
+    await updateDoc(convoRef, {
+      participants: arrayUnion(...newUids),
+    });
+
+    // 3. System message
     const addedUsers = await Promise.all(
       newUids.map(async (uid) => {
         const userSnap = await getDoc(doc(db, 'users', uid));
@@ -465,8 +480,7 @@ export class ConversationService {
     );
 
     const adminName = currentUser.displayName || currentUser.username || 'Admin';
-    const addedNames = addedUsers.join(', ');
-    await this.createSystemMessage(convoId, `${adminName} added ${addedNames} to the group`);
+    await this.createSystemMessage(convoId, `${adminName} added ${addedUsers.join(', ')} to the group`);
   }
 
   async removeMemberFromGroup(convoId: string, memberUid: string): Promise<void> {
@@ -515,17 +529,26 @@ export class ConversationService {
     const remainingParticipants = convo.participants.filter(id => id !== currentUser.uid);
     const remainingAdmins = (convo.admins || []).filter(id => id !== currentUser.uid);
 
+    // Remove leaving user from participants and admins
     const updates: Record<string, any> = {
       participants: arrayRemove(currentUser.uid),
       admins: arrayRemove(currentUser.uid),
     };
-
-    if (remainingParticipants.length > 0 && remainingAdmins.length === 0) {
-      const newAdmin = remainingParticipants[0];
-      updates['admins'] = arrayUnion(newAdmin);
-    }
-
     await updateDoc(convoRef, updates);
+
+    // Promote new admin in a separate write if no remaining admins exist
+    if (remainingParticipants.length > 0 && remainingAdmins.length === 0) {
+      const freshSnap = await getDoc(convoRef);
+      if (freshSnap.exists()) {
+        const freshData = freshSnap.data() as Conversation;
+        const freshRemaining = (freshData.participants || []).filter((id) => id !== currentUser.uid);
+        if (freshRemaining.length > 0) {
+          await updateDoc(convoRef, {
+            admins: arrayUnion(freshRemaining[0]),
+          });
+        }
+      }
+    }
 
     this.router.navigate(['/chats']);
     this.selectConversation(null);
@@ -640,15 +663,14 @@ export class ConversationService {
 
       await this.userService.fetchParticipantProfiles(uids);
 
-      const profiles: AppUser[] = [];
-      for (const uid of uids) {
-        const p = await this.userService.getUserProfile(uid);
-        if (p) {
-          profiles.push(p);
-        }
-      }
+      const profiles = await Promise.all(
+        uids.map(async (uid) => {
+          const snap = await getDoc(doc(db, 'users', uid));
+          return snap.exists() ? (snap.data() as AppUser) : null;
+        })
+      );
 
-      return profiles;
+      return profiles.filter(Boolean) as AppUser[];
     } catch (err) {
       console.warn('Failed to fetch recent contacts:', err);
       return [];

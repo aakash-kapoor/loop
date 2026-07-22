@@ -11,6 +11,9 @@ import { ConversationItem } from './conversation-item/conversation-item';
   imports: [RouterLink, ConversationItem, NgTemplateOutlet],
   templateUrl: './conversation-list.html',
   styleUrl: './conversation-list.scss',
+  host: {
+    class: 'block h-full w-full min-h-0 overflow-hidden',
+  },
 })
 export class ConversationList {
   @Input() isSidebar = false;

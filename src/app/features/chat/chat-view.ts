@@ -21,6 +21,9 @@ import { ConfirmModal } from '../../shared/confirm-modal/confirm-modal';
   imports: [FormsModule, MessageBubble, NgClass, Avatar, PickerComponent, GroupInfoModal, ConfirmModal],
   templateUrl: './chat-view.html',
   styleUrl: './chat-view.scss',
+  host: {
+    class: 'block h-full w-full min-h-0 overflow-hidden',
+  },
 })
 export class ChatViewComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);

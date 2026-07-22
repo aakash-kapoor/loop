@@ -134,7 +134,7 @@
       <button 
         (click)="submitUsername()" 
         [disabled]="!isAvailable() || isChecking() || isSubmitting()"
-        class="w-full mt-4 py-3.5 px-5 bg-accent hover:bg-accent-hover disabled:bg-surface-2 disabled:text-text-muted text-white font-medium rounded-2xl flex items-center justify-center gap-2 transition-all duration-200 shadow-md shadow-accent/15 disabled:shadow-none cursor-pointer disabled:cursor-not-allowed select-none"
+        class="w-full mt-4 py-3.5 px-5 bg-accent hover:bg-accent-hover disabled:opacity-50 text-white font-medium rounded-2xl flex items-center justify-center gap-2 transition-all duration-200 shadow-md shadow-accent/15 disabled:shadow-none cursor-pointer disabled:cursor-not-allowed select-none"
       >
         @if (isSubmitting()) {
           <i class="ti ti-loader-2 animate-spin text-lg"></i>

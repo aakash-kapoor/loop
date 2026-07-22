@@ -89,9 +89,6 @@ export class GroupInfoModal implements OnInit {
     const cache = this.userService.usersCache();
     const currentUser = this.auth.currentUser();
 
-    // Ensure profiles are subscribed for all current participants
-    this.userService.fetchParticipantProfiles(convo.participants);
-
     return convo.participants.map((uid) => {
       const isSelf = uid === currentUser?.uid;
       const user = cache[uid] || (isSelf && currentUser ? currentUser : null) || {
