@@ -238,14 +238,35 @@ export class MessageService {
     if (!hasKeys) {
       // Transactional E2EE upgrade for legacy chats
       try {
+        // Pre-compute crypto outside transaction — RSA operations risk timing out inside the transaction window
+        const publicKeys = await Promise.all(
+          convo.participants.map(async (pId) => {
+            const userSnap = await getDoc(doc(db, 'users', pId));
+            if (!userSnap.exists()) throw new Error('User profile not found');
+            const uData = userSnap.data();
+            if (!uData['publicKey']) {
+              const name = uData['displayName'] || uData['username'] || 'User';
+              throw new Error(`E2EE_UPGRADE_REQUIRED:${name}`);
+            }
+            return { uid: pId, pk: uData['publicKey'] };
+          })
+        );
+
+        const newAesKey = await this.cryptoService.generateGroupKey();
+        const encryptedKeys = await Promise.all(
+          publicKeys.map(async ({ uid, pk }) => ({
+            uid,
+            encryptedKey: await this.cryptoService.encryptGroupKey(newAesKey, pk),
+          }))
+        );
+
         aesKey = await runTransaction(db, async (transaction) => {
-          // IMPORTANT: All transaction reads must be executed before writes!
           const convoRef = doc(db, 'conversations', convoId);
           const convoSnap = await transaction.get(convoRef);
           if (!convoSnap.exists()) {
             throw new Error('Conversation document not found');
           }
-          
+
           const convoData = convoSnap.data();
           const version = convoData['lastMessageEncryptionVersion'] || 0;
 
@@ -254,29 +275,8 @@ export class MessageService {
             return null;
           }
 
-          // Fetch public keys for all participants to distribute the keys
-          const userRefs = convo.participants.map(pId => doc(db, 'users', pId));
-          const userSnaps = await Promise.all(userRefs.map(ref => transaction.get(ref)));
-
-          const publicKeys = userSnaps.map((snap, index) => {
-            const pId = convo.participants[index];
-            if (!snap.exists()) {
-              throw new Error('User profile not found');
-            }
-            const uData = snap.data();
-            if (!uData['publicKey']) {
-              const name = uData['displayName'] || uData['username'] || 'User';
-              throw new Error(`E2EE_UPGRADE_REQUIRED:${name}`);
-            }
-            return { uid: pId, pk: uData['publicKey'] };
-          });
-
-          // Generate E2EE Group Master Key
-          const newAesKey = await this.cryptoService.generateGroupKey();
-
-          // Write envelopes
-          for (const { uid, pk } of publicKeys) {
-            const encryptedKey = await this.cryptoService.encryptGroupKey(newAesKey, pk);
+          // Write pre-computed envelopes synchronously
+          for (const { uid, encryptedKey } of encryptedKeys) {
             const envelopeRef = doc(db, 'conversations', convoId, 'keys', uid);
             transaction.set(envelopeRef, { encryptedKey });
           }

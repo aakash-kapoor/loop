@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, inject, signal, computed, OnInit, HostListener } from '@angular/core';
+import { Component, Input, Output, EventEmitter, inject, signal, computed, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Conversation } from '../../../models/conversation.model';
@@ -15,7 +15,7 @@ import { ConfirmModal } from '../../../shared/confirm-modal/confirm-modal';
   imports: [CommonModule, FormsModule, Avatar, ConfirmModal],
   templateUrl: './group-info-modal.html',
 })
-export class GroupInfoModal implements OnInit {
+export class GroupInfoModal {
   readonly conversationSignal = signal<Conversation | null>(null);
 
   @Input({ required: true }) set conversation(val: Conversation) {
@@ -33,13 +33,6 @@ export class GroupInfoModal implements OnInit {
   private readonly conversationService = inject(ConversationService);
   private readonly userService = inject(UserService);
   private readonly auth = inject(Auth);
-
-  ngOnInit() {
-    const convo = this.conversationSignal();
-    if (convo?.participants?.length) {
-      this.userService.fetchParticipantProfiles(convo.participants);
-    }
-  }
 
   closeOnBackdrop(event: MouseEvent) {
     if (event.target === event.currentTarget) {

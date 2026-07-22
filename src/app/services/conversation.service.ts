@@ -54,6 +54,7 @@ export class ConversationService {
         this.subscribeToConversations(user.uid);
       } else {
         this.unsubscribe();
+        this.userService.clearCache();
         this.rawConversations.set([]);
         this.selectedConversationId.set(null);
       }
@@ -89,20 +90,15 @@ export class ConversationService {
       return await Promise.all(
         rawList.map(async (convo) => {
           if (convo.lastMessage && convo.lastMessageEncryptionVersion === 2) {
-            // Bypass decryption if it is a known plaintext system message
-            const isKnownSystemString =
+            // Bypass decryption if it is a system message preview
+            const isSystemMessage =
+              convo.lastMessageIsSystem ||
               convo.lastMessage === 'Conversation started' ||
-              convo.lastMessage === 'Message deleted' ||
-              convo.lastMessage === 'Group deleted by admin' ||
               convo.lastMessage === 'Group created' ||
-              convo.lastMessage.startsWith('Group "') ||
-              convo.lastMessage.includes(' added ') ||
-              convo.lastMessage.includes(' removed ') ||
-              convo.lastMessage.endsWith(' left the group') ||
-              convo.lastMessage.includes(' promoted ') ||
-              convo.lastMessage.includes(' changed group name');
+              convo.lastMessage === 'Message deleted' ||
+              convo.lastMessage === 'Group deleted by admin';
 
-            if (isKnownSystemString) {
+            if (isSystemMessage) {
               return convo;
             }
 
@@ -661,13 +657,8 @@ export class ConversationService {
       const uids = Array.from(participantUids);
       if (uids.length === 0) return [];
 
-      await this.userService.fetchParticipantProfiles(uids);
-
       const profiles = await Promise.all(
-        uids.map(async (uid) => {
-          const snap = await getDoc(doc(db, 'users', uid));
-          return snap.exists() ? (snap.data() as AppUser) : null;
-        })
+        uids.map((uid) => this.userService.getUserProfile(uid))
       );
 
       return profiles.filter(Boolean) as AppUser[];

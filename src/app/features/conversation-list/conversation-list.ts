@@ -29,7 +29,7 @@ export class ConversationList {
     { initialValue: this.router.url }
   );
 
-  readonly conversations = computed(() => this.conversationService.conversations());
+  readonly conversations = this.conversationService.conversations;
   
   // Checks if the route is the empty "/chats" list path (which requires a placeholder on desktop)
   readonly isRouteChatsEmpty = computed(() => this.routerEvents() === '/chats');

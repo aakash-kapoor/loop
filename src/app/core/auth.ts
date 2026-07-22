@@ -113,12 +113,7 @@ export class Auth {
       }
     });
 
-    // Mark offline immediately when closing the browser window/tab (no grace delay)
-    window.addEventListener('beforeunload', () => {
-      if (offlineTimer) clearTimeout(offlineTimer);
-      updatePresence(false);
-    });
-
+    // Mark offline immediately when hiding or closing the window/tab
     window.addEventListener('pagehide', () => {
       if (offlineTimer) clearTimeout(offlineTimer);
       updatePresence(false);

@@ -1,4 +1,4 @@
-import { Injectable, signal, OnDestroy } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { collection, doc, query, where, getDoc, getDocs, limit, onSnapshot, orderBy } from 'firebase/firestore';
 import { db } from '../core/firebase.config';
 import { AppUser } from '../models/user.model';
@@ -6,15 +6,16 @@ import { AppUser } from '../models/user.model';
 @Injectable({
   providedIn: 'root',
 })
-export class UserService implements OnDestroy {
+export class UserService {
   readonly usersCache = signal<Record<string, AppUser>>({});
   
   // Track active real-time profile subscriptions to avoid duplicates
   private readonly subscriptions = new Map<string, () => void>();
 
-  ngOnDestroy() {
+  clearCache(): void {
     this.subscriptions.forEach((unsub) => unsub());
     this.subscriptions.clear();
+    this.usersCache.set({});
   }
 
   // Subscribe to a user document in real-time
@@ -60,7 +61,7 @@ export class UserService implements OnDestroy {
     return results;
   }
 
-  async fetchParticipantProfiles(uids: string[]): Promise<void> {
+  fetchParticipantProfiles(uids: string[]): void {
     // Convert single fetches to real-time doc listeners
     uids.forEach((uid) => {
       this.subscribeToUserProfile(uid);
