@@ -27,9 +27,21 @@
     </div>
 
     <div class="flex items-center justify-between">
-      <p class="text-xs text-text-secondary truncate pr-2 font-normal">
-        {{ isClearedForMe() ? 'Chat cleared' : convo.lastMessage }}
-      </p>
+      @if (typingPreview()) {
+        <!-- Typing indicator replaces last-message preview -->
+        <p class="text-xs text-accent truncate pr-2 font-medium flex items-center gap-1.5">
+          <span class="flex items-center gap-[3px]">
+            <span class="w-1.5 h-1.5 rounded-full bg-accent animate-bounce [animation-delay:0ms]"></span>
+            <span class="w-1.5 h-1.5 rounded-full bg-accent animate-bounce [animation-delay:150ms]"></span>
+            <span class="w-1.5 h-1.5 rounded-full bg-accent animate-bounce [animation-delay:300ms]"></span>
+          </span>
+          <span class="italic">{{ typingPreview() }}</span>
+        </p>
+      } @else {
+        <p class="text-xs text-text-secondary truncate pr-2 font-normal">
+          {{ isClearedForMe() ? 'Chat cleared' : convo.lastMessage }}
+        </p>
+      }
 
       <!-- Badge Indicators -->
       <div class="flex items-center gap-1.5 flex-shrink-0">

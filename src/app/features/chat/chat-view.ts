@@ -59,6 +59,7 @@ export class ChatViewComponent implements OnInit, OnDestroy {
 
   private routeSub?: Subscription;
   private themeObserver?: MutationObserver;
+  private typingDebounceTimer?: ReturnType<typeof setTimeout>;
   private readonly messagesContainer = viewChild<ElementRef<HTMLElement>>('messagesContainer');
   private readonly messageInput = viewChild<ElementRef<HTMLInputElement>>('messageInput');
   private readonly searchInput = viewChild<ElementRef<HTMLInputElement>>('searchInput');
@@ -148,6 +149,29 @@ export class ChatViewComponent implements OnInit, OnDestroy {
     return this.userService.usersCache()[partnerUid] || null;
   });
 
+  /**
+   * Typing indicator label for the chat header.
+   * Returns a string like "{Name} is typing…" or "Alice, Bob are typing…",
+   * or null when nobody else is typing.
+   */
+  readonly typingLabel = computed<string | null>(() => {
+    const convoId = this.convo()?.id;
+    if (!convoId) return null;
+
+    const uids = this.conversationService.typingUsers(convoId);
+    if (uids.length === 0) return null;
+
+    const cache = this.userService.usersCache();
+    const names = uids
+      .slice(0, 2)
+      .map((uid) => {
+        const u = cache[uid];
+        return u?.displayName?.split(' ')[0] || u?.username || 'Someone';
+      });
+
+    return names.join(', ') + (uids.length > 2 ? ' and others' : '') + ' is typing…';
+  });
+
   constructor() {
     // Auto-scroll to bottom when new messages arrive (only if search query is empty)
     effect(() => {
@@ -166,6 +190,15 @@ export class ChatViewComponent implements OnInit, OnDestroy {
         setTimeout(() => this.scrollToMatch(firstMatchId), 50);
       } else {
         this.activeHighlightedMessageId.set(null);
+      }
+    });
+
+    // Mark incoming messages as seen whenever messages change and the tab is visible
+    effect(() => {
+      const msgs = this.messages();
+      const convoId = this.convo()?.id;
+      if (convoId && msgs.length > 0 && !document.hidden) {
+        this.messageService.markMessagesAsSeen(convoId, msgs);
       }
     });
   }
@@ -192,6 +225,12 @@ export class ChatViewComponent implements OnInit, OnDestroy {
   ngOnDestroy() {
     this.routeSub?.unsubscribe();
     this.themeObserver?.disconnect();
+    clearTimeout(this.typingDebounceTimer);
+    // Clear typing indicator immediately when leaving the chat
+    const convoId = this.convo()?.id;
+    if (convoId) {
+      this.conversationService.clearTyping(convoId);
+    }
     // Deselect conversation on destroy
     this.conversationService.selectConversation(null);
   }
@@ -204,6 +243,16 @@ export class ChatViewComponent implements OnInit, OnDestroy {
   }
 
   onTextInput() {
+    const convoId = this.convo()?.id;
+    // — Typing indicator heartbeat —
+    if (convoId) {
+      this.conversationService.setTyping(convoId);
+      clearTimeout(this.typingDebounceTimer);
+      this.typingDebounceTimer = setTimeout(() => {
+        this.conversationService.clearTyping(convoId);
+      }, 3_000);
+    }
+
     const inputEl = this.messageInput()?.nativeElement;
     if (!inputEl || this.convo()?.type !== 'group') {
       this.isMentionPickerOpen.set(false);
@@ -309,6 +358,12 @@ export class ChatViewComponent implements OnInit, OnDestroy {
     });
 
     this.sendError.set(null);
+    // Clear typing indicator immediately — don't wait for the 3 s debounce
+    const convoId = this.convo()?.id;
+    if (convoId) {
+      clearTimeout(this.typingDebounceTimer);
+      this.conversationService.clearTyping(convoId);
+    }
     try {
       await this.messageService.sendMessage(messageText, this.replyingTo()?.id, validMentionUids);
       this.text.set('');

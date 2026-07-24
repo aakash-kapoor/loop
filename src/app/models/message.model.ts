@@ -10,4 +10,5 @@ export interface Message {
     deletedForEveryone?: boolean; // true — wiped for all participants
     encryptionVersion?: number;   // version tag for E2EE messages
     mentions?: string[];          // array of mentioned user UIDs
+    seenBy?: string[];            // UIDs who have read this message (read receipts)
 }

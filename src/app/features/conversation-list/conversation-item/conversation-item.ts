@@ -71,6 +71,20 @@ export class ConversationItem {
     return convo?.isPending && convo?.initiatedBy !== currentUid;
   });
 
+  // Display name of the first typer (for group label e.g. "Alice is typing…")
+  readonly typingPreview = computed(() => {
+    const id = this.convoSignal()?.id;
+    if (!id) return null;
+    const uids = this.conversationService.typingUsers(id);
+    if (uids.length === 0) return null;
+    const cache = this.userService.usersCache();
+    const name = cache[uids[0]]?.displayName?.split(' ')[0]
+      || cache[uids[0]]?.username
+      || 'Someone';
+    const extra = uids.length > 1 ? ` and ${uids.length - 1} other${uids.length > 2 ? 's' : ''}` : '';
+    return `${name}${extra} is typing…`;
+  });
+
   // Smart sidebar timestamp (Today -> 3:37 PM, Yesterday -> Yesterday, Older -> 19 Jul)
   readonly formattedTime = computed(() => {
     const timestamp = this.convoSignal()?.lastMessageAt;

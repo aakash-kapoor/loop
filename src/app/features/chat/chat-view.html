@@ -170,7 +170,32 @@
       <div [id]="'msg-' + msg.id" class="transition-all duration-300 rounded-2xl"
         [ngClass]="{'ring-2 ring-accent shadow-md shadow-accent/20 bg-accent/5': activeHighlightedMessageId() === msg.id}">
         <app-message-bubble [message]="msg" [replyToMessage]="getReplyMessage(msg.replyTo)"
-          [showSenderName]="convo()?.type === 'group'" [searchTerm]="searchQuery()" (reply)="onReplyTrigger($event)"></app-message-bubble>
+          [showSenderName]="convo()?.type === 'group'"
+          [participants]="convo()?.participants ?? []"
+          [searchTerm]="searchQuery()" (reply)="onReplyTrigger($event)"></app-message-bubble>
+      </div>
+      }
+
+      <!-- Typing indicator bubble — appears below last message when someone is typing -->
+      @if (typingLabel()) {
+      <div class="flex items-end gap-2 my-2 animate-slideUpFade">
+        <!-- Avatar placeholder to align with incoming messages -->
+        <div class="w-7 h-7 rounded-full bg-surface-2 border border-border-light flex-shrink-0 flex items-center justify-center">
+          <i class="ti ti-dots text-[10px] text-text-muted"></i>
+        </div>
+        <!-- Bubble -->
+        <div class="flex flex-col items-start gap-1">
+          @if (convo()?.type === 'group') {
+          <span class="text-[10px] font-semibold text-text-muted ml-1 select-none">{{ (typingLabel() || '').split(' is')[0] }}</span>
+          }
+          <div class="px-4 py-3 bg-surface-1 border border-border-light/80 rounded-2xl rounded-tl-sm shadow-sm flex items-center gap-[5px]">
+            <span class="w-2 h-2 rounded-full bg-text-muted/70 animate-bounce [animation-delay:0ms]"></span>
+            <span class="w-2 h-2 rounded-full bg-text-muted/70 animate-bounce [animation-delay:160ms]"></span>
+            <span class="w-2 h-2 rounded-full bg-text-muted/70 animate-bounce [animation-delay:320ms]"></span>
+          </div>
+          <!-- 'X is typing…' label below the bubble -->
+          <span class="text-[9px] text-text-muted ml-1 select-none italic">{{ typingLabel() }}</span>
+        </div>
       </div>
       }
       }

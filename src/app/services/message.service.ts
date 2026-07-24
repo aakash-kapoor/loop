@@ -585,4 +585,32 @@ export class MessageService {
       throw err;
     }
   }
+
+  // ── Read Receipts ───────────────────────────────────────────────────
+
+  /**
+   * Mark all visible incoming messages as seen by the current user.
+   * Only writes to messages that don’t already contain the user’s UID in seenBy.
+   * Fires-and-forgets each write individually so one failure doesn’t block the rest.
+   */
+  async markMessagesAsSeen(convoId: string, messages: Message[]): Promise<void> {
+    const uid = this.auth.currentUser()?.uid;
+    if (!uid) return;
+
+    const pending = messages.filter(
+      (m) =>
+        m.senderId !== uid &&           // don’t mark own messages
+        m.senderId !== 'system' &&      // skip system messages
+        !m.seenBy?.includes(uid) &&     // not already seen
+        !m.deletedForEveryone           // skip wiped messages
+    );
+
+    if (pending.length === 0) return;
+
+    // Fire-and-forget each write; we don’t await to keep UX snappy
+    pending.forEach((m) => {
+      const msgRef = doc(db, 'conversations', convoId, 'messages', m.id);
+      updateDoc(msgRef, { seenBy: arrayUnion(uid) }).catch(() => {});
+    });
+  }
 }

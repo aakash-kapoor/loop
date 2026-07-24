@@ -153,10 +153,27 @@
     </div>
     }
 
-    <!-- Timestamp -->
-    <span class="text-[9px] text-text-muted mt-1 select-none" [ngClass]="{'mr-1': isOutgoing(), 'ml-1': !isOutgoing()}">
-      {{ message.createdAt | date:'shortTime' }}
-    </span>
+    <!-- Timestamp + Read Receipt tick -->
+    <div class="flex items-center gap-1 mt-1 select-none"
+         [ngClass]="{'justify-end mr-1': isOutgoing(), 'ml-1': !isOutgoing()}">
+      <span class="text-[9px] text-text-muted">
+        {{ message.createdAt | date:'shortTime' }}
+      </span>
+      <!-- Double-tick read receipt — outgoing only, non-deleted -->
+      @if (isOutgoing() && !isDeletedForEveryone() && !isDeletedForMe()) {
+        @if (readStatus() === 'seen') {
+          <!-- Double tick (seen) -->
+          <span class="flex items-center -space-x-[5px] transition-all duration-300"
+                title="Seen">
+            <i class="ti ti-check text-[10px] text-accent"></i>
+            <i class="ti ti-check text-[10px] text-accent"></i>
+          </span>
+        } @else {
+          <!-- Single tick (sent) -->
+          <i class="ti ti-check text-[10px] text-text-muted/60" title="Sent"></i>
+        }
+      }
+    </div>
   </div>
 </div>
 }

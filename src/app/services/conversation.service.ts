@@ -18,7 +18,8 @@ import {
   serverTimestamp,
   setDoc,
   getDoc,
-  increment
+  increment,
+  deleteField
 } from 'firebase/firestore';
 import { db } from '../core/firebase.config';
 import { Auth } from '../core/auth';
@@ -680,5 +681,37 @@ export class ConversationService {
       console.warn('Failed to fetch recent contacts:', err);
       return [];
     }
+  }
+
+  // ── Typing Indicators ────────────────────────────────────────────────────
+
+  /** Write the current user's typing heartbeat (ms timestamp) on the conversation doc. */
+  async setTyping(convoId: string): Promise<void> {
+    const uid = this.auth.currentUser()?.uid;
+    if (!uid) return;
+    const convoRef = doc(db, 'conversations', convoId);
+    await updateDoc(convoRef, { [`typing.${uid}`]: Date.now() }).catch(() => {});
+  }
+
+  /** Clear the current user's typing heartbeat (called on blur or after debounce). */
+  async clearTyping(convoId: string): Promise<void> {
+    const uid = this.auth.currentUser()?.uid;
+    if (!uid) return;
+    const convoRef = doc(db, 'conversations', convoId);
+    await updateDoc(convoRef, { [`typing.${uid}`]: deleteField() }).catch(() => {});
+  }
+
+  /**
+   * Returns the UIDs of other participants currently typing in the given conversation.
+   * Entries older than 5 s are excluded (stale heartbeats).
+   */
+  typingUsers(convoId: string): string[] {
+    const uid = this.auth.currentUser()?.uid;
+    const convo = this.conversations().find(c => c.id === convoId);
+    if (!convo?.typing) return [];
+    const staleThreshold = Date.now() - 5_000;
+    return Object.entries(convo.typing)
+      .filter(([k, ts]) => k !== uid && ts > staleThreshold)
+      .map(([k]) => k);
   }
 }

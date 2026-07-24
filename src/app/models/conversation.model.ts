@@ -16,4 +16,5 @@ export interface Conversation {
     admins?: string[];             // group administrators
     creatorId?: string;           // creator of the group
     deletedForEveryone?: boolean; // soft-delete for everyone flag
+    typing?: Record<string, number>; // uid → ms timestamp of last keystroke (ephemeral typing indicator)
 }

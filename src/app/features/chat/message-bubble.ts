@@ -53,6 +53,9 @@ export class MessageBubble implements OnDestroy {
 
   @Output() reply = new EventEmitter<Message>();
 
+  /** All conversation participants — needed for read-receipt status. */
+  @Input() participants: string[] = [];
+
   private readonly auth = inject(Auth);
   private readonly userService = inject(UserService);
   private readonly messageService = inject(MessageService);
@@ -197,6 +200,23 @@ export class MessageBubble implements OnDestroy {
     if (!createdAt) return false;
     const fifteenMinutes = 15 * 60 * 1000;
     return Date.now() - createdAt < fifteenMinutes;
+  });
+
+  /**
+   * Read-receipt status for outgoing messages only.
+   * 'seen'  → at least one other participant has seen this message (double tick, accent)
+   * 'sent'  → nobody has seen it yet (single tick, muted)
+   */
+  readonly readStatus = computed<'sent' | 'seen'>(() => {
+    const msg = this.messageSignal();
+    const uid = this.currentUserId();
+    if (!msg || !uid || msg.senderId !== uid) return 'sent';
+
+    const seenBy = msg.seenBy ?? [];
+    const seenByOther = this.participants.some(
+      (p) => p !== uid && seenBy.includes(p)
+    );
+    return seenByOther ? 'seen' : 'sent';
   });
 
   ngOnDestroy() {

@@ -143,13 +143,14 @@ service cloud.firestore {
         // message (text, sender, timestamp, etc.) can ever be edited:
         allow update: if isConvoParticipant(convoId) && (
 
-          // (a) Reaction toggles and "delete for me" — any participant
+          // (a) Reaction toggles, "delete for me", and read receipts — any participant
           //     may touch these fields, since reactions are a shared
-          //     feature and "delete for me" only ever affects the
+          //     feature, "delete for me" only ever affects the
           //     requesting user's own view (their UID is added to the
-          //     deletedFor array).
+          //     deletedFor array), and seenBy only ever adds the
+          //     requesting user's UID (arrayUnion) for read receipts.
           request.resource.data.diff(resource.data)
-            .affectedKeys().hasOnly(['reactions', 'deletedFor']) ||
+            .affectedKeys().hasOnly(['reactions', 'deletedFor', 'seenBy']) ||
 
           // (b) "Delete for everyone" — restricted to the original
           //     sender only, and only within a 15-minute window of the
