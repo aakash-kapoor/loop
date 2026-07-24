@@ -1,4 +1,6 @@
-import { Injectable, inject, signal, effect } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
+import { toObservable, takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { switchMap } from 'rxjs/operators';
 import { Auth } from '../core/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../core/firebase.config';
@@ -84,39 +86,59 @@ export class CryptoService {
   private readonly auth = inject(Auth);
 
   readonly isPrivateKeyReady = signal<boolean>(false);
+  readonly isKeyLoading = signal<boolean>(true);
   private localPrivateKey: CryptoKey | null = null;
 
-  // Cache of decrypted AES group keys: convoId -> CryptoKey
-  readonly groupKeysCache = new Map<string, CryptoKey>();
+  // Encapsulated cache of decrypted AES group keys: convoId -> CryptoKey
+  private readonly groupKeysCache = new Map<string, CryptoKey>();
+
+  setGroupKey(convoId: string, key: CryptoKey): void {
+    this.groupKeysCache.set(convoId, key);
+  }
+
+  getGroupKey(convoId: string): CryptoKey | undefined {
+    return this.groupKeysCache.get(convoId);
+  }
+
+  hasGroupKey(convoId: string): boolean {
+    return this.groupKeysCache.has(convoId);
+  }
 
   constructor() {
-    // Monitor auth changes to load/unload private keys dynamically
-    effect(async () => {
-      const user = this.auth.currentUser();
-      if (user?.uid && user.username) {
-        try {
-          const key = await getKeyFromLocal(user.uid);
-          if (key) {
-            this.localPrivateKey = key;
-            this.isPrivateKeyReady.set(true);
-          } else {
-            this.localPrivateKey = null;
-            this.isPrivateKeyReady.set(false);
+    // Monitor auth changes safely using toObservable + switchMap to avoid async effect track loss
+    toObservable(this.auth.currentUser).pipe(
+      switchMap(async (user) => {
+        if (user?.uid && user.username) {
+          try {
+            const key = await getKeyFromLocal(user.uid);
+            return { user, key, loaded: true };
+          } catch (e) {
+            console.warn('Failed to load private key from IndexedDB:', e);
+            return { user, key: null, loaded: true };
           }
-        } catch (e) {
-          console.warn('Failed to load private key from IndexedDB:', e);
+        }
+        return { user, key: null, loaded: user === null };
+      }),
+      takeUntilDestroyed()
+    ).subscribe(({ user, key, loaded }) => {
+      if (user?.uid && user.username) {
+        if (key) {
+          this.localPrivateKey = key;
+          this.isPrivateKeyReady.set(true);
+        } else {
           this.localPrivateKey = null;
           this.isPrivateKeyReady.set(false);
         }
       } else if (user === null) {
         this.clearCache();
       }
+      this.isKeyLoading.set(!loaded);
     });
   }
 
   // Get or decrypt the symmetric key for a conversation
   async getOrDecryptConversationKey(convoId: string): Promise<CryptoKey | null> {
-    let aesKey = this.groupKeysCache.get(convoId);
+    let aesKey = this.getGroupKey(convoId);
     if (aesKey) return aesKey;
 
     const user = this.auth.currentUser();
@@ -131,7 +153,7 @@ export class CryptoService {
       if (envelopeSnap.exists()) {
         const encryptedKeyBase64 = envelopeSnap.data()['encryptedKey'];
         aesKey = await this.decryptGroupKey(encryptedKeyBase64, myPrivateKey);
-        this.groupKeysCache.set(convoId, aesKey);
+        this.setGroupKey(convoId, aesKey);
         return aesKey;
       }
     } catch (e) {
@@ -329,5 +351,6 @@ export class CryptoService {
     this.groupKeysCache.clear();
     this.localPrivateKey = null;
     this.isPrivateKeyReady.set(false);
+    this.isKeyLoading.set(false);
   }
 }

@@ -1,6 +1,7 @@
-import { Injectable, effect, inject, signal } from '@angular/core';
+import { Injectable, effect, inject, signal, isDevMode } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { switchMap, from } from 'rxjs';
+import { Router } from '@angular/router';
 import {
   collection,
   doc,
@@ -13,7 +14,8 @@ import {
   runTransaction,
   arrayUnion,
   serverTimestamp,
-  getDoc
+  getDoc,
+  increment
 } from 'firebase/firestore';
 import { db } from '../core/firebase.config';
 import { Auth } from '../core/auth';
@@ -21,6 +23,7 @@ import { ConversationService } from './conversation.service';
 import { UserService } from './user.service';
 import { CryptoService } from './crypto.service';
 import { Message } from '../models/message.model';
+import { Conversation } from '../models/conversation.model';
 
 @Injectable({
   providedIn: 'root',
@@ -30,11 +33,13 @@ export class MessageService {
   private readonly conversationService = inject(ConversationService);
   private readonly userService = inject(UserService);
   private readonly cryptoService = inject(CryptoService);
+  private readonly router = inject(Router);
 
   readonly activeMessages = signal<Message[]>([]);
   private readonly rawMessages = signal<Message[]>([]);
 
   private messagesUnsubscribe?: () => void;
+  private readonly lastNotifiedTimestamps = new Map<string, number>();
 
   constructor() {
     // Depend on the primitive ID, not the derived object, to avoid listener churn
@@ -62,6 +67,50 @@ export class MessageService {
       .subscribe((decryptedList) => {
         this.activeMessages.set(decryptedList);
       });
+
+    // Reactive notification listener for all user conversations (Option 1: In-Browser Push)
+    effect(() => {
+      const convos = this.conversationService.conversations();
+      const user = this.auth.currentUser();
+      if (!user?.uid) {
+        this.lastNotifiedTimestamps.clear();
+        return;
+      }
+
+      const activeConvoId = this.conversationService.selectedConversationId();
+
+      convos.forEach((convo) => {
+        const lastSeenTime = this.lastNotifiedTimestamps.get(convo.id);
+        const isNewMessage = lastSeenTime !== undefined && convo.lastMessageAt > lastSeenTime;
+
+        if (isNewMessage) {
+          const isFocusedInChat = convo.id === activeConvoId && !document.hidden;
+          const isSystem = convo.lastMessageIsSystem;
+          const unread = convo.unreadCount?.[user.uid] || 0;
+          const hasUnread = unread > 0;
+
+          if (isDevMode()) {
+            console.info(`[Notification Evaluation] Convo: ${convo.id}`, {
+              isNewMessage,
+              activeConvoId,
+              convoId: convo.id,
+              documentHidden: document.hidden,
+              isFocusedInChat,
+              isSystem,
+              unreadCount: unread,
+              hasUnread,
+              willNotify: !isFocusedInChat && hasUnread
+            });
+          }
+
+          if (!isFocusedInChat && hasUnread) {
+            this.handleConvoNotification(convo);
+          }
+        }
+
+        this.lastNotifiedTimestamps.set(convo.id, convo.lastMessageAt);
+      });
+    });
   }
 
   private async decryptMessagesList(rawList: Message[]): Promise<Message[]> {
@@ -105,8 +154,6 @@ export class MessageService {
       orderBy('createdAtMs', 'asc')
     );
 
-    let isFirstEmit = true;
-
     this.messagesUnsubscribe = onSnapshot(q, (snapshot) => {
       const user = this.auth.currentUser();
 
@@ -133,23 +180,6 @@ export class MessageService {
         );
 
       this.rawMessages.set(list);
-
-      // Trigger alerts only on new incoming messages after the initial subscription fetch
-      if (!isFirstEmit) {
-        snapshot.docChanges().forEach((change) => {
-          if (change.type === 'added') {
-            const newMsg = { id: change.doc.id, ...change.doc.data() } as Message;
-            const currentUid = this.auth.currentUser()?.uid;
-            const activeConvoId = this.conversationService.selectedConversationId();
-
-            // Suppress if sender is current user OR message is from the currently open chat
-            if (newMsg.senderId !== currentUid && convoId !== activeConvoId) {
-              this.handleIncomingNotification(newMsg, convoId);
-            }
-          }
-        });
-      }
-      isFirstEmit = false;
     });
   }
 
@@ -160,7 +190,9 @@ export class MessageService {
     }
   }
 
-  private async handleIncomingNotification(msg: Message, convoId: string) {
+  private async handleConvoNotification(convo: Conversation) {
+    console.info('🔔 Triggering notification for conversation:', convo.id, 'Permission:', typeof Notification !== 'undefined' ? Notification.permission : 'unavailable');
+
     // 1. Play Web Audio synthetic ping sound if enabled
     const soundEnabled = localStorage.getItem('sound_effects') !== 'false';
     if (soundEnabled) {
@@ -169,42 +201,87 @@ export class MessageService {
 
     // 2. Trigger browser native notification if enabled
     const notificationsEnabled = localStorage.getItem('notifications') !== 'false';
-    if (notificationsEnabled && Notification.permission === 'granted') {
-      const sender = this.userService.usersCache()[msg.senderId];
-      const currentUid = this.auth.currentUser()?.uid;
-      const isMentioned = currentUid && (msg.mentions?.includes(currentUid) || msg.mentions?.includes('all'));
+    if (notificationsEnabled && typeof Notification !== 'undefined') {
+      let permission = Notification.permission;
+      if (permission === 'default') {
+        permission = await Notification.requestPermission();
+      }
 
-      const senderName = sender?.displayName || 'Someone';
-      const title = isMentioned ? `📌 Mentioned by ${senderName}` : senderName;
+      if (permission === 'granted') {
+      const currentUid = this.auth.currentUser()?.uid;
+      let title = 'Loop';
+
+      if (convo.type === 'dm') {
+        const partnerUid = convo.participants.find((p) => p !== currentUid);
+        if (partnerUid) {
+          const partner = this.userService.usersCache()[partnerUid];
+          title = partner?.displayName || partner?.username || 'Someone';
+        }
+      } else if (convo.type === 'group') {
+        title = convo.groupName || 'Group Chat';
+      }
+
       try {
-        let bodyText = msg.text;
-        
+        let bodyText = convo.lastMessage;
+
         // Decrypt E2EE notification preview text
-        if (msg.encryptionVersion === 2) {
-          const aesKey = await this.cryptoService.getOrDecryptConversationKey(convoId);
-          if (aesKey) {
-            bodyText = await this.cryptoService.decryptText(msg.text, aesKey);
-          } else {
-            bodyText = '[Encrypted Message]';
+        const isSystemMessage =
+          convo.lastMessageIsSystem ||
+          convo.lastMessage === 'Conversation started' ||
+          convo.lastMessage === 'Group created' ||
+          convo.lastMessage === 'Message deleted' ||
+          convo.lastMessage === 'Group deleted by admin' ||
+          convo.lastMessage.includes(' added ') ||
+          convo.lastMessage.includes(' removed ') ||
+          convo.lastMessage.endsWith(' left the group');
+
+        if (convo.lastMessage && convo.lastMessageEncryptionVersion === 2 && !isSystemMessage) {
+          try {
+            const aesKey = await this.cryptoService.getOrDecryptConversationKey(convo.id);
+            if (aesKey) {
+              bodyText = await this.cryptoService.decryptText(convo.lastMessage, aesKey);
+            } else {
+              bodyText = '[Encrypted Message]';
+            }
+          } catch (decryptErr) {
+            // Fallback gracefully if ciphertext is invalid or legacy plaintext was stored
+            bodyText = convo.lastMessage;
           }
         }
 
-        new Notification(title, {
+        const notif = new Notification(title, {
           body: bodyText,
-          tag: msg.id,
+          tag: convo.id,
         });
+
+        notif.onclick = (event) => {
+          event.preventDefault();
+          window.focus();
+          this.conversationService.selectConversation(convo.id);
+          this.router.navigate(['/chats', convo.id]);
+        };
       } catch (e) {
         console.warn('Native notification trigger failed:', e);
       }
     }
   }
+}
+
+  private audioCtx: AudioContext | null = null;
 
   private playSyntheticPing() {
     try {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioContextClass) return;
 
-      const ctx = new AudioContextClass();
+      if (!this.audioCtx) {
+        this.audioCtx = new AudioContextClass();
+      }
+      const ctx = this.audioCtx;
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
 
@@ -292,7 +369,7 @@ export class MessageService {
           aesKey = await this.cryptoService.getOrDecryptConversationKey(convoId);
         } else {
           // Cache the key
-          this.cryptoService.groupKeysCache.set(convoId, aesKey);
+          this.cryptoService.setGroupKey(convoId, aesKey);
         }
       } catch (e: any) {
         console.error('E2EE upgrade failed:', e);
@@ -350,7 +427,7 @@ export class MessageService {
 
     convo.participants.forEach((pId: string) => {
       if (pId !== user.uid) {
-        updates[`unreadCount.${pId}`] = (convo.unreadCount?.[pId] || 0) + 1;
+        updates[`unreadCount.${pId}`] = increment(1);
       }
     });
 
@@ -501,7 +578,7 @@ export class MessageService {
         return existingKey;
       }
 
-      this.cryptoService.groupKeysCache.set(convoId, resultKey);
+      this.cryptoService.setGroupKey(convoId, resultKey);
       return resultKey;
     } catch (err: any) {
       console.error('Transactional self-heal failed:', err);

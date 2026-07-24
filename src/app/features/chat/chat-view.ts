@@ -298,9 +298,19 @@ export class ChatViewComponent implements OnInit, OnDestroy {
     const messageText = this.text().trim();
     if (!messageText) return;
 
+    // Filter mentionedUids to ensure the mention text is still present in the final message
+    const activeParticipants = this.groupParticipantsForMention();
+    const validMentionUids = this.mentionedUids().filter((uid) => {
+      if (uid === 'all') return messageText.includes('@all');
+      const p = activeParticipants.find((item) => item.uid === uid);
+      if (!p) return messageText.includes('@');
+      const firstName = p.name.split(' ')[0];
+      return messageText.includes(`@${firstName}`) || (p.username && messageText.includes(`@${p.username}`));
+    });
+
     this.sendError.set(null);
     try {
-      await this.messageService.sendMessage(messageText, this.replyingTo()?.id, this.mentionedUids());
+      await this.messageService.sendMessage(messageText, this.replyingTo()?.id, validMentionUids);
       this.text.set('');
       this.replyingTo.set(null);
       this.mentionedUids.set([]);

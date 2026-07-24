@@ -23,9 +23,8 @@ export class App {
       const user = this.authService.currentUser();
       if (user === undefined) return; // Wait for initial session fetch
 
-      // Use window.location.pathname to inspect the browser's actual route path.
-      // This prevents Angular's initial startup "/" state from overriding targeted chat URLs.
-      const currentPath = window.location.pathname;
+      // Use router.url to inspect the active route path safely without breaking SSR
+      const currentPath = this.router.url || (typeof window !== 'undefined' ? window.location.pathname : '/');
 
       if (!user) {
         // If not logged in, redirect to login page
@@ -39,7 +38,9 @@ export class App {
         }
       } else {
         // Fully authenticated: redirect to chats dashboard ONLY if their local private key is ready.
-        // Otherwise, redirect them to the /login view to perform key recovery.
+        // Wait until key loading from IndexedDB is complete to prevent cold-load flash-redirects.
+        if (this.cryptoService.isKeyLoading()) return;
+
         if (!this.cryptoService.isPrivateKeyReady()) {
           if (currentPath !== '/login') {
             this.router.navigate(['/login']);

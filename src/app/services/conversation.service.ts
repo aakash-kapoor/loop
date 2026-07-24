@@ -17,7 +17,8 @@ import {
   arrayRemove,
   serverTimestamp,
   setDoc,
-  getDoc
+  getDoc,
+  increment
 } from 'firebase/firestore';
 import { db } from '../core/firebase.config';
 import { Auth } from '../core/auth';
@@ -158,7 +159,7 @@ export class ConversationService {
 
       // Pre-fetch profiles for other participants
       if (allParticipantIds.size > 0) {
-        await this.userService.fetchParticipantProfiles(Array.from(allParticipantIds));
+        this.userService.fetchParticipantProfiles(Array.from(allParticipantIds));
       }
     });
   }
@@ -280,7 +281,7 @@ export class ConversationService {
     );
 
     // Cache the AES key locally
-    this.cryptoService.groupKeysCache.set(convoId, aesKey);
+    this.cryptoService.setGroupKey(convoId, aesKey);
     return aesKey;
   }
 
@@ -341,6 +342,7 @@ export class ConversationService {
         [currentUser.uid]: 0,
       },
       lastMessageEncryptionVersion: 2,
+      lastMessageIsSystem: true,
     };
 
     const convoRef = await addDoc(collection(db, 'conversations'), newConvo);
@@ -382,6 +384,7 @@ export class ConversationService {
         return acc;
       }, {} as Record<string, number>),
       lastMessageEncryptionVersion: 2,
+      lastMessageIsSystem: true,
       admins: [currentUser.uid],
       creatorId: currentUser.uid,
     };
@@ -404,7 +407,7 @@ export class ConversationService {
     return convoRef.id;
   }
 
-  private async createSystemMessage(convoId: string, text: string): Promise<void> {
+  private async createSystemMessage(convoId: string, text: string, targetParticipants?: string[]): Promise<void> {
     const now = Date.now();
     await addDoc(collection(db, 'conversations', convoId, 'messages'), {
       senderId: 'system',
@@ -416,11 +419,22 @@ export class ConversationService {
     });
 
     const convoRef = doc(db, 'conversations', convoId);
-    await updateDoc(convoRef, {
+    const currentUser = this.auth.currentUser();
+
+    const updates: Record<string, any> = {
       lastMessage: text,
       lastMessageAt: now,
       lastMessageIsSystem: true,
+    };
+
+    const participants = targetParticipants || this.selectedConversation()?.participants || [];
+    participants.forEach((pId: string) => {
+      if (pId !== currentUser?.uid) {
+        updates[`unreadCount.${pId}`] = increment(1);
+      }
     });
+
+    await updateDoc(convoRef, updates);
   }
 
   async addMembersToGroup(convoId: string, newUids: string[]): Promise<void> {

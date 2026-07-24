@@ -28,14 +28,21 @@ export class Auth {
 
         if (userSnap.exists()) {
           const appUser = userSnap.data() as AppUser;
-          // Update online status
-          await updateDoc(userRef, {
+          const photoURL = appUser.photoURL || firebaseUser.photoURL || undefined;
+
+          const updates: Record<string, any> = {
             isOnline: true,
             lastSeen: Date.now(),
-          }).catch(() => { });
+          };
+          if (!appUser.photoURL && firebaseUser.photoURL) {
+            updates['photoURL'] = firebaseUser.photoURL;
+          }
+
+          await updateDoc(userRef, updates).catch(() => { });
 
           this.currentUser.set({
             ...appUser,
+            photoURL,
             isOnline: true,
             lastSeen: Date.now(),
           });
@@ -113,10 +120,12 @@ export class Auth {
       }
     });
 
-    // Mark offline immediately when hiding or closing the window/tab
+    // Apply grace period on pagehide to prevent presence flicker on page reloads/refreshes
     window.addEventListener('pagehide', () => {
       if (offlineTimer) clearTimeout(offlineTimer);
-      updatePresence(false);
+      offlineTimer = setTimeout(() => {
+        updatePresence(false);
+      }, GRACE_PERIOD_MS);
     });
   }
 
@@ -176,8 +185,21 @@ export class Auth {
       updatedUser.publicKey = publicKey;
     }
 
+    // Build payload omitting undefined values for setDoc
+    const payload: Record<string, any> = {
+      uid: updatedUser.uid,
+      displayName: updatedUser.displayName,
+      username: updatedUser.username,
+      usernameLower: updatedUser.usernameLower,
+      isOnline: updatedUser.isOnline,
+      lastSeen: updatedUser.lastSeen,
+    };
+    if (updatedUser.photoURL) payload['photoURL'] = updatedUser.photoURL;
+    if (updatedUser.publicKey) payload['publicKey'] = updatedUser.publicKey;
+    if (updatedUser.showLastSeen !== undefined) payload['showLastSeen'] = updatedUser.showLastSeen;
+
     const userRef = doc(db, 'users', user.uid);
-    await setDoc(userRef, updatedUser);
+    await setDoc(userRef, payload);
 
     if (encryptedPrivateKey && salt) {
       const backupRef = doc(db, 'users', user.uid, 'private', 'keyBackup');

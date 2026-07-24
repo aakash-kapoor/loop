@@ -15,7 +15,7 @@
       <div class="flex items-center gap-4 p-4 bg-surface-0 border border-border-light rounded-3xl shadow-sm flex-shrink-0">
         <!-- Avatar/Initials -->
         @if (currentUser()?.photoURL) {
-          <img [src]="currentUser()?.photoURL" alt="Profile avatar" class="w-14 h-14 rounded-full object-cover border border-border-light shadow-sm" />
+          <img [src]="currentUser()?.photoURL" referrerpolicy="no-referrer" alt="Profile avatar" class="w-14 h-14 rounded-full object-cover border border-border-light shadow-sm" />
         } @else {
           <div class="w-14 h-14 rounded-full bg-accent/10 text-accent font-bold flex items-center justify-center text-lg border border-border-light uppercase shadow-inner">
             {{ currentUser()?.displayName?.substring(0, 2) || 'ME' }}
