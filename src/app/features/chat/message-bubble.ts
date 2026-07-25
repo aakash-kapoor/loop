@@ -46,6 +46,7 @@ export class MessageBubble implements OnDestroy {
   }
 
   @Input() showSenderName = false;
+  @Input() isPinned = false;
 
   readonly searchTermSignal = signal<string>('');
   @Input() set searchTerm(val: string) {
@@ -56,6 +57,8 @@ export class MessageBubble implements OnDestroy {
   }
 
   @Output() reply = new EventEmitter<Message>();
+  @Output() pin = new EventEmitter<Message>();
+  @Output() unpin = new EventEmitter<Message>();
   @Output() imageClick = new EventEmitter<string>();
 
   /** All conversation participants — needed for read-receipt status. */
@@ -198,6 +201,20 @@ export class MessageBubble implements OnDestroy {
     const msg = this.messageSignal();
     if (msg) {
       this.reply.emit(msg);
+    }
+  }
+
+  onPin() {
+    const msg = this.messageSignal();
+    if (msg) {
+      this.pin.emit(msg);
+    }
+  }
+
+  onUnpin() {
+    const msg = this.messageSignal();
+    if (msg) {
+      this.unpin.emit(msg);
     }
   }
 

@@ -184,6 +184,30 @@ export class ChatViewComponent implements OnInit, OnDestroy {
     return this.userService.usersCache()[partnerUid] || null;
   });
 
+  /** 
+   * Pinned message object derived from activeMessages matching convo().pinnedMessageId.
+   * Note: Looks up from the currently loaded window of messages (messages()). 
+   * If a pinned message is older than the active message stream, it returns null.
+   */
+  readonly pinnedMessage = computed(() => {
+    const pinnedId = this.convo()?.pinnedMessageId;
+    if (!pinnedId) return null;
+    const msg = this.messages().find((m) => m.id === pinnedId);
+    if (!msg || msg.deletedForEveryone || msg.deletedFor?.includes(this.currentUserId() || '')) {
+      return null;
+    }
+    return msg;
+  });
+
+  /** Display name of the pinned message sender */
+  readonly pinnedSenderName = computed(() => {
+    const msg = this.pinnedMessage();
+    if (!msg) return '';
+    if (msg.senderId === this.currentUserId()) return 'You';
+    const user = this.userService.usersCache()[msg.senderId];
+    return user?.displayName || user?.username || 'User';
+  });
+
   /**
    * Typing indicator label for the chat header.
    * Returns a string like "{Name} is typing…" or "Alice, Bob are typing…",
@@ -219,13 +243,31 @@ export class ChatViewComponent implements OnInit, OnDestroy {
     return cache[uids[0]] || null;
   });
 
+  private previousMessageCount = 0;
+  private previousConvoId: string | null = null;
+  private highlightTimeout?: ReturnType<typeof setTimeout>;
+
   constructor() {
-    // Auto-scroll to bottom when new messages arrive (only if search query is empty)
+    // Auto-scroll to bottom ONLY when switching conversations or when a new message arrives
     effect(() => {
       const msgs = this.messages();
-      if (msgs.length > 0 && !this.searchQuery().trim()) {
+      const currentConvoId = this.convo()?.id || null;
+
+      if (msgs.length === 0 || !currentConvoId) {
+        this.previousMessageCount = 0;
+        this.previousConvoId = currentConvoId;
+        return;
+      }
+
+      const isDifferentConvo = currentConvoId !== this.previousConvoId;
+      const isNewMessageAdded = msgs.length > this.previousMessageCount;
+
+      if ((isDifferentConvo || isNewMessageAdded) && !this.searchQuery().trim()) {
         setTimeout(() => this.scrollToBottom(), 30);
       }
+
+      this.previousMessageCount = msgs.length;
+      this.previousConvoId = currentConvoId;
     });
 
     // Reset match index and scroll to first match when searchQuery changes
@@ -273,6 +315,7 @@ export class ChatViewComponent implements OnInit, OnDestroy {
     this.routeSub?.unsubscribe();
     this.themeObserver?.disconnect();
     clearTimeout(this.typingDebounceTimer);
+    clearTimeout(this.highlightTimeout);
     // Clear typing indicator immediately when leaving the chat
     const convoId = this.convo()?.id;
     if (convoId) {
@@ -594,6 +637,37 @@ export class ChatViewComponent implements OnInit, OnDestroy {
     }
   }
 
+  async pinMessage(msg: Message) {
+    const convoId = this.convo()?.id;
+    if (!convoId) return;
+    try {
+      await this.conversationService.pinMessage(convoId, msg.id);
+    } catch (err: any) {
+      console.error('Failed to pin message:', err);
+      this.sendError.set(err.message || 'Failed to pin message');
+    }
+  }
+
+  async unpinMessage() {
+    clearTimeout(this.highlightTimeout);
+    this.activeHighlightedMessageId.set(null);
+    const convoId = this.convo()?.id;
+    if (!convoId) return;
+    try {
+      await this.conversationService.pinMessage(convoId, null);
+    } catch (err: any) {
+      console.error('Failed to unpin message:', err);
+      this.sendError.set(err.message || 'Failed to unpin message');
+    }
+  }
+
+  jumpToPinnedMessage() {
+    const pinned = this.pinnedMessage();
+    if (pinned) {
+      this.scrollToMatch(pinned.id);
+    }
+  }
+
   onReplyTrigger(msg: Message) {
     this.replyingTo.set(msg);
   }
@@ -692,11 +766,17 @@ export class ChatViewComponent implements OnInit, OnDestroy {
   }
 
   scrollToMatch(messageId: string) {
+    clearTimeout(this.highlightTimeout);
     this.activeHighlightedMessageId.set(messageId);
     const el = document.getElementById('msg-' + messageId);
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
+    this.highlightTimeout = setTimeout(() => {
+      if (this.activeHighlightedMessageId() === messageId) {
+        this.activeHighlightedMessageId.set(null);
+      }
+    }, 2500);
   }
 
   toggleEmojiPicker(event: Event) {

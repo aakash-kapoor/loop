@@ -157,6 +157,29 @@
     </div>
     }
 
+    <!-- WhatsApp-Style Pinned Message Banner -->
+    @if (pinnedMessage() && !isSearchOpen()) {
+    <div class="flex items-center justify-between px-4 py-2 bg-surface-1/90 border-b border-border-light text-xs text-text-primary backdrop-blur-md flex-shrink-0 z-10 animate-slideDown shadow-xs">
+      <div (click)="jumpToPinnedMessage()" class="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer group/pin hover:opacity-90 transition-opacity">
+        <div class="w-7 h-7 rounded-full bg-amber-500/15 text-amber-500 dark:bg-amber-400/20 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
+          <i class="ti ti-pin text-sm"></i>
+        </div>
+        <div class="flex flex-col min-w-0 flex-1">
+          <div class="flex items-center gap-1.5">
+            <span class="text-[10px] font-bold text-amber-500 uppercase tracking-wider">Pinned Message</span>
+            <span class="text-[10px] text-text-muted">• {{ pinnedSenderName() }}</span>
+          </div>
+          <span class="text-xs truncate font-medium text-text-primary group-hover/pin:text-accent transition-colors">
+            {{ pinnedMessage()?.text || (pinnedMessage()?.attachments?.length ? 'Media attachment' : 'Pinned message') }}
+          </span>
+        </div>
+      </div>
+      <button (click)="unpinMessage()" class="w-7 h-7 rounded-full hover:bg-surface-2 text-text-muted hover:text-text-primary flex items-center justify-center transition-colors cursor-pointer flex-shrink-0 ml-2" title="Unpin message" aria-label="Unpin message">
+        <i class="ti ti-x text-sm"></i>
+      </button>
+    </div>
+    }
+
     <!-- Messages Container -->
     <div #messagesContainer class="flex-1 overflow-y-auto px-4 py-3 flex flex-col bg-bg-main bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-accent/5 via-transparent to-transparent scroll-smooth">
       @if (messages().length === 0) {
@@ -171,8 +194,9 @@
         [ngClass]="{'ring-2 ring-accent shadow-md shadow-accent/20 bg-accent/5': activeHighlightedMessageId() === msg.id}">
         <app-message-bubble [message]="msg" [replyToMessage]="getReplyMessage(msg.replyTo)"
           [showSenderName]="convo()?.type === 'group'"
+          [isPinned]="msg.id === convo()?.pinnedMessageId"
           [participants]="convo()?.participants ?? []"
-          [searchTerm]="searchQuery()" (reply)="onReplyTrigger($event)" (imageClick)="openLightbox($event)"></app-message-bubble>
+          [searchTerm]="searchQuery()" (reply)="onReplyTrigger($event)" (pin)="pinMessage($event)" (unpin)="unpinMessage()" (imageClick)="openLightbox($event)"></app-message-bubble>
       </div>
       }
 

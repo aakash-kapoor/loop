@@ -259,6 +259,8 @@ export class MessageService {
           convo.lastMessage === 'Group deleted by admin' ||
           convo.lastMessage.includes(' added ') ||
           convo.lastMessage.includes(' removed ') ||
+          convo.lastMessage.includes(' pinned ') ||
+          convo.lastMessage.includes(' unpinned ') ||
           convo.lastMessage.endsWith(' left the group');
 
         if (convo.lastMessage && convo.lastMessageEncryptionVersion === 2 && !isSystemMessage) {

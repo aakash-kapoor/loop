@@ -71,17 +71,38 @@ export class ConversationService {
         this.conversations.set(decryptedList);
       });
 
-    // Reset unread count when a conversation is selected or the authenticated user finishes loading
+    // Reset unread count whenever active conversation updates, is selected, or user returns to tab
     effect(() => {
       const convoId = this.selectedConversationId();
       const currentUser = this.auth.currentUser();
-      if (convoId && currentUser?.uid) {
+      const convos = this.conversations();
+      if (!convoId || !currentUser?.uid) return;
+
+      const activeConvo = convos.find((c) => c.id === convoId);
+      const unread = activeConvo?.unreadCount?.[currentUser.uid] || 0;
+
+      if (unread > 0 && typeof document !== 'undefined' && !document.hidden) {
         const convoRef = doc(db, 'conversations', convoId);
         updateDoc(convoRef, {
           [`unreadCount.${currentUser.uid}`]: 0,
         }).catch(() => { });
       }
     });
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+          const convoId = this.selectedConversationId();
+          const currentUser = this.auth.currentUser();
+          if (convoId && currentUser?.uid) {
+            const convoRef = doc(db, 'conversations', convoId);
+            updateDoc(convoRef, {
+              [`unreadCount.${currentUser.uid}`]: 0,
+            }).catch(() => { });
+          }
+        }
+      });
+    }
   }
 
   private async decryptConversationsList(rawList: Conversation[]): Promise<Conversation[]> {
@@ -714,4 +735,23 @@ export class ConversationService {
       .filter(([k, ts]) => k !== uid && ts > staleThreshold)
       .map(([k]) => k);
   }
+
+  // ── Message Pinning ───────────────────────────────────────────────────────
+
+  /** Pin or unpin a message on the conversation document and post a system message. Pass null to unpin. */
+  async pinMessage(convoId: string, messageId: string | null): Promise<void> {
+    const currentUser = this.auth.currentUser();
+    const convoRef = doc(db, 'conversations', convoId);
+
+    await updateDoc(convoRef, {
+      pinnedMessageId: messageId ? messageId : deleteField(),
+    });
+
+    if (currentUser) {
+      const userName = currentUser.displayName || currentUser.username || 'Someone';
+      const systemText = messageId ? `${userName} pinned a message` : `${userName} unpinned a message`;
+      await this.createSystemMessage(convoId, systemText);
+    }
+  }
 }
+

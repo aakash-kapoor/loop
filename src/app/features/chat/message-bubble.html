@@ -59,6 +59,17 @@
           <i class="ti ti-arrow-back-up"></i>
         </button>
 
+        <!-- Pin / Unpin Message -->
+        @if (isPinned) {
+        <button (click)="onUnpin()" class="w-6 h-6 rounded-full hover:bg-amber-500/10 text-amber-500 flex items-center justify-center transition-colors cursor-pointer active-press" title="Unpin message">
+          <i class="ti ti-pin text-xs rotate-45"></i>
+        </button>
+        } @else {
+        <button (click)="onPin()" class="w-6 h-6 rounded-full hover:bg-surface-1 text-text-secondary flex items-center justify-center transition-colors cursor-pointer active-press" title="Pin message">
+          <i class="ti ti-pin text-xs"></i>
+        </button>
+        }
+
         <!-- Delete for me — always available -->
         <button (click)="deleteForMe()" class="w-6 h-6 rounded-full hover:bg-surface-1 text-text-secondary 
                      flex items-center justify-center transition-colors cursor-pointer active-press" title="Delete for me">
@@ -227,6 +238,9 @@
     <!-- Timestamp + Read Receipt tick -->
     <div class="flex items-center gap-1 mt-1 select-none"
          [ngClass]="{'justify-end mr-1': isOutgoing(), 'ml-1': !isOutgoing()}">
+      @if (isPinned && !isDeletedForEveryone() && !isDeletedForMe()) {
+        <i class="ti ti-pin text-[10px] text-amber-500 font-bold" title="Pinned message"></i>
+      }
       <span class="text-[9px] text-text-muted">
         {{ message.createdAt | date:'shortTime' }}
       </span>
