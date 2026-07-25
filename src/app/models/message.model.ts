@@ -1,3 +1,12 @@
+export interface MessageAttachment {
+    url: string;
+    fileName: string;
+    fileSize: number;
+    fileType: 'image' | 'document' | 'video' | 'audio' | 'other';
+    mimeType: string;
+    storagePath?: string;
+}
+
 export interface Message {
     id: string;
     senderId: string;
@@ -11,4 +20,5 @@ export interface Message {
     encryptionVersion?: number;   // version tag for E2EE messages
     mentions?: string[];          // array of mentioned user UIDs
     seenBy?: string[];            // UIDs who have read this message (read receipts)
+    attachments?: MessageAttachment[];
 }

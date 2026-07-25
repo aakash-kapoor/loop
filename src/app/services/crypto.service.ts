@@ -326,7 +326,15 @@ export class CryptoService {
     const combined = new Uint8Array(iv.length + ciphertext.byteLength);
     combined.set(iv);
     combined.set(new Uint8Array(ciphertext), iv.length);
-    return btoa(String.fromCharCode(...combined));
+
+    // Chunked conversion to base64 string to avoid 'Maximum call stack size exceeded' on larger buffers
+    let binary = '';
+    const chunkSize = 0x8000; // 32KB chunks
+    for (let i = 0; i < combined.length; i += chunkSize) {
+      const chunk = combined.subarray(i, Math.min(i + chunkSize, combined.length));
+      binary += String.fromCharCode.apply(null, chunk as unknown as number[]);
+    }
+    return btoa(binary);
   }
 
   // AES Message Text Decryption

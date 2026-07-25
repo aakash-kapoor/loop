@@ -1,10 +1,11 @@
 import { Component, Input, Output, EventEmitter, inject, computed, signal, HostListener, ElementRef, OnDestroy } from '@angular/core';
 import { DatePipe, NgClass } from '@angular/common';
-import { Message } from '../../models/message.model';
+import { Message, MessageAttachment } from '../../models/message.model';
 import { Auth } from '../../core/auth';
 import { UserService } from '../../services/user.service';
 import { MessageService } from '../../services/message.service';
 import { Avatar } from '../../shared/avatar/avatar';
+import { dataUrlToBlob, downloadBlob, formatBytes } from '../../shared/utils/image-compressor';
 
 @Component({
   selector: 'app-message-bubble',
@@ -14,6 +15,9 @@ import { Avatar } from '../../shared/avatar/avatar';
 })
 export class MessageBubble implements OnDestroy {
   readonly messageSignal = signal<Message | null>(null);
+
+  // Lightbox overlay state for full-resolution image preview
+  readonly selectedLightboxImage = signal<string | null>(null);
 
   // Track tap-to-open state for mobile devices
   readonly isMenuOpen = signal<boolean>(false);
@@ -52,6 +56,7 @@ export class MessageBubble implements OnDestroy {
   }
 
   @Output() reply = new EventEmitter<Message>();
+  @Output() imageClick = new EventEmitter<string>();
 
   /** All conversation participants — needed for read-receipt status. */
   @Input() participants: string[] = [];
@@ -232,6 +237,56 @@ export class MessageBubble implements OnDestroy {
       await this.messageService.deleteMessageForMe(msg.id);
     } catch (err) {
       console.error('Delete for me failed:', err);
+    }
+  }
+
+  readonly attachments = computed<MessageAttachment[]>(() => {
+    return this.messageSignal()?.attachments || [];
+  });
+
+  readonly imageAttachments = computed<MessageAttachment[]>(() => {
+    return this.attachments().filter((a) => a.fileType === 'image');
+  });
+
+  readonly documentAttachments = computed<MessageAttachment[]>(() => {
+    return this.attachments().filter((a) => a.fileType !== 'image');
+  });
+
+  formatFileSize(bytes: number): string {
+    return formatBytes(bytes);
+  }
+
+  openLightbox(url: string, event?: Event) {
+    if (event) event.stopPropagation();
+    this.imageClick.emit(url);
+  }
+
+  closeLightbox() {
+    this.selectedLightboxImage.set(null);
+  }
+
+  downloadAttachment(doc: MessageAttachment, event: Event) {
+    event.stopPropagation();
+    event.preventDefault();
+    if (!doc.url) return;
+
+    if (doc.url.startsWith('data:')) {
+      try {
+        const blob = dataUrlToBlob(doc.url);
+        downloadBlob(blob, doc.fileName);
+      } catch (err) {
+        console.error('Blob reconstruction failed, falling back to direct link download:', err);
+        const anchor = document.createElement('a');
+        anchor.href = doc.url;
+        anchor.download = doc.fileName;
+        anchor.click();
+      }
+    } else {
+      const anchor = document.createElement('a');
+      anchor.href = doc.url;
+      anchor.target = '_blank';
+      anchor.download = doc.fileName;
+      anchor.click();
     }
   }
 

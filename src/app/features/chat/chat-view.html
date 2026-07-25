@@ -172,17 +172,15 @@
         <app-message-bubble [message]="msg" [replyToMessage]="getReplyMessage(msg.replyTo)"
           [showSenderName]="convo()?.type === 'group'"
           [participants]="convo()?.participants ?? []"
-          [searchTerm]="searchQuery()" (reply)="onReplyTrigger($event)"></app-message-bubble>
+          [searchTerm]="searchQuery()" (reply)="onReplyTrigger($event)" (imageClick)="openLightbox($event)"></app-message-bubble>
       </div>
       }
 
       <!-- Typing indicator bubble — appears below last message when someone is typing -->
       @if (typingLabel()) {
       <div class="flex items-end gap-2 my-2 animate-slideUpFade">
-        <!-- Avatar placeholder to align with incoming messages -->
-        <div class="w-7 h-7 rounded-full bg-surface-2 border border-border-light flex-shrink-0 flex items-center justify-center">
-          <i class="ti ti-dots text-[10px] text-text-muted"></i>
-        </div>
+      <!-- Typing User Avatar -->
+      <app-avatar [photoURL]="typingUser()?.photoURL" [displayName]="typingUser()?.displayName" size="sm" class="self-end flex-shrink-0 mb-5"></app-avatar>
         <!-- Bubble -->
         <div class="flex flex-col items-start gap-1">
           @if (convo()?.type === 'group') {
@@ -243,6 +241,7 @@
       }
 
       <!-- Send Error Banner -->
+      <!-- Send Error Banner -->
       @if (sendError()) {
       <div
         class="px-4 py-2 bg-rose-500/10 border-b border-rose-500/20 text-rose-500 text-xs font-medium flex items-center justify-between animate-fadeIn">
@@ -258,8 +257,69 @@
       </div>
       }
 
+      <!-- Attachment Preview Tray -->
+      @if (uploadingFiles().length > 0) {
+      <div class="px-3 pt-2.5 pb-1 border-b border-border-light/60 bg-surface-1/40 backdrop-blur-md flex flex-wrap gap-2 max-h-48 overflow-y-auto animate-slideDown">
+        @for (item of uploadingFiles(); track item.id) {
+        <div class="relative group bg-surface-0 border border-border-light rounded-xl p-2 flex items-center gap-2.5 shadow-sm max-w-xs transition-all">
+          @if (item.isImage && item.previewUrl) {
+          <div class="relative w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-surface-1 border border-border-light">
+            <img [src]="item.previewUrl" class="w-full h-full object-cover" [alt]="item.fileName" />
+            @if (item.status === 'uploading' || item.status === 'compressing') {
+            <div class="absolute inset-0 bg-black/50 backdrop-blur-[1px] flex items-center justify-center">
+              <i class="ti ti-loader-2 animate-spin text-white text-base"></i>
+            </div>
+            }
+          </div>
+          } @else {
+          <div class="w-10 h-10 rounded-lg bg-accent/10 border border-accent/20 text-accent flex items-center justify-center flex-shrink-0 text-xl font-bold">
+            <i class="ti ti-file-description"></i>
+          </div>
+          }
+
+          <div class="flex flex-col min-w-0 flex-1">
+            <span class="text-xs font-semibold text-text-primary truncate" [title]="item.fileName">
+              {{ item.fileName }}
+            </span>
+            <div class="flex items-center gap-2 text-[10px]">
+              <span class="text-text-muted font-medium">{{ formatFileSize(item.fileSize) }}</span>
+              @if (item.status === 'compressing') {
+              <span class="text-amber-500 font-semibold animate-pulse">Compressing...</span>
+              } @else if (item.status === 'uploading') {
+              <span class="text-accent font-semibold">{{ item.progress }}%</span>
+              } @else if (item.status === 'completed') {
+              <span class="text-emerald-500 font-semibold flex items-center gap-0.5">
+                <i class="ti ti-check text-xs"></i> Ready
+              </span>
+              } @else if (item.status === 'error') {
+              <span class="text-rose-500 font-semibold truncate" [title]="item.error || 'Upload error'">Error</span>
+              }
+            </div>
+
+            <!-- Real-time Progress Bar -->
+            @if (item.status === 'uploading' || item.status === 'compressing') {
+            <div class="w-full h-1 bg-surface-1 rounded-full overflow-hidden mt-1">
+              <div class="h-full bg-accent transition-all duration-300 rounded-full" [style.width.%]="item.progress"></div>
+            </div>
+            }
+          </div>
+
+          <button (click)="removeAttachment(item.id)"
+            class="w-6 h-6 rounded-full hover:bg-rose-500/10 hover:text-rose-500 text-text-muted flex items-center justify-center transition-colors cursor-pointer flex-shrink-0"
+            title="Remove attachment">
+            <i class="ti ti-x text-xs"></i>
+          </button>
+        </div>
+        }
+      </div>
+      }
+
       <!-- Text input area -->
       <div class="flex items-center gap-2 p-3 relative">
+        <!-- Hidden file input for attachment upload -->
+        <input #fileInput type="file" multiple (change)="onFilesSelected($event)" class="hidden"
+          accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.csv" />
+
         <!-- Emoji Picker Popover -->
         @if (isEmojiPickerOpen()) {
         <div
@@ -298,6 +358,13 @@
         </div>
         }
 
+        <!-- Paperclip / Media trigger button -->
+        <button (click)="triggerFileInput()"
+          class="w-10 h-10 rounded-full hover:bg-surface-1 text-text-muted hover:text-text-secondary flex items-center justify-center transition-colors cursor-pointer flex-shrink-0 active-press"
+          title="Attach files or photos" aria-label="Attach files or photos">
+          <i class="ti ti-paperclip text-lg"></i>
+        </button>
+
         <!-- Emoji trigger button -->
         <button (click)="toggleEmojiPicker($event)"
           class="w-10 h-10 rounded-full hover:bg-surface-1 text-text-muted hover:text-text-secondary flex items-center justify-center transition-colors cursor-pointer flex-shrink-0 active-press"
@@ -306,11 +373,11 @@
         </button>
 
         <input #messageInput type="text" [ngModel]="text()" (ngModelChange)="text.set($event)" (input)="onTextInput()" (keydown)="onInputKeydown($event)" placeholder="Type a message…"
-          [disabled]="isPending() && initiatedByMe()"
+          [disabled]="(isPending() && initiatedByMe()) || isUploadingAny()"
           class="flex-1 px-4 py-3 bg-surface-1/50 border border-border-light rounded-full text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent focus:bg-surface-0 transition-all" />
-        <button (click)="send()" [disabled]="!text().trim() || (isPending() && initiatedByMe())"
+        <button (click)="send()" [disabled]="(!text().trim() && !hasCompletedAttachments()) || isUploadingAny() || (isPending() && initiatedByMe())"
           class="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 flex-shrink-0 select-none"
-          [ngClass]="text().trim() && !(isPending() && initiatedByMe()) 
+          [ngClass]="(text().trim() || hasCompletedAttachments()) && !isUploadingAny() && !(isPending() && initiatedByMe()) 
             ? 'bg-accent-gradient text-white shadow-md shadow-indigo-500/25 hover:opacity-95 cursor-pointer active-press' 
             : 'bg-surface-1 text-text-muted/50 border border-border-light/40 cursor-not-allowed opacity-60'"
           aria-label="Send message">
@@ -342,5 +409,31 @@
     [confirmText]="activeConfirmAction() === 'delete' ? 'Delete Chat' : 'Clear Chat'"
     [type]="activeConfirmAction() === 'clear' ? 'warning' : 'danger'" [isSubmitting]="isSubmittingConfirm()"
     (confirm)="handleConfirm()" (cancel)="closeConfirm()"></app-confirm-modal>
+  }
+
+  <!-- Global Fullscreen Lightbox Modal (Root level to prevent parent container clipping) -->
+  @if (activeLightboxImage()) {
+  <div (click)="closeLightbox()"
+    class="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center p-4 select-none animate-fadeIn">
+    <!-- Top Action Bar -->
+    <div class="absolute top-4 right-4 flex items-center gap-3 z-50">
+      <a [href]="activeLightboxImage()!" target="_blank" download="image" (click)="$event.stopPropagation()"
+        class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer text-lg"
+        title="Download image">
+        <i class="ti ti-download"></i>
+      </a>
+      <button (click)="closeLightbox()"
+        class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer text-xl"
+        title="Close (Esc)" aria-label="Close image preview">
+        <i class="ti ti-x"></i>
+      </button>
+    </div>
+
+    <!-- Main Image -->
+    <div class="relative max-w-5xl max-h-[85vh] flex items-center justify-center p-2">
+      <img [src]="activeLightboxImage()!" (click)="$event.stopPropagation()"
+        class="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl animate-scaleIn border border-white/10" alt="Full screen media view" />
+    </div>
+  </div>
   }
 </div>

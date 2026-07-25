@@ -9,12 +9,27 @@ import { UserService } from '../../services/user.service';
 import { Auth } from '../../core/auth';
 import { MessageBubble } from './message-bubble';
 import { Avatar } from '../../shared/avatar/avatar';
-import { Message } from '../../models/message.model';
+import { Message, MessageAttachment } from '../../models/message.model';
 import { AppUser } from '../../models/user.model';
 import { PickerComponent } from '@ctrl/ngx-emoji-mart';
+import { fileToCompressedDataUrl, formatBytes, MAX_FILE_SIZE_BYTES } from '../../shared/utils/image-compressor';
 
 import { GroupInfoModal } from './group-info-modal/group-info-modal';
 import { ConfirmModal } from '../../shared/confirm-modal/confirm-modal';
+
+export interface UploadingAttachmentItem {
+  id: string;
+  file: File;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  isImage: boolean;
+  previewUrl?: string;
+  progress: number;
+  status: 'compressing' | 'uploading' | 'completed' | 'error';
+  error?: string;
+  resultAttachment?: MessageAttachment;
+}
 
 @Component({
   selector: 'app-chat-view',
@@ -56,6 +71,26 @@ export class ChatViewComponent implements OnInit, OnDestroy {
   readonly mentionQuery = signal<string>('');
   readonly mentionSelectedIndex = signal<number>(0);
   readonly mentionedUids = signal<string[]>([]);
+
+  // File Attachment & Upload State Signals
+  readonly uploadingFiles = signal<UploadingAttachmentItem[]>([]);
+  readonly activeLightboxImage = signal<string | null>(null);
+  private readonly fileInput = viewChild<ElementRef<HTMLInputElement>>('fileInput');
+
+  @HostListener('document:keydown.escape')
+  onEscapeKey() {
+    if (this.activeLightboxImage()) {
+      this.closeLightbox();
+    }
+  }
+
+  openLightbox(url: string) {
+    this.activeLightboxImage.set(url);
+  }
+
+  closeLightbox() {
+    this.activeLightboxImage.set(null);
+  }
 
   private routeSub?: Subscription;
   private themeObserver?: MutationObserver;
@@ -170,6 +205,18 @@ export class ChatViewComponent implements OnInit, OnDestroy {
       });
 
     return names.join(', ') + (uids.length > 2 ? ' and others' : '') + ' is typing…';
+  });
+
+  /** User profile of the primary typing participant. */
+  readonly typingUser = computed(() => {
+    const convoId = this.convo()?.id;
+    if (!convoId) return null;
+
+    const uids = this.conversationService.typingUsers(convoId);
+    if (uids.length === 0) return null;
+
+    const cache = this.userService.usersCache();
+    return cache[uids[0]] || null;
   });
 
   constructor() {
@@ -343,9 +390,132 @@ export class ChatViewComponent implements OnInit, OnDestroy {
     }
   }
 
+  formatFileSize(bytes: number): string {
+    return formatBytes(bytes);
+  }
+
+  triggerFileInput() {
+    this.fileInput()?.nativeElement.click();
+  }
+
+  async onFilesSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const convo = this.convo();
+    if (!convo) return;
+
+    const selectedFiles = Array.from(input.files);
+    // Reset file input value so re-selecting same files triggers change event
+    input.value = '';
+
+    for (const file of selectedFiles) {
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        this.sendError.set(`"${file.name}" exceeds the 500 KB limit for free tier (${formatBytes(file.size)}).`);
+        continue;
+      }
+
+      const isImg = file.type.startsWith('image/') && !file.type.includes('svg');
+      const itemId = Math.random().toString(36).substring(2, 9);
+
+      let previewUrl: string | undefined;
+      if (isImg) {
+        previewUrl = URL.createObjectURL(file);
+      }
+
+      const newItem: UploadingAttachmentItem = {
+        id: itemId,
+        file,
+        fileName: file.name,
+        fileSize: file.size,
+        mimeType: file.type || 'application/octet-stream',
+        isImage: isImg,
+        previewUrl,
+        progress: 0,
+        status: isImg ? 'compressing' : 'uploading',
+      };
+
+      this.uploadingFiles.update((list) => [...list, newItem]);
+
+      this.processAndUploadFile(newItem);
+    }
+  }
+
+  private async processAndUploadFile(item: UploadingAttachmentItem) {
+    try {
+      const { dataUrl, finalSize } = await fileToCompressedDataUrl(item.file, (percent) => {
+        this.uploadingFiles.update((list) =>
+          list.map((i) => (i.id === item.id ? { ...i, progress: percent } : i))
+        );
+      });
+
+      const fileExt = item.fileName.includes('.') ? item.fileName.split('.').pop()?.toLowerCase() || '' : '';
+      let fileType: MessageAttachment['fileType'] = 'other';
+      if (item.mimeType.startsWith('image/')) fileType = 'image';
+      else if (item.mimeType.startsWith('video/')) fileType = 'video';
+      else if (item.mimeType.startsWith('audio/')) fileType = 'audio';
+      else if (
+        item.mimeType.includes('pdf') ||
+        item.mimeType.includes('word') ||
+        item.mimeType.includes('document') ||
+        item.mimeType.includes('sheet') ||
+        item.mimeType.includes('presentation') ||
+        item.mimeType.includes('text') ||
+        ['pdf', 'doc', 'docx', 'txt', 'zip', 'rar', 'csv', 'xlsx', 'pptx'].includes(fileExt)
+      ) {
+        fileType = 'document';
+      }
+
+      const attachment: MessageAttachment = {
+        url: dataUrl,
+        fileName: item.fileName,
+        fileSize: finalSize || item.fileSize,
+        fileType,
+        mimeType: item.mimeType || 'application/octet-stream',
+      };
+
+      this.uploadingFiles.update((list) =>
+        list.map((i) =>
+          i.id === item.id
+            ? { ...i, progress: 100, status: 'completed', resultAttachment: attachment, fileSize: finalSize }
+            : i
+        )
+      );
+    } catch (err: any) {
+      console.error('File processing failed:', err);
+      this.uploadingFiles.update((list) =>
+        list.map((i) =>
+          i.id === item.id ? { ...i, status: 'error', error: err.message || 'Processing failed' } : i
+        )
+      );
+    }
+  }
+
+  removeAttachment(id: string) {
+    const item = this.uploadingFiles().find((i) => i.id === id);
+    if (item && item.previewUrl) {
+      URL.revokeObjectURL(item.previewUrl);
+    }
+    this.uploadingFiles.update((list) => list.filter((i) => i.id !== id));
+  }
+
+  readonly isUploadingAny = computed(() =>
+    this.uploadingFiles().some((i) => i.status === 'compressing' || i.status === 'uploading')
+  );
+
+  readonly hasCompletedAttachments = computed(() =>
+    this.uploadingFiles().some((i) => i.status === 'completed' && i.resultAttachment)
+  );
+
   async send() {
     const messageText = this.text().trim();
-    if (!messageText) return;
+    const completedItems = this.uploadingFiles().filter(
+      (i) => i.status === 'completed' && i.resultAttachment
+    );
+    const attachments = completedItems.map((i) => i.resultAttachment!);
+
+    if (!messageText && attachments.length === 0) return;
+    if (this.isUploadingAny()) return; // Block sending while uploads in progress
 
     // Filter mentionedUids to ensure the mention text is still present in the final message
     const activeParticipants = this.groupParticipantsForMention();
@@ -365,11 +535,22 @@ export class ChatViewComponent implements OnInit, OnDestroy {
       this.conversationService.clearTyping(convoId);
     }
     try {
-      await this.messageService.sendMessage(messageText, this.replyingTo()?.id, validMentionUids);
+      await this.messageService.sendMessage(
+        messageText,
+        this.replyingTo()?.id,
+        validMentionUids,
+        attachments.length > 0 ? attachments : undefined
+      );
       this.text.set('');
       this.replyingTo.set(null);
       this.mentionedUids.set([]);
       this.isMentionPickerOpen.set(false);
+
+      // Clean up uploaded files list and preview URLs
+      this.uploadingFiles().forEach((item) => {
+        if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      });
+      this.uploadingFiles.set([]);
     } catch (err: any) {
       console.error('Send failed:', err);
       this.sendError.set(err.message || 'Failed to send message.');

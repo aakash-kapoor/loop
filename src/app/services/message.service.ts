@@ -22,7 +22,7 @@ import { Auth } from '../core/auth';
 import { ConversationService } from './conversation.service';
 import { UserService } from './user.service';
 import { CryptoService } from './crypto.service';
-import { Message } from '../models/message.model';
+import { Message, MessageAttachment } from '../models/message.model';
 import { Conversation } from '../models/conversation.model';
 
 @Injectable({
@@ -126,16 +126,42 @@ export class MessageService {
 
       return await Promise.all(
         rawList.map(async (msg) => {
-          if (msg.text && msg.encryptionVersion === 2) {
-            try {
-              const decrypted = await this.cryptoService.decryptText(msg.text, aesKey);
-              return { ...msg, text: decrypted };
-            } catch (e) {
-              console.warn('Failed to decrypt message:', msg.id, e);
-              return { ...msg, text: '[Decryption Error]' };
+          let text = msg.text;
+          let attachments = msg.attachments;
+
+          if (msg.encryptionVersion === 2) {
+            if (msg.text) {
+              try {
+                text = await this.cryptoService.decryptText(msg.text, aesKey);
+              } catch (e) {
+                console.warn('Failed to decrypt message text:', msg.id, e);
+                text = '[Decryption Error]';
+              }
+            }
+
+            if (msg.attachments && msg.attachments.length > 0) {
+              try {
+                attachments = await Promise.all(
+                  msg.attachments.map(async (att) => {
+                    if (att.url) {
+                      try {
+                        const decryptedUrl = await this.cryptoService.decryptText(att.url, aesKey);
+                        return { ...att, url: decryptedUrl };
+                      } catch (attErr) {
+                        console.warn('Failed to decrypt attachment URL:', attErr);
+                        return att;
+                      }
+                    }
+                    return att;
+                  })
+                );
+              } catch (e) {
+                console.warn('Failed to decrypt attachments array:', msg.id, e);
+              }
             }
           }
-          return msg;
+
+          return { ...msg, text, attachments };
         })
       );
     } catch (err) {
@@ -296,17 +322,22 @@ export class MessageService {
       osc.connect(gain);
       gain.connect(ctx.destination);
 
-      osc.start();
+osc.start();
       osc.stop(ctx.currentTime + 0.22);
     } catch (e) {
       console.warn('Web Audio synthesis failed:', e);
     }
   }
 
-  async sendMessage(text: string, replyTo?: string, mentions?: string[]): Promise<void> {
+
+
+  async sendMessage(text: string, replyTo?: string, mentions?: string[], attachments?: MessageAttachment[]): Promise<void> {
     const convo = this.conversationService.selectedConversation();
     const user = this.auth.currentUser();
     if (!convo || !user) throw new Error('No selected conversation or user');
+    if (!text.trim() && (!attachments || attachments.length === 0)) {
+      throw new Error('Cannot send an empty message without attachments');
+    }
 
     const convoId = convo.id;
     let aesKey: CryptoKey | null = null;
@@ -398,11 +429,33 @@ export class MessageService {
       }
     }
 
+    // Determine message text or attachment summary fallback for preview
+    let rawTextToEncrypt = text.trim();
+    if (!rawTextToEncrypt && attachments && attachments.length > 0) {
+      const hasImg = attachments.some(a => a.fileType === 'image');
+      if (hasImg) {
+        rawTextToEncrypt = attachments.length > 1 ? `📷 ${attachments.length} photos` : '📷 Photo';
+      } else {
+        rawTextToEncrypt = attachments.length > 1 ? `📁 ${attachments.length} files` : `📄 ${attachments[0].fileName}`;
+      }
+    }
+
     // Encrypt message text
-    const encryptedText = await this.cryptoService.encryptText(text.trim(), aesKey);
+    const encryptedText = await this.cryptoService.encryptText(rawTextToEncrypt, aesKey);
     const now = Date.now();
 
-    const messageData = {
+    // Encrypt attachment URLs with E2EE key
+    let encryptedAttachments: MessageAttachment[] | undefined = undefined;
+    if (attachments && attachments.length > 0) {
+      encryptedAttachments = await Promise.all(
+        attachments.map(async (att) => ({
+          ...att,
+          url: await this.cryptoService.encryptText(att.url, aesKey!),
+        }))
+      );
+    }
+
+    const messageData: Record<string, any> = {
       senderId: user.uid,
       text: encryptedText,
       createdAt: serverTimestamp(),
@@ -412,6 +465,10 @@ export class MessageService {
       mentions: mentions || [],
       encryptionVersion: 2,
     };
+
+    if (encryptedAttachments && encryptedAttachments.length > 0) {
+      messageData['attachments'] = encryptedAttachments;
+    }
 
     const messagesRef = collection(db, 'conversations', convoId, 'messages');
     await addDoc(messagesRef, messageData);

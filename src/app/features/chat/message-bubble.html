@@ -115,22 +115,89 @@
       </div>
       } @else {
       <div (click)="toggleMenu($event)"
-        class="px-3.5 py-2.5 shadow-sm text-sm break-words leading-relaxed rounded-2xl cursor-pointer select-none transition-all duration-200"
+        class="shadow-sm text-sm break-words leading-relaxed rounded-2xl cursor-pointer select-none transition-all duration-200 overflow-hidden flex flex-col"
         [ngClass]="{
               'bg-accent-gradient text-white rounded-tr-sm shadow-md shadow-indigo-500/15 font-sans': isOutgoing(),
               'bg-surface-1 border border-border-light/80 text-text-primary rounded-tl-sm font-sans': !isOutgoing(),
               'rounded-t-none': replyToMessage,
-              'ring-2 ring-amber-400/80 dark:ring-amber-400/60 shadow-md shadow-amber-500/10': isCurrentMentioned()
+              'ring-2 ring-amber-400/80 dark:ring-amber-400/60 shadow-md shadow-amber-500/10': isCurrentMentioned(),
+              'p-3.5': !imageAttachments().length,
+              'p-1.5': imageAttachments().length
             }">
-        @for (chunk of formattedMessageChunks(); track $index) {
-          @if (chunk.isMatch) {
-            <mark class="bg-amber-300/80 text-amber-950 dark:bg-amber-400/50 dark:text-amber-100 rounded px-0.5 font-semibold">{{ chunk.text }}</mark>
-          } @else if (chunk.isMention) {
-            <span class="px-1.5 py-0.5 mx-0.5 rounded-md font-semibold text-xs inline-block"
-              [ngClass]="isOutgoing() ? 'bg-white/20 text-white' : 'bg-accent/15 text-accent dark:bg-accent/25'">{{ chunk.text }}</span>
+
+        <!-- Image Attachments Grid -->
+        @if (imageAttachments().length > 0) {
+        <div class="rounded-xl overflow-hidden mb-1 w-64 sm:w-80 max-w-full">
+          @if (imageAttachments().length === 1) {
+          <!-- Single Image Card with Uniform Bounds -->
+          <div (click)="openLightbox(imageAttachments()[0].url, $event)"
+            class="relative group/img overflow-hidden bg-black/10 rounded-xl cursor-pointer max-h-72 sm:max-h-80 flex items-center justify-center">
+            <img [src]="imageAttachments()[0].url" [alt]="imageAttachments()[0].fileName"
+              class="w-full h-full max-h-72 sm:max-h-80 object-cover transition-transform duration-300 group-hover/img:scale-105" />
+            <div class="absolute inset-0 bg-black/0 group-hover/img:bg-black/20 transition-colors flex items-center justify-center">
+              <i class="ti ti-maximize text-white text-xl opacity-0 group-hover/img:opacity-100 transition-opacity drop-shadow-md"></i>
+            </div>
+          </div>
           } @else {
-            {{ chunk.text }}
+          <!-- Multi-Image Grid -->
+          <div class="grid grid-cols-2 gap-1">
+            @for (img of imageAttachments(); track img.url) {
+            <div (click)="openLightbox(img.url, $event)"
+              class="relative group/img overflow-hidden bg-black/10 aspect-square rounded-lg cursor-pointer">
+              <img [src]="img.url" [alt]="img.fileName"
+                class="w-full h-full object-cover transition-transform duration-300 group-hover/img:scale-105" />
+              <div class="absolute inset-0 bg-black/0 group-hover/img:bg-black/20 transition-colors flex items-center justify-center">
+                <i class="ti ti-maximize text-white text-xl opacity-0 group-hover/img:opacity-100 transition-opacity drop-shadow-md"></i>
+              </div>
+            </div>
+            }
+          </div>
           }
+        </div>
+        }
+
+        <!-- Document Attachments List -->
+        @if (documentAttachments().length > 0) {
+        <div class="flex flex-col gap-1.5 mb-1" [ngClass]="{'px-2 pt-1': imageAttachments().length > 0}">
+          @for (doc of documentAttachments(); track doc.fileName) {
+          <div (click)="downloadAttachment(doc, $event)"
+            class="flex items-center gap-3 p-2.5 rounded-xl transition-all cursor-pointer border select-none group/doc"
+            [ngClass]="isOutgoing() ? 'bg-white/15 hover:bg-white/25 border-white/20 text-white' : 'bg-surface-0 hover:bg-surface-2 border-border-light text-text-primary'">
+            <div class="w-9 h-9 rounded-lg flex items-center justify-center text-lg flex-shrink-0"
+              [ngClass]="isOutgoing() ? 'bg-white/20 text-white' : 'bg-accent/15 text-accent'">
+              <i class="ti ti-file-description"></i>
+            </div>
+            <div class="flex flex-col min-w-0 flex-1">
+              <span class="text-xs font-semibold truncate group-hover/doc:underline" [title]="doc.fileName">
+                {{ doc.fileName }}
+              </span>
+              <span class="text-[10px] opacity-80 font-medium">
+                {{ formatFileSize(doc.fileSize) }}
+              </span>
+            </div>
+            <div class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-transform group-hover/doc:scale-110"
+              [ngClass]="isOutgoing() ? 'bg-white/20 text-white' : 'bg-surface-1 text-text-secondary'">
+              <i class="ti ti-download text-xs"></i>
+            </div>
+          </div>
+          }
+        </div>
+        }
+
+        <!-- Text Message Body (if non-empty) -->
+        @if (message.text && formattedMessageChunks().length > 0) {
+        <div [ngClass]="{'px-2 pb-1 pt-1': imageAttachments().length > 0 || documentAttachments().length > 0}">
+          @for (chunk of formattedMessageChunks(); track $index) {
+            @if (chunk.isMatch) {
+              <mark class="bg-amber-300/80 text-amber-950 dark:bg-amber-400/50 dark:text-amber-100 rounded px-0.5 font-semibold">{{ chunk.text }}</mark>
+            } @else if (chunk.isMention) {
+              <span class="px-1.5 py-0.5 mx-0.5 rounded-md font-semibold text-xs inline-block"
+                [ngClass]="isOutgoing() ? 'bg-white/20 text-white' : 'bg-accent/15 text-accent dark:bg-accent/25'">{{ chunk.text }}</span>
+            } @else {
+              {{ chunk.text }}
+            }
+          }
+        </div>
         }
       </div>
       }
