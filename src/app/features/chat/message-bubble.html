@@ -121,7 +121,8 @@
               'bg-surface-1 border border-border-light/80 text-text-primary rounded-tl-sm font-sans': !isOutgoing(),
               'rounded-t-none': replyToMessage,
               'ring-2 ring-amber-400/80 dark:ring-amber-400/60 shadow-md shadow-amber-500/10': isCurrentMentioned(),
-              'p-3.5': !imageAttachments().length,
+              'p-3.5': !imageAttachments().length && !isEmojiOnly(),
+              'p-2.5 sm:p-3': !imageAttachments().length && isEmojiOnly(),
               'p-1.5': imageAttachments().length
             }">
 
@@ -186,7 +187,10 @@
 
         <!-- Text Message Body (if non-empty) -->
         @if (message.text && formattedMessageChunks().length > 0) {
-        <div [ngClass]="{'px-2 pb-1 pt-1': imageAttachments().length > 0 || documentAttachments().length > 0}">
+        <div [ngClass]="[
+          isEmojiOnly() ? emojiSizeClass() : '',
+          (imageAttachments().length > 0 || documentAttachments().length > 0) ? 'px-2 pb-1 pt-1' : ''
+        ]">
           @for (chunk of formattedMessageChunks(); track $index) {
             @if (chunk.isMatch) {
               <mark class="bg-amber-300/80 text-amber-950 dark:bg-amber-400/50 dark:text-amber-100 rounded px-0.5 font-semibold">{{ chunk.text }}</mark>

@@ -160,6 +160,29 @@ export class MessageBubble implements OnDestroy {
     });
   });
 
+  readonly emojiInfo = computed(() => {
+    const text = this.messageSignal()?.text || '';
+    if (!text || this.isDeletedForEveryone() || this.isDeletedForMe()) {
+      return { isEmojiOnly: false, count: 0 };
+    }
+    if (this.imageAttachments().length > 0 || this.documentAttachments().length > 0) {
+      return { isEmojiOnly: false, count: 0 };
+    }
+    return isPureEmojiMessage(text);
+  });
+
+  readonly isEmojiOnly = computed(() => this.emojiInfo().isEmojiOnly);
+
+  readonly emojiSizeClass = computed(() => {
+    const { isEmojiOnly, count } = this.emojiInfo();
+    if (!isEmojiOnly) return '';
+
+    if (count === 1) return 'text-4xl sm:text-5xl leading-tight py-1';
+    if (count === 2) return 'text-3xl sm:text-4xl leading-tight py-0.5';
+    if (count === 3) return 'text-2xl sm:text-3xl leading-tight py-0.5';
+    return '';
+  });
+
   async react(emoji: string) {
     const msg = this.messageSignal();
     if (!msg) return;
@@ -302,4 +325,36 @@ export class MessageBubble implements OnDestroy {
       setTimeout(() => this.deleteError.set(null), 3000);
     }
   }
+}
+
+/**
+ * Detects if a text string contains ONLY Unicode emojis and optional whitespace (1–3 emojis only).
+ * Uses Intl.Segmenter to segment by grapheme clusters and validates each grapheme individually,
+ * preventing false positives from bare digits/symbols that belong to Emoji_Component.
+ */
+export function isPureEmojiMessage(text: string): { isEmojiOnly: boolean; count: number } {
+  const trimmed = text.trim();
+  if (!trimmed) return { isEmojiOnly: false, count: 0 };
+
+  if (typeof Intl === 'undefined' || !('Segmenter' in Intl)) {
+    const containsPictographic = /\p{Extended_Pictographic}|\p{Emoji_Presentation}/u.test(trimmed);
+    const onlyEmojiChars = /^[\p{Extended_Pictographic}\p{Emoji_Presentation}\p{Emoji_Component}\uFE0F\u200D\s]+$/u.test(trimmed);
+    return { isEmojiOnly: containsPictographic && onlyEmojiChars, count: 0 };
+  }
+
+  const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+  const graphemes = Array.from(segmenter.segment(trimmed))
+    .map((s) => s.segment)
+    .filter((s) => s.trim().length > 0);
+
+  if (graphemes.length === 0 || graphemes.length > 3) {
+    return { isEmojiOnly: false, count: 0 };
+  }
+
+  const allEmoji = graphemes.every((g) => /\p{Extended_Pictographic}|\p{Emoji_Presentation}/u.test(g));
+
+  return {
+    isEmojiOnly: allEmoji,
+    count: allEmoji ? graphemes.length : 0,
+  };
 }
