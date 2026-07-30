@@ -184,16 +184,16 @@ export class ChatViewComponent implements OnInit, OnDestroy {
     return this.userService.usersCache()[partnerUid] || null;
   });
 
+  readonly fetchedPinnedMessage = signal<Message | null>(null);
+
   /** 
-   * Pinned message object derived from activeMessages matching convo().pinnedMessageId.
-   * Note: Looks up from the currently loaded window of messages (messages()). 
-   * If a pinned message is older than the active message stream, it returns null.
+   * Pinned message object derived from activeMessages stream or fetched by ID fallback
    */
   readonly pinnedMessage = computed(() => {
     const pinnedId = this.convo()?.pinnedMessageId;
     if (!pinnedId) return null;
-    const msg = this.messages().find((m) => m.id === pinnedId);
-    if (!msg || msg.deletedForEveryone || msg.deletedFor?.includes(this.currentUserId() || '')) {
+    const msg = this.messages().find((m) => m.id === pinnedId) || this.fetchedPinnedMessage();
+    if (!msg || msg.id !== pinnedId || msg.deletedForEveryone || msg.deletedFor?.includes(this.currentUserId() || '')) {
       return null;
     }
     return msg;
@@ -210,25 +210,23 @@ export class ChatViewComponent implements OnInit, OnDestroy {
 
   /**
    * Typing indicator label for the chat header.
-   * Returns a string like "{Name} is typing…" or "Alice, Bob are typing…",
-   * or null when nobody else is typing.
    */
   readonly typingLabel = computed<string | null>(() => {
     const convoId = this.convo()?.id;
     if (!convoId) return null;
 
     const uids = this.conversationService.typingUsers(convoId);
-    if (uids.length === 0) return null;
+    const otherUids = uids.filter((uid) => uid !== this.currentUserId());
+    if (otherUids.length === 0) return null;
 
-    const cache = this.userService.usersCache();
-    const names = uids
-      .slice(0, 2)
-      .map((uid) => {
-        const u = cache[uid];
-        return u?.displayName?.split(' ')[0] || u?.username || 'Someone';
-      });
+    const names = otherUids.map((uid) => {
+      const u = this.userService.usersCache()[uid];
+      return u?.displayName || u?.username || 'Someone';
+    });
 
-    return names.join(', ') + (uids.length > 2 ? ' and others' : '') + ' is typing…';
+    if (names.length === 1) return `${names[0]} is typing…`;
+    if (names.length === 2) return `${names[0]} and ${names[1]} are typing…`;
+    return `${names[0]} and ${names.length - 1} others are typing…`;
   });
 
   /** User profile of the primary typing participant. */
@@ -236,7 +234,7 @@ export class ChatViewComponent implements OnInit, OnDestroy {
     const convoId = this.convo()?.id;
     if (!convoId) return null;
 
-    const uids = this.conversationService.typingUsers(convoId);
+    const uids = this.conversationService.typingUsers(convoId).filter((uid) => uid !== this.currentUserId());
     if (uids.length === 0) return null;
 
     const cache = this.userService.usersCache();
@@ -248,6 +246,37 @@ export class ChatViewComponent implements OnInit, OnDestroy {
   private highlightTimeout?: ReturnType<typeof setTimeout>;
 
   constructor() {
+    // Reactive effect to fetch pinned message by ID fallback if older than loaded messages stream
+    effect(() => {
+      const convoId = this.convo()?.id;
+      const pinnedId = this.convo()?.pinnedMessageId;
+      const msgs = this.messages();
+
+      if (!convoId || !pinnedId) {
+        this.fetchedPinnedMessage.set(null);
+        return;
+      }
+
+      // Check if message is already in active stream
+      const inStream = msgs.find((m) => m.id === pinnedId);
+      if (inStream) {
+        this.fetchedPinnedMessage.set(null);
+        return;
+      }
+
+      // If not in active stream and not already fetched, fetch by ID
+      if (this.fetchedPinnedMessage()?.id !== pinnedId) {
+        this.messageService.getMessageById(convoId, pinnedId).then((fetchedMsg) => {
+          if (fetchedMsg) {
+            this.fetchedPinnedMessage.set(fetchedMsg);
+            if (fetchedMsg.senderId) {
+              this.userService.fetchParticipantProfiles([fetchedMsg.senderId]);
+            }
+          }
+        });
+      }
+    });
+
     // Auto-scroll to bottom ONLY when switching conversations or when a new message arrives
     effect(() => {
       const msgs = this.messages();

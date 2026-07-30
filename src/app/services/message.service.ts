@@ -200,7 +200,7 @@ export class MessageService {
           }
           return { ...msg, createdAt };
         })
-        .filter(msg => 
+        .filter(msg =>
           !msg.deletedFor?.includes(user?.uid || '') &&
           (msg.createdAt || 0) >= clearedAt
         );
@@ -234,66 +234,66 @@ export class MessageService {
       }
 
       if (permission === 'granted') {
-      const currentUid = this.auth.currentUser()?.uid;
-      let title = 'Loop';
+        const currentUid = this.auth.currentUser()?.uid;
+        let title = 'Loop';
 
-      if (convo.type === 'dm') {
-        const partnerUid = convo.participants.find((p) => p !== currentUid);
-        if (partnerUid) {
-          const partner = this.userService.usersCache()[partnerUid];
-          title = partner?.displayName || partner?.username || 'Someone';
-        }
-      } else if (convo.type === 'group') {
-        title = convo.groupName || 'Group Chat';
-      }
-
-      try {
-        let bodyText = convo.lastMessage;
-
-        // Decrypt E2EE notification preview text
-        const isSystemMessage =
-          convo.lastMessageIsSystem ||
-          convo.lastMessage === 'Conversation started' ||
-          convo.lastMessage === 'Group created' ||
-          convo.lastMessage === 'Message deleted' ||
-          convo.lastMessage === 'Group deleted by admin' ||
-          convo.lastMessage.includes(' added ') ||
-          convo.lastMessage.includes(' removed ') ||
-          convo.lastMessage.includes(' pinned ') ||
-          convo.lastMessage.includes(' unpinned ') ||
-          convo.lastMessage.endsWith(' left the group');
-
-        if (convo.lastMessage && convo.lastMessageEncryptionVersion === 2 && !isSystemMessage) {
-          try {
-            const aesKey = await this.cryptoService.getOrDecryptConversationKey(convo.id);
-            if (aesKey) {
-              bodyText = await this.cryptoService.decryptText(convo.lastMessage, aesKey);
-            } else {
-              bodyText = '[Encrypted Message]';
-            }
-          } catch (decryptErr) {
-            // Fallback gracefully if ciphertext is invalid or legacy plaintext was stored
-            bodyText = convo.lastMessage;
+        if (convo.type === 'dm') {
+          const partnerUid = convo.participants.find((p) => p !== currentUid);
+          if (partnerUid) {
+            const partner = this.userService.usersCache()[partnerUid];
+            title = partner?.displayName || partner?.username || 'Someone';
           }
+        } else if (convo.type === 'group') {
+          title = convo.groupName || 'Group Chat';
         }
 
-        const notif = new Notification(title, {
-          body: bodyText,
-          tag: convo.id,
-        });
+        try {
+          let bodyText = convo.lastMessage;
 
-        notif.onclick = (event) => {
-          event.preventDefault();
-          window.focus();
-          this.conversationService.selectConversation(convo.id);
-          this.router.navigate(['/chats', convo.id]);
-        };
-      } catch (e) {
-        console.warn('Native notification trigger failed:', e);
+          // Decrypt E2EE notification preview text
+          const isSystemMessage =
+            convo.lastMessageIsSystem ||
+            convo.lastMessage === 'Conversation started' ||
+            convo.lastMessage === 'Group created' ||
+            convo.lastMessage === 'Message deleted' ||
+            convo.lastMessage === 'Group deleted by admin' ||
+            convo.lastMessage.includes(' added ') ||
+            convo.lastMessage.includes(' removed ') ||
+            convo.lastMessage.includes(' pinned ') ||
+            convo.lastMessage.includes(' unpinned ') ||
+            convo.lastMessage.endsWith(' left the group');
+
+          if (convo.lastMessage && convo.lastMessageEncryptionVersion === 2 && !isSystemMessage) {
+            try {
+              const aesKey = await this.cryptoService.getOrDecryptConversationKey(convo.id);
+              if (aesKey) {
+                bodyText = await this.cryptoService.decryptText(convo.lastMessage, aesKey);
+              } else {
+                bodyText = '[Encrypted Message]';
+              }
+            } catch (decryptErr) {
+              // Fallback gracefully if ciphertext is invalid or legacy plaintext was stored
+              bodyText = convo.lastMessage;
+            }
+          }
+
+          const notif = new Notification(title, {
+            body: bodyText,
+            tag: convo.id,
+          });
+
+          notif.onclick = (event) => {
+            event.preventDefault();
+            window.focus();
+            this.conversationService.selectConversation(convo.id);
+            this.router.navigate(['/chats', convo.id]);
+          };
+        } catch (e) {
+          console.warn('Native notification trigger failed:', e);
+        }
       }
     }
   }
-}
 
   private audioCtx: AudioContext | null = null;
 
@@ -324,7 +324,7 @@ export class MessageService {
       osc.connect(gain);
       gain.connect(ctx.destination);
 
-osc.start();
+      osc.start();
       osc.stop(ctx.currentTime + 0.22);
     } catch (e) {
       console.warn('Web Audio synthesis failed:', e);
@@ -493,10 +493,10 @@ osc.start();
     await updateDoc(convoRef, updates);
   }
 
-  async toggleReaction(messageId: string, emoji: string): Promise<void> {    
+  async toggleReaction(messageId: string, emoji: string): Promise<void> {
     const convo = this.conversationService.selectedConversation();
     const user = this.auth.currentUser();
-    
+
     if (!convo || !user) {
       console.warn('Convo or user not resolved in toggleReaction. convo:', convo, 'user:', user);
       return;
@@ -669,7 +669,40 @@ osc.start();
     // Fire-and-forget each write; we don’t await to keep UX snappy
     pending.forEach((m) => {
       const msgRef = doc(db, 'conversations', convoId, 'messages', m.id);
-      updateDoc(msgRef, { seenBy: arrayUnion(uid) }).catch(() => {});
+      updateDoc(msgRef, { seenBy: arrayUnion(uid) }).catch(() => { });
     });
+  }
+
+  /**
+   * Fetch a single message by ID and run it through the E2EE decryption pipeline.
+   * Used as a fallback when a pinned message is older than the active stream window.
+   */
+  async getMessageById(convoId: string, messageId: string): Promise<Message | null> {
+    try {
+      const msgRef = doc(db, 'conversations', convoId, 'messages', messageId);
+      const msgSnap = await getDoc(msgRef);
+      if (!msgSnap.exists()) return null;
+
+      const rawMsg = { id: msgSnap.id, ...msgSnap.data() } as Message;
+      let createdAt = rawMsg.createdAtMs;
+      if (createdAt === undefined || createdAt === null) {
+        if (typeof rawMsg.createdAt === 'number') {
+          createdAt = rawMsg.createdAt;
+        } else if (rawMsg.createdAt && typeof rawMsg.createdAt.toMillis === 'function') {
+          createdAt = rawMsg.createdAt.toMillis();
+        } else if (rawMsg.createdAt && typeof rawMsg.createdAt === 'object' && rawMsg.createdAt.seconds !== undefined) {
+          createdAt = rawMsg.createdAt.seconds * 1000 + Math.floor(rawMsg.createdAt.nanoseconds / 1000000);
+        } else {
+          createdAt = Date.now();
+        }
+      }
+      const msg = { ...rawMsg, createdAt };
+
+      const decryptedList = await this.decryptMessagesList([msg]);
+      return decryptedList[0] || msg;
+    } catch (err) {
+      console.error('Failed to fetch message by ID:', convoId, messageId, err);
+      return null;
+    }
   }
 }
