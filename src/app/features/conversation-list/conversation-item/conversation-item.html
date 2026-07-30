@@ -8,8 +8,8 @@
 >
   <!-- Avatar / Icon -->
   <app-avatar
-    [photoURL]="otherProfile()?.photoURL"
-    [displayName]="otherProfile()?.displayName"
+    [photoURL]="convo.type === 'group' ? convo.groupIcon : otherProfile()?.photoURL"
+    [displayName]="convo.type === 'group' ? convo.groupName : otherProfile()?.displayName"
     [isOnline]="otherProfile()?.isOnline ?? false"
     [isGroup]="convo.type === 'group'"
     size="md"

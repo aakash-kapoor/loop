@@ -664,6 +664,33 @@ export class ConversationService {
     await this.createSystemMessage(convoId, `${adminName} changed group name to "${trimmedName}"`);
   }
 
+  async updateGroupIcon(convoId: string, groupIcon: string | null): Promise<void> {
+    const currentUser = this.auth.currentUser();
+    if (!currentUser) throw new Error('User not logged in');
+
+    const convoRef = doc(db, 'conversations', convoId);
+    const convoSnap = await getDoc(convoRef);
+    if (!convoSnap.exists()) throw new Error('Group conversation not found');
+    const convo = convoSnap.data() as Conversation;
+
+    if (!convo.admins?.includes(currentUser.uid)) {
+      throw new Error('Only administrators can edit group icon.');
+    }
+
+    const updates: Record<string, any> = {};
+    if (groupIcon === null) {
+      updates['groupIcon'] = deleteField();
+    } else {
+      updates['groupIcon'] = groupIcon;
+    }
+
+    await updateDoc(convoRef, updates);
+
+    const adminName = currentUser.displayName || currentUser.username || 'Admin';
+    const actionText = groupIcon === null ? 'removed the group photo' : 'updated the group photo';
+    await this.createSystemMessage(convoId, `${adminName} ${actionText}`);
+  }
+
   async getRecentContacts(): Promise<AppUser[]> {
     const user = this.auth.currentUser();
     if (!user) return [];

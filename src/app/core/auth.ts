@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, limit, deleteField } from 'firebase/firestore';
 import { auth, db } from './firebase.config';
 import { AppUser } from '../models/user.model';
 
@@ -28,15 +28,12 @@ export class Auth {
 
         if (userSnap.exists()) {
           const appUser = userSnap.data() as AppUser;
-          const photoURL = appUser.photoURL || firebaseUser.photoURL || undefined;
+          const photoURL = appUser.photoURL || undefined;
 
           const updates: Record<string, any> = {
             isOnline: true,
             lastSeen: Date.now(),
           };
-          if (!appUser.photoURL && firebaseUser.photoURL) {
-            updates['photoURL'] = firebaseUser.photoURL;
-          }
 
           await updateDoc(userRef, updates).catch(() => { });
 
@@ -225,6 +222,34 @@ export class Auth {
     this.currentUser.set({
       ...user,
       ...settings,
+    });
+  }
+
+  async updateUserProfile(data: { displayName?: string; photoURL?: string | null }): Promise<void> {
+    const user = this.currentUser();
+    if (!user?.uid) throw new Error('No user is currently signed in');
+
+    const updates: Record<string, any> = {};
+    if (data.displayName !== undefined) {
+      const trimmed = data.displayName.trim();
+      if (!trimmed) throw new Error('Display name cannot be empty');
+      updates['displayName'] = trimmed;
+    }
+    if (data.photoURL === null) {
+      updates['photoURL'] = deleteField();
+    } else if (data.photoURL !== undefined) {
+      updates['photoURL'] = data.photoURL;
+    }
+
+    if (Object.keys(updates).length === 0) return;
+
+    const userRef = doc(db, 'users', user.uid);
+    await updateDoc(userRef, updates);
+
+    this.currentUser.set({
+      ...user,
+      ...(data.displayName !== undefined ? { displayName: data.displayName.trim() } : {}),
+      photoURL: data.photoURL === null ? undefined : (data.photoURL ?? user.photoURL),
     });
   }
 }

@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, inject, signal, computed, HostListener } from '@angular/core';
+import { Component, Input, Output, EventEmitter, inject, signal, computed, HostListener, ElementRef, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Conversation } from '../../../models/conversation.model';
@@ -8,6 +8,7 @@ import { UserService } from '../../../services/user.service';
 import { Auth } from '../../../core/auth';
 import { Avatar } from '../../../shared/avatar/avatar';
 import { ConfirmModal } from '../../../shared/confirm-modal/confirm-modal';
+import { fileToCompressedDataUrl, formatBytes, MAX_FILE_SIZE_BYTES } from '../../../shared/utils/image-compressor';
 
 @Component({
   selector: 'app-group-info-modal',
@@ -42,12 +43,20 @@ export class GroupInfoModal {
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent) {
-    if (!this.activeMemberMenuId()) return;
     const target = event.target as HTMLElement;
-    const isMemberMenuBtn = target.closest('.member-menu-btn');
-    const isMemberMenuPopup = target.closest('.member-menu-popup');
-    if (!isMemberMenuBtn && !isMemberMenuPopup) {
-      this.activeMemberMenuId.set(null);
+    if (this.activeMemberMenuId()) {
+      const isMemberMenuBtn = target.closest('.member-menu-btn');
+      const isMemberMenuPopup = target.closest('.member-menu-popup');
+      if (!isMemberMenuBtn && !isMemberMenuPopup) {
+        this.activeMemberMenuId.set(null);
+      }
+    }
+    if (this.isGroupAvatarMenuOpen()) {
+      const isGroupAvatarBtn = target.closest('.group-avatar-container');
+      const isGroupAvatarMenu = target.closest('.group-avatar-menu');
+      if (!isGroupAvatarBtn && !isGroupAvatarMenu) {
+        this.isGroupAvatarMenuOpen.set(false);
+      }
     }
   }
 
@@ -60,6 +69,71 @@ export class GroupInfoModal {
   readonly errorMessage = signal<string | null>(null);
   readonly activeMemberMenuId = signal<string | null>(null);
   readonly activeConfirmAction = signal<'leave' | 'clear' | 'delete' | null>(null);
+
+  // Group Photo Edit State Signals
+  readonly isGroupAvatarMenuOpen = signal<boolean>(false);
+  readonly isUploadingGroupPhoto = signal<boolean>(false);
+  readonly newGroupIconDataUrl = signal<string | null>(null);
+
+  private readonly groupPhotoInput = viewChild<ElementRef<HTMLInputElement>>('groupPhotoInput');
+
+  toggleGroupAvatarMenu(event: Event) {
+    event.stopPropagation();
+    if (!this.isCurrentAdmin()) return;
+    this.isGroupAvatarMenuOpen.set(!this.isGroupAvatarMenuOpen());
+  }
+
+  triggerGroupPhotoInput() {
+    this.isGroupAvatarMenuOpen.set(false);
+    this.groupPhotoInput()?.nativeElement.click();
+  }
+
+  async onGroupPhotoSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const file = input.files[0];
+    input.value = '';
+
+    if (!file.type.startsWith('image/')) {
+      this.errorMessage.set('Please select a valid image file.');
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      this.errorMessage.set(`Image exceeds the 500 KB limit (${formatBytes(file.size)}).`);
+      return;
+    }
+
+    this.isUploadingGroupPhoto.set(true);
+    this.errorMessage.set(null);
+
+    try {
+      const { dataUrl } = await fileToCompressedDataUrl(file, undefined, 400, 400, 0.85);
+      this.newGroupIconDataUrl.set(dataUrl);
+      await this.conversationService.updateGroupIcon(this.conversation.id, dataUrl);
+    } catch (err: any) {
+      console.error('Failed to process group photo:', err);
+      this.errorMessage.set(err.message || 'Failed to update group photo.');
+    } finally {
+      this.isUploadingGroupPhoto.set(false);
+    }
+  }
+
+  async removeGroupPhoto() {
+    this.isGroupAvatarMenuOpen.set(false);
+    this.isUploadingGroupPhoto.set(true);
+    this.errorMessage.set(null);
+    try {
+      await this.conversationService.updateGroupIcon(this.conversation.id, null);
+      this.newGroupIconDataUrl.set(null);
+    } catch (err: any) {
+      console.error('Failed to remove group photo:', err);
+      this.errorMessage.set(err.message || 'Failed to remove group photo.');
+    } finally {
+      this.isUploadingGroupPhoto.set(false);
+    }
+  }
 
   readonly currentUserId = computed(() => this.auth.currentUser()?.uid);
 

@@ -35,13 +35,54 @@
       </div>
     }
 
+    <!-- Hidden group photo input -->
+    <input #groupPhotoInput type="file" (change)="onGroupPhotoSelected($event)" accept="image/*" class="hidden" />
+
     <!-- Drawer Scrollable Content -->
     <div class="flex-1 overflow-y-auto p-4 pb-16 flex flex-col gap-6">
       
       <!-- Group Header / Info Card -->
-      <div class="flex flex-col items-center text-center gap-3 p-4 rounded-2xl bg-surface-1/60 border border-border-light">
-        <div class="w-20 h-20 rounded-full bg-accent/10 text-accent font-bold text-2xl flex items-center justify-center border-2 border-accent/20 shadow-md">
-          <i class="ti ti-users text-3xl"></i>
+      <div class="flex flex-col items-center text-center gap-3 p-4 rounded-2xl bg-surface-1/60 border border-border-light relative">
+        
+        <!-- Group Avatar Container (Clicking opens action dropdown menu if admin) -->
+        <div class="group-avatar-container relative select-none flex-shrink-0" [ngClass]="{'cursor-pointer group/avatar': isCurrentAdmin()}" (click)="toggleGroupAvatarMenu($event)" title="Group photo options">
+          @if (newGroupIconDataUrl()) {
+            <img [src]="newGroupIconDataUrl()" alt="New group icon preview" class="w-20 h-20 rounded-2xl object-cover border-2 border-accent shadow-md group-hover/avatar:opacity-90 transition-opacity" />
+          } @else if (conversation.groupIcon) {
+            <img [src]="conversation.groupIcon" referrerpolicy="no-referrer" alt="Group icon" class="w-20 h-20 rounded-2xl object-cover border border-border-light shadow-sm group-hover/avatar:ring-2 group-hover/avatar:ring-accent/50 transition-all" />
+          } @else {
+            <div class="w-20 h-20 rounded-2xl bg-accent/10 text-accent font-bold flex items-center justify-center border border-border-light uppercase shadow-inner group-hover/avatar:ring-2 group-hover/avatar:ring-accent/50 transition-all">
+              <i class="ti ti-users text-3xl"></i>
+            </div>
+          }
+
+          <!-- Admin Camera Badge -->
+          @if (isCurrentAdmin()) {
+            <div class="absolute -bottom-1 -right-1 w-6 h-6 bg-accent text-white rounded-full flex items-center justify-center text-xs shadow-md border-2 border-surface-0">
+              <i class="ti ti-camera text-xs"></i>
+            </div>
+          }
+
+          <!-- Group Photo Action Dropdown Menu -->
+          @if (isGroupAvatarMenuOpen()) {
+            <div class="group-avatar-menu absolute top-full mt-2 left-1/2 -translate-x-1/2 z-50 bg-surface-0/95 backdrop-blur-xl border border-border-light rounded-2xl shadow-2xl shadow-black/10 dark:shadow-black/50 p-1.5 min-w-[185px] animate-scaleIn origin-top flex flex-col gap-1 select-none text-left">
+              <button (click)="$event.stopPropagation(); triggerGroupPhotoInput()" class="w-full px-3 py-2 rounded-xl text-left text-xs font-semibold hover:bg-surface-1 text-text-primary transition-all flex items-center gap-2.5 cursor-pointer active-press group/btn">
+                <div class="w-7 h-7 rounded-lg bg-accent/10 text-accent flex items-center justify-center flex-shrink-0 group-hover/btn:bg-accent group-hover/btn:text-white transition-colors">
+                  <i class="ti ti-camera text-sm"></i>
+                </div>
+                <span>Change group photo</span>
+              </button>
+              @if (conversation.groupIcon || newGroupIconDataUrl()) {
+                <div class="border-t border-border-light/60 my-0.5"></div>
+                <button (click)="$event.stopPropagation(); removeGroupPhoto()" class="w-full px-3 py-2 rounded-xl text-left text-xs font-semibold hover:bg-rose-500/10 text-rose-500 hover:text-rose-600 transition-all flex items-center gap-2.5 cursor-pointer active-press group/btn">
+                  <div class="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-500 flex items-center justify-center flex-shrink-0 group-hover/btn:bg-rose-500 group-hover/btn:text-white transition-colors">
+                    <i class="ti ti-trash text-sm"></i>
+                  </div>
+                  <span>Remove photo</span>
+                </button>
+              }
+            </div>
+          }
         </div>
 
         @if (!isEditingName()) {

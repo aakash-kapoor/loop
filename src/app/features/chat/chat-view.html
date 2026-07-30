@@ -22,7 +22,7 @@
       </button>
 
       <!-- Avatar -->
-      <app-avatar [photoURL]="chatPartner()?.photoURL" [displayName]="chatPartner()?.displayName"
+      <app-avatar [photoURL]="convo()?.type === 'group' ? convo()?.groupIcon : chatPartner()?.photoURL" [displayName]="convo()?.type === 'group' ? convo()?.groupName : chatPartner()?.displayName"
         [isOnline]="chatPartner()?.isOnline ?? false" [isGroup]="convo()?.type === 'group'" size="md"></app-avatar>
 
       <!-- User/Group Info -->
