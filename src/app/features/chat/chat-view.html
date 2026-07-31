@@ -23,7 +23,7 @@
 
       <!-- Avatar -->
       <app-avatar [photoURL]="convo()?.type === 'group' ? convo()?.groupIcon : chatPartner()?.photoURL" [displayName]="convo()?.type === 'group' ? convo()?.groupName : chatPartner()?.displayName"
-        [isOnline]="chatPartner()?.isOnline ?? false" [isGroup]="convo()?.type === 'group'" size="md"></app-avatar>
+        [isOnline]="chatPartnerOnline()" [isGroup]="convo()?.type === 'group'" size="md"></app-avatar>
 
       <!-- User/Group Info -->
       <div class="flex-1 min-w-0"
@@ -33,9 +33,9 @@
           {{ convo()?.type === 'dm' ? (chatPartner()?.displayName || 'Loading...') : convo()?.groupName }}
         </h2>
         <span class="text-[10px] font-medium"
-          [ngClass]="convo()?.type === 'dm' && chatPartner()?.isOnline ? 'text-emerald-600' : 'text-text-muted'">
+          [ngClass]="convo()?.type === 'dm' && chatPartnerOnline() ? 'text-emerald-600' : 'text-text-muted'">
           @if (convo()?.type === 'dm') {
-          @if (chatPartner()?.isOnline) {
+          @if (chatPartnerOnline()) {
           Active now
           } @else if (chatPartner()?.showLastSeen !== false && chatPartner()?.lastSeen) {
           {{ formatLastSeen(chatPartner()?.lastSeen) }}

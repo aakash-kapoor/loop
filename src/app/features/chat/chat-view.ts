@@ -184,6 +184,8 @@ export class ChatViewComponent implements OnInit, OnDestroy {
     return this.userService.usersCache()[partnerUid] || null;
   });
 
+  readonly chatPartnerOnline = computed(() => this.userService.isUserOnline(this.chatPartner()));
+
   readonly fetchedPinnedMessage = signal<Message | null>(null);
 
   /** 

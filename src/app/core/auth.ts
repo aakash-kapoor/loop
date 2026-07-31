@@ -10,14 +10,19 @@ import { AppUser } from '../models/user.model';
 export class Auth {
   readonly currentUser = signal<AppUser | null | undefined>(undefined);
   private activePresenceUid: string | null = null;
+  private cachedIdToken: string | null = null;
 
   constructor() {
     onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
         this.currentUser.set(null);
         this.activePresenceUid = null;
+        this.cachedIdToken = null;
         return;
       }
+
+      // Proactively cache ID token synchronously for keepalive unload patches
+      firebaseUser.getIdToken().then((t) => (this.cachedIdToken = t)).catch(() => {});
 
       this.setupPresenceListeners(firebaseUser.uid);
 
@@ -74,6 +79,8 @@ export class Auth {
     });
   }
 
+  private heartbeatTimer: any = null;
+
   private setupPresenceListeners(uid: string) {
     if (this.activePresenceUid === uid) return;
     this.activePresenceUid = uid;
@@ -99,10 +106,46 @@ export class Auth {
       });
     };
 
+    // Initial presence update on session load
+    updatePresence(true);
+
+    // Active heartbeat: refresh lastSeen every 15s while tab is visible
+    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+    this.heartbeatTimer = setInterval(() => {
+      if (document.visibilityState === 'visible' && this.currentUser()?.uid === uid) {
+        updatePresence(true);
+      }
+    }, 15000);
+
+    const sendKeepaliveOffline = () => {
+      if (!this.cachedIdToken) return;
+      try {
+        const projectId = db.app.options.projectId;
+        const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${uid}?updateMask.fieldPaths=isOnline&updateMask.fieldPaths=lastSeen`;
+        const body = JSON.stringify({
+          fields: {
+            isOnline: { booleanValue: false },
+            lastSeen: { integerValue: String(Date.now()) }
+          }
+        });
+        fetch(url, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.cachedIdToken}`
+          },
+          body,
+          keepalive: true
+        });
+      } catch (e) {
+        console.warn('Keepalive presence patch failed:', e);
+      }
+    };
+
     // Update status when switching browser tabs or hiding the app window
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') {
-        // Start grace period timer before setting status to offline
+        // Start grace period timer before setting status to offline for tab switches
         if (offlineTimer) clearTimeout(offlineTimer);
         offlineTimer = setTimeout(() => {
           updatePresence(false);
@@ -117,12 +160,17 @@ export class Auth {
       }
     });
 
-    // Apply grace period on pagehide to prevent presence flicker on page reloads/refreshes
+    // Immediate offline update on page unloads/closes via SDK + Keepalive REST patch
     window.addEventListener('pagehide', () => {
       if (offlineTimer) clearTimeout(offlineTimer);
-      offlineTimer = setTimeout(() => {
-        updatePresence(false);
-      }, GRACE_PERIOD_MS);
+      updatePresence(false);
+      sendKeepaliveOffline();
+    });
+
+    window.addEventListener('beforeunload', () => {
+      if (offlineTimer) clearTimeout(offlineTimer);
+      updatePresence(false);
+      sendKeepaliveOffline();
     });
   }
 
@@ -132,8 +180,13 @@ export class Auth {
   }
 
   async logout(): Promise<void> {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+
     const user = this.currentUser();
-    if (user?.uid && user.username) {
+    if (user?.uid) {
       const userRef = doc(db, 'users', user.uid);
       await updateDoc(userRef, {
         isOnline: false,

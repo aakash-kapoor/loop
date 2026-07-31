@@ -96,4 +96,13 @@ export class UserService {
     });
     return results;
   }
+
+  /**
+   * Evaluates if a user is truly online (isOnline flag is true AND lastSeen was within the last 35 seconds)
+   */
+  isUserOnline(user: AppUser | null | undefined): boolean {
+    if (!user || !user.isOnline) return false;
+    const STALE_THRESHOLD_MS = 35000; // 35 seconds
+    return Date.now() - (user.lastSeen || 0) < STALE_THRESHOLD_MS;
+  }
 }
