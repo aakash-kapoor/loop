@@ -3,6 +3,7 @@ import { Router, RouterLink } from '@angular/router';
 import { NgClass } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Auth } from '../../core/auth';
+import { ToastService } from '../../services/toast.service';
 import { ConfirmModal } from '../../shared/confirm-modal/confirm-modal';
 import { fileToCompressedDataUrl, formatBytes, MAX_FILE_SIZE_BYTES } from '../../shared/utils/image-compressor';
 
@@ -18,6 +19,7 @@ import { fileToCompressedDataUrl, formatBytes, MAX_FILE_SIZE_BYTES } from '../..
 export class Settings implements OnInit {
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
+  private readonly toastService = inject(ToastService);
 
   readonly currentUser = computed(() => this.auth.currentUser());
 
@@ -32,8 +34,6 @@ export class Settings implements OnInit {
   readonly editedDisplayName = signal<string>('');
   readonly isSavingProfile = signal<boolean>(false);
   readonly isUploadingPhoto = signal<boolean>(false);
-  readonly profileError = signal<string | null>(null);
-  readonly profileSuccess = signal<string | null>(null);
   readonly newAvatarDataUrl = signal<string | null>(null);
 
   // Delete Account Confirmation State Signals
@@ -58,7 +58,8 @@ export class Settings implements OnInit {
     try {
       await this.auth.deleteAccount();
       this.showDeleteModal.set(false);
-      this.router.navigate(['/login'], { queryParams: { deleted: 'true' } });
+      this.toastService.show('Your account has been successfully deleted.', 'success');
+      this.router.navigate(['/login']);
     } catch (err: any) {
       console.error('Delete account failed:', err);
       this.deleteModalError.set(err.message || 'Failed to delete account.');
@@ -104,15 +105,12 @@ export class Settings implements OnInit {
     const user = this.currentUser();
     this.editedDisplayName.set(user?.displayName || '');
     this.newAvatarDataUrl.set(null);
-    this.profileError.set(null);
-    this.profileSuccess.set(null);
     this.isEditingProfile.set(true);
   }
 
   cancelEditingProfile() {
     this.isEditingProfile.set(false);
     this.newAvatarDataUrl.set(null);
-    this.profileError.set(null);
   }
 
   triggerPhotoInput() {
@@ -128,17 +126,16 @@ export class Settings implements OnInit {
     input.value = '';
 
     if (!file.type.startsWith('image/')) {
-      this.profileError.set('Please select a valid image file.');
+      this.toastService.show('Please select a valid image file.', 'error');
       return;
     }
 
     if (file.size > MAX_FILE_SIZE_BYTES) {
-      this.profileError.set(`Image exceeds the 500 KB limit (${formatBytes(file.size)}).`);
+      this.toastService.show(`Image exceeds the 500 KB limit (${formatBytes(file.size)}).`, 'error');
       return;
     }
 
     this.isUploadingPhoto.set(true);
-    this.profileError.set(null);
 
     try {
       // Compress avatar to 400x400 max dimension Data URL
@@ -152,7 +149,7 @@ export class Settings implements OnInit {
       }
     } catch (err: any) {
       console.error('Failed to process photo:', err);
-      this.profileError.set(err.message || 'Failed to process image.');
+      this.toastService.show(err.message || 'Failed to process image.', 'error');
     } finally {
       this.isUploadingPhoto.set(false);
     }
@@ -161,14 +158,13 @@ export class Settings implements OnInit {
   async removePhoto() {
     this.isAvatarMenuOpen.set(false);
     this.isUploadingPhoto.set(true);
-    this.profileError.set(null);
     try {
       await this.auth.updateUserProfile({ photoURL: null });
       this.newAvatarDataUrl.set(null);
       this.showSuccess('Profile photo removed!');
     } catch (err: any) {
       console.error('Failed to remove photo:', err);
-      this.profileError.set(err.message || 'Failed to remove photo.');
+      this.toastService.show(err.message || 'Failed to remove photo.', 'error');
     } finally {
       this.isUploadingPhoto.set(false);
     }
@@ -177,12 +173,11 @@ export class Settings implements OnInit {
   async saveProfile() {
     const name = this.editedDisplayName().trim();
     if (!name) {
-      this.profileError.set('Display name cannot be empty.');
+      this.toastService.show('Display name cannot be empty.', 'error');
       return;
     }
 
     this.isSavingProfile.set(true);
-    this.profileError.set(null);
 
     try {
       const updates: { displayName: string; photoURL?: string } = {
@@ -199,15 +194,14 @@ export class Settings implements OnInit {
       this.showSuccess('Profile updated successfully!');
     } catch (err: any) {
       console.error('Save profile failed:', err);
-      this.profileError.set(err.message || 'Failed to update profile.');
+      this.toastService.show(err.message || 'Failed to update profile.', 'error');
     } finally {
       this.isSavingProfile.set(false);
     }
   }
 
   private showSuccess(msg: string) {
-    this.profileSuccess.set(msg);
-    setTimeout(() => this.profileSuccess.set(null), 3000);
+    this.toastService.show(msg, 'success');
   }
 
   toggleDarkMode() {
@@ -252,6 +246,7 @@ export class Settings implements OnInit {
   async logout() {
     try {
       await this.auth.logout();
+      this.toastService.show('You have been logged out.', 'info');
       this.router.navigate(['/login']);
     } catch (err) {
       console.error('Logout failed:', err);

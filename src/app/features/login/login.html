@@ -236,19 +236,6 @@
         }
       </div>
     } @else {
-      <!-- Account Deleted Success Toast -->
-      @if (accountDeletedMessage()) {
-        <div class="w-full p-3.5 mb-6 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-500 text-xs font-medium flex items-center justify-between animate-fadeIn">
-          <div class="flex items-center gap-2.5">
-            <i class="ti ti-circle-check text-lg text-emerald-500 flex-shrink-0"></i>
-            <span>Your account has been successfully deleted.</span>
-          </div>
-          <button (click)="accountDeletedMessage.set(false)" class="p-1 hover:bg-emerald-500/20 rounded-full cursor-pointer transition-colors" aria-label="Dismiss message">
-            <i class="ti ti-x text-xs"></i>
-          </button>
-        </div>
-      }
-
       <!-- Default Google login view -->
       <!-- Logo Badge -->
       <div #logo class="w-16 h-16 bg-accent rounded-2xl flex items-center justify-center shadow-lg shadow-accent/20 mb-6 text-white text-3xl">

@@ -13,31 +13,7 @@
     <!-- Hidden photo input -->
     <input #photoInput type="file" (change)="onPhotoSelected($event)" accept="image/*" class="hidden" />
 
-    <!-- Error Alert Toast -->
-    @if (profileError()) {
-      <div class="p-3 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-rose-500 text-xs font-medium flex items-center justify-between animate-fadeIn">
-        <div class="flex items-center gap-2">
-          <i class="ti ti-alert-circle text-base"></i>
-          <span>{{ profileError() }}</span>
-        </div>
-        <button (click)="profileError.set(null)" class="p-1 hover:bg-rose-500/20 rounded-full cursor-pointer transition-colors" aria-label="Dismiss error">
-          <i class="ti ti-x text-xs"></i>
-        </button>
-      </div>
-    }
 
-    <!-- Success Alert Toast -->
-    @if (profileSuccess()) {
-      <div class="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-500 text-xs font-medium flex items-center justify-between animate-fadeIn">
-        <div class="flex items-center gap-2">
-          <i class="ti ti-circle-check text-base"></i>
-          <span>{{ profileSuccess() }}</span>
-        </div>
-        <button (click)="profileSuccess.set(null)" class="p-1 hover:bg-emerald-500/20 rounded-full cursor-pointer transition-colors" aria-label="Dismiss success">
-          <i class="ti ti-x text-xs"></i>
-        </button>
-      </div>
-    }
 
     <!-- Profile Summary Card -->
     @if (currentUser()) {

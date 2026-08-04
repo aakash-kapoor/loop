@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { Auth } from '../../core/auth';
 import { auth } from '../../core/firebase.config';
 import { CryptoService } from '../../services/crypto.service';
+import { ToastService } from '../../services/toast.service';
 import { animate } from 'motion';
 import { FormsModule } from '@angular/forms';
 import { Subject, Subscription } from 'rxjs';
@@ -20,6 +21,7 @@ export class ChooseUsername implements AfterViewInit, OnDestroy {
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
   private readonly cryptoService = inject(CryptoService);
+  private readonly toastService = inject(ToastService);
 
   readonly username = signal<string>('');
   readonly isChecking = signal<boolean>(false);
@@ -152,7 +154,9 @@ export class ChooseUsername implements AfterViewInit, OnDestroy {
       this.router.navigate(['/']);
     } catch (err: any) {
       console.error('Claim/Key generation failed:', err);
-      this.errorMessage.set(err.message || 'Failed to claim username. Please try again.');
+      const msg = err.message || 'Failed to claim username. Please try again.';
+      this.errorMessage.set(msg);
+      this.toastService.show(msg, 'error');
       this.isAvailable.set(null);
     } finally {
       this.isSubmitting.set(false);

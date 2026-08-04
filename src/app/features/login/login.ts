@@ -1,7 +1,8 @@
 import { Component, inject, ElementRef, viewChild, AfterViewInit, signal, effect } from '@angular/core';
-import { Router, RouterLink, ActivatedRoute } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { Auth } from '../../core/auth';
 import { CryptoService } from '../../services/crypto.service';
+import { ToastService } from '../../services/toast.service';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../core/firebase.config';
 import { animate } from 'motion';
@@ -17,11 +18,10 @@ import { evaluatePassphraseStrength } from '../../shared/passphrase-validator';
 export class Login implements AfterViewInit {
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
-  private readonly route = inject(ActivatedRoute);
   private readonly cryptoService = inject(CryptoService);
+  private readonly toastService = inject(ToastService);
   
   readonly isLoggingIn = signal<boolean>(false);
-  readonly accountDeletedMessage = signal<boolean>(false);
 
   // E2EE Restore States
   readonly recoveryPassphrase = signal<string>(``);
@@ -44,11 +44,6 @@ export class Login implements AfterViewInit {
   private readonly actionBtn = viewChild<ElementRef<HTMLElement>>('actionBtn');
 
   constructor() {
-    const deleted = this.route.snapshot.queryParamMap.get('deleted');
-    if (deleted === 'true') {
-      this.accountDeletedMessage.set(true);
-    }
-
     // Monitor user authentication to verify backup presence
     effect(() => {
       const user = this.currentUser();
@@ -134,7 +129,9 @@ export class Login implements AfterViewInit {
       );
     } catch (err: any) {
       console.error('Key restoration failed:', err);
-      this.recoveryError.set('Incorrect passphrase or invalid backup. Please try again.');
+      const msg = 'Incorrect passphrase or invalid backup. Please try again.';
+      this.recoveryError.set(msg);
+      this.toastService.show(msg, 'error');
     } finally {
       this.isRestoring.set(false);
     }
@@ -146,11 +143,15 @@ export class Login implements AfterViewInit {
 
     const strength = evaluatePassphraseStrength(pass);
     if (!strength.isValid) {
-      this.recoveryError.set(strength.message || 'Passphrase is not strong enough.');
+      const msg = strength.message || 'Passphrase is not strong enough.';
+      this.recoveryError.set(msg);
+      this.toastService.show(msg, 'error');
       return;
     }
     if (pass !== confirm) {
-      this.recoveryError.set('Passphrases do not match.');
+      const msg = 'Passphrases do not match.';
+      this.recoveryError.set(msg);
+      this.toastService.show(msg, 'error');
       return;
     }
 
@@ -183,9 +184,12 @@ export class Login implements AfterViewInit {
 
       // Save private key locally in IndexedDB
       await this.cryptoService.savePrivateKeyToLocal(user.uid, keyPair.privateKey);
+      this.toastService.show('Encryption configured successfully!', 'success');
     } catch (err: any) {
       console.error('Setup E2EE failed:', err);
-      this.recoveryError.set('Failed to set up encryption. Please try again.');
+      const msg = 'Failed to set up encryption. Please try again.';
+      this.recoveryError.set(msg);
+      this.toastService.show(msg, 'error');
     } finally {
       this.isRestoring.set(false);
     }
@@ -197,11 +201,15 @@ export class Login implements AfterViewInit {
 
     const strength = evaluatePassphraseStrength(pass);
     if (!strength.isValid) {
-      this.recoveryError.set(strength.message || 'Passphrase is not strong enough.');
+      const msg = strength.message || 'Passphrase is not strong enough.';
+      this.recoveryError.set(msg);
+      this.toastService.show(msg, 'error');
       return;
     }
     if (pass !== confirm) {
-      this.recoveryError.set('Passphrases do not match.');
+      const msg = 'Passphrases do not match.';
+      this.recoveryError.set(msg);
+      this.toastService.show(msg, 'error');
       return;
     }
 
@@ -233,6 +241,7 @@ export class Login implements AfterViewInit {
 
       // 5. Store private key locally
       await this.cryptoService.savePrivateKeyToLocal(user.uid, keyPair.privateKey);
+      this.toastService.show('Chat encryption keys reset successfully.', 'success');
 
       // Reset confirmation states
       this.isConfirmingReset.set(false);
@@ -240,7 +249,9 @@ export class Login implements AfterViewInit {
       this.recoveryConfirmPassphrase.set('');
     } catch (err: any) {
       console.error('Key reset failed:', err);
-      this.recoveryError.set('Failed to reset keys. Please try again.');
+      const msg = 'Failed to reset keys. Please try again.';
+      this.recoveryError.set(msg);
+      this.toastService.show(msg, 'error');
     } finally {
       this.isRestoring.set(false);
     }

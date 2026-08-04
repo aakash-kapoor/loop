@@ -2,10 +2,11 @@ import { Component, inject, computed, effect } from '@angular/core';
 import { Router, RouterOutlet } from '@angular/router';
 import { Auth } from './core/auth';
 import { CryptoService } from './services/crypto.service';
+import { ToastComponent } from './shared/toast/toast';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
+  imports: [RouterOutlet, ToastComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss'
 })

@@ -6,6 +6,7 @@ import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { UserService } from '../../services/user.service';
 import { ConversationService } from '../../services/conversation.service';
+import { ToastService } from '../../services/toast.service';
 import { Auth } from '../../core/auth';
 import { AppUser } from '../../models/user.model';
 import { Avatar } from '../../shared/avatar/avatar';
@@ -23,6 +24,7 @@ export class NewConversation implements OnInit, OnDestroy {
   // Protected visibility to allow direct template binding to userService.usersCache()
   protected readonly userService = inject(UserService);
   private readonly conversationService = inject(ConversationService);
+  private readonly toastService = inject(ToastService);
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
 
@@ -107,10 +109,7 @@ export class NewConversation implements OnInit, OnDestroy {
     this.searchSubject.next(cleaned);
   }
 
-  readonly creationError = signal<string>('');
-
   async startDM(recipientUid: string) {
-    this.creationError.set('');
     try {
       const id = await this.conversationService.startConversation(recipientUid);
       this.conversationService.selectConversation(id);
@@ -119,9 +118,9 @@ export class NewConversation implements OnInit, OnDestroy {
       console.error('Failed to start DM:', err);
       if (err.message?.startsWith('E2EE_UPGRADE_REQUIRED:')) {
         const name = err.message.split(':')[1];
-        this.creationError.set(`Cannot start chat: ${name} needs to update their application to support encryption.`);
+        this.toastService.show(`Cannot start chat: ${name} needs to update their application to support encryption.`, 'error');
       } else {
-        this.creationError.set('Failed to start conversation. Please try again.');
+        this.toastService.show('Failed to start conversation. Please try again.', 'error');
       }
     }
   }
@@ -143,7 +142,6 @@ export class NewConversation implements OnInit, OnDestroy {
     if (!name || uids.length === 0 || this.isCreatingGroup()) return;
 
     this.isCreatingGroup.set(true);
-    this.creationError.set('');
     try {
       const id = await this.conversationService.startGroupConversation(name, uids);
       this.conversationService.selectConversation(id);
@@ -152,9 +150,9 @@ export class NewConversation implements OnInit, OnDestroy {
       console.error('Failed to create group:', err);
       if (err.message?.startsWith('E2EE_UPGRADE_REQUIRED:')) {
         const pName = err.message.split(':')[1];
-        this.creationError.set(`Cannot create group: ${pName} needs to update their application to support encryption.`);
+        this.toastService.show(`Cannot create group: ${pName} needs to update their application to support encryption.`, 'error');
       } else {
-        this.creationError.set('Failed to create group. Please try again.');
+        this.toastService.show('Failed to create group. Please try again.', 'error');
       }
     } finally {
       this.isCreatingGroup.set(false);
