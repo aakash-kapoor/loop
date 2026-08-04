@@ -34,6 +34,14 @@
       </p>
     </div>
 
+    <!-- Error Alert inside Modal -->
+    @if (errorMessage) {
+      <div class="w-full p-2.5 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-rose-500 text-xs font-medium flex items-center gap-2 text-left animate-fadeIn">
+        <i class="ti ti-alert-circle text-base flex-shrink-0"></i>
+        <span class="flex-1 text-[11px] leading-tight">{{ errorMessage }}</span>
+      </div>
+    }
+
     <!-- Action Buttons -->
     <div class="flex items-center gap-2.5 w-full mt-2">
       <button 

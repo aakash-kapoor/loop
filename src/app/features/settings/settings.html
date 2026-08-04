@@ -265,17 +265,49 @@
       <!-- Option Row: Log Out -->
       <div 
         (click)="logout()"
-        class="flex items-center justify-between px-4 py-3.5 hover:bg-rose-500/5 hover:text-rose-600 cursor-pointer transition-colors group"
+        class="flex items-center justify-between px-4 py-3.5 border-b border-border-light/40 hover:bg-surface-1/40 cursor-pointer transition-colors group"
+      >
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-xl bg-accent/10 text-accent flex items-center justify-center group-hover:scale-105 transition-transform">
+            <i class="ti ti-logout text-lg"></i>
+          </div>
+          <span class="text-sm font-semibold text-text-primary group-hover:text-accent transition-colors">Log Out</span>
+        </div>
+        <i class="ti ti-chevron-right text-text-muted group-hover:text-accent transition-colors"></i>
+      </div>
+
+      <!-- Option Row: Delete Account -->
+      <div 
+        (click)="openDeleteModal()"
+        class="flex items-center justify-between px-4 py-3.5 hover:bg-rose-500/5 cursor-pointer transition-colors group"
       >
         <div class="flex items-center gap-3">
           <div class="w-8 h-8 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center group-hover:scale-105 transition-transform">
-            <i class="ti ti-logout text-lg"></i>
+            <i class="ti ti-trash text-lg"></i>
           </div>
-          <span class="text-sm font-semibold text-text-primary group-hover:text-rose-500 transition-colors">Log Out</span>
+          <div class="flex flex-col">
+            <span class="text-sm font-semibold text-rose-500">Delete Account</span>
+            <span class="text-[11px] text-text-muted">Permanently delete your profile and account</span>
+          </div>
         </div>
         <i class="ti ti-chevron-right text-text-muted group-hover:text-rose-500 transition-colors"></i>
       </div>
     </div>
 
   </div>
+
+  <!-- Confirmation Modal for Delete Account -->
+  @if (showDeleteModal()) {
+    <app-confirm-modal
+      title="Delete Account"
+      message="Are you sure you want to delete your account? This action is permanent and cannot be undone. All your user profile data will be permanently removed."
+      confirmText="Delete Account"
+      cancelText="Cancel"
+      type="danger"
+      [isSubmitting]="isDeletingAccount()"
+      [errorMessage]="deleteModalError()"
+      (confirm)="confirmDeleteAccount()"
+      (cancel)="closeDeleteModal()"
+    ></app-confirm-modal>
+  }
 </div>

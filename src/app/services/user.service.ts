@@ -30,6 +30,20 @@ export class UserService {
           ...this.usersCache(),
           [uid]: profile,
         });
+      } else {
+        const deletedUserFallback: AppUser = {
+          uid,
+          username: 'deleted_user',
+          usernameLower: 'deleted_user',
+          displayName: 'Deleted User',
+          photoURL: undefined,
+          isOnline: false,
+          lastSeen: 0,
+        };
+        this.usersCache.set({
+          ...this.usersCache(),
+          [uid]: deletedUserFallback,
+        });
       }
     }, (err) => {
       console.warn(`Failed to listen to profile updates for uid ${uid}:`, err);
@@ -79,7 +93,15 @@ export class UserService {
     if (snap.exists()) {
       return snap.data() as AppUser;
     }
-    return null;
+    return {
+      uid,
+      username: 'deleted_user',
+      usernameLower: 'deleted_user',
+      displayName: 'Deleted User',
+      photoURL: undefined,
+      isOnline: false,
+      lastSeen: 0,
+    };
   }
 
   async getSuggestedUsers(currentUserUid?: string, limitCount = 20): Promise<AppUser[]> {

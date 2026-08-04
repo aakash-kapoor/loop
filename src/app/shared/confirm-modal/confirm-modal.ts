@@ -14,6 +14,7 @@ export class ConfirmModal {
   @Input() cancelText = 'Cancel';
   @Input() type: 'danger' | 'warning' | 'info' = 'danger';
   @Input() isSubmitting = false;
+  @Input() errorMessage?: string | null;
 
   @Output() confirm = new EventEmitter<void>();
   @Output() cancel = new EventEmitter<void>();

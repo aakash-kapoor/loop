@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
-import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, limit, deleteField } from 'firebase/firestore';
+import { GoogleAuthProvider, signInWithPopup, reauthenticateWithPopup, reauthenticateWithRedirect, signOut, onAuthStateChanged, deleteUser } from 'firebase/auth';
+import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, limit, deleteField, deleteDoc, addDoc, serverTimestamp, increment } from 'firebase/firestore';
 import { auth, db } from './firebase.config';
 import { AppUser } from '../models/user.model';
 
@@ -44,6 +44,7 @@ export class Auth {
 
           this.currentUser.set({
             ...appUser,
+            uid: appUser.uid || firebaseUser.uid,
             photoURL,
             isOnline: true,
             lastSeen: Date.now(),
@@ -213,7 +214,9 @@ export class Auth {
     salt?: string
   ): Promise<void> {
     const user = this.currentUser();
-    if (!user) {
+    const firebaseUser = auth.currentUser;
+    const uid = user?.uid || firebaseUser?.uid;
+    if (!uid) {
       throw new Error('No user is currently signed in');
     }
 
@@ -224,7 +227,10 @@ export class Auth {
 
     const cleanedUsername = username.trim();
     const updatedUser: AppUser = {
-      ...user,
+      ...(user || {}),
+      uid,
+      displayName: user?.displayName || firebaseUser?.displayName || 'User',
+      photoURL: user?.photoURL || firebaseUser?.photoURL || undefined,
       username: cleanedUsername,
       usernameLower: cleanedUsername.toLowerCase(),
       isOnline: true,
@@ -248,11 +254,11 @@ export class Auth {
     if (updatedUser.publicKey) payload['publicKey'] = updatedUser.publicKey;
     if (updatedUser.showLastSeen !== undefined) payload['showLastSeen'] = updatedUser.showLastSeen;
 
-    const userRef = doc(db, 'users', user.uid);
+    const userRef = doc(db, 'users', uid);
     await setDoc(userRef, payload);
 
     if (encryptedPrivateKey && salt) {
-      const backupRef = doc(db, 'users', user.uid, 'private', 'keyBackup');
+      const backupRef = doc(db, 'users', uid, 'private', 'keyBackup');
       await setDoc(backupRef, {
         encryptedPrivateKey,
         salt,
@@ -304,6 +310,123 @@ export class Auth {
       ...(data.displayName !== undefined ? { displayName: data.displayName.trim() } : {}),
       photoURL: data.photoURL === null ? undefined : (data.photoURL ?? user.photoURL),
     });
+  }
+
+  async deleteAccount(): Promise<void> {
+    const user = this.currentUser();
+    const firebaseUser = auth.currentUser;
+
+    if (!user?.uid || !firebaseUser) {
+      throw new Error('No user is currently signed in');
+    }
+
+    // 1. Check session freshness: if sign-in was recent (< 5 mins), skip re-auth prompt
+    const lastSignInTime = firebaseUser.metadata.lastSignInTime
+      ? new Date(firebaseUser.metadata.lastSignInTime).getTime()
+      : 0;
+    const RECENT_LOGIN_THRESHOLD_MS = 5 * 60 * 1000;
+    const isRecentlySignedIn = Date.now() - lastSignInTime < RECENT_LOGIN_THRESHOLD_MS;
+
+    if (!isRecentlySignedIn) {
+      try {
+        const provider = new GoogleAuthProvider();
+        try {
+          await reauthenticateWithPopup(firebaseUser, provider);
+        } catch (popupErr: any) {
+          if (popupErr?.code === 'auth/popup-blocked') {
+            console.warn('Re-auth popup blocked; falling back to reauthenticateWithRedirect');
+            await reauthenticateWithRedirect(firebaseUser, provider);
+            return;
+          }
+          throw popupErr;
+        }
+      } catch (reauthErr: any) {
+        console.warn('Re-authentication before account deletion failed:', reauthErr);
+        if (reauthErr?.code === 'auth/popup-closed-by-user' || reauthErr?.code === 'auth/cancelled-popup-request') {
+          throw new Error('Account deletion cancelled (verification popup closed).');
+        }
+        if (reauthErr?.code === 'auth/requires-recent-login') {
+          throw new Error('Security verification failed. Please log out, sign back in, and try again.');
+        }
+        throw new Error(reauthErr?.message || 'Security re-authentication failed.');
+      }
+    }
+
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+
+    const uid = user.uid;
+    const displayName = user.displayName || user.username || 'A user';
+    const sysMessageText = `${displayName} deleted their account`;
+
+    // 2. Post system message to all conversations where user is a participant
+    try {
+      const convosQuery = query(collection(db, 'conversations'), where('participants', 'array-contains', uid));
+      const convosSnap = await getDocs(convosQuery);
+      const now = Date.now();
+
+      for (const convoDoc of convosSnap.docs) {
+        try {
+          const convoData = convoDoc.data();
+          const participants: string[] = convoData['participants'] || [];
+
+          await addDoc(collection(db, 'conversations', convoDoc.id, 'messages'), {
+            senderId: 'system',
+            text: sysMessageText,
+            createdAt: serverTimestamp(),
+            createdAtMs: now,
+            reactions: {},
+            replyTo: null,
+          });
+
+          const updates: Record<string, any> = {
+            lastMessage: sysMessageText,
+            lastMessageAt: now,
+            lastMessageIsSystem: true,
+          };
+
+          participants.forEach((pId: string) => {
+            if (pId !== uid) {
+              updates[`unreadCount.${pId}`] = increment(1);
+            }
+          });
+
+          await updateDoc(doc(db, 'conversations', convoDoc.id), updates);
+        } catch (subErr) {
+          console.warn(`Failed to send system message to conversation ${convoDoc.id}:`, subErr);
+        }
+      }
+    } catch (convoErr) {
+      console.warn('Failed to query user conversations during deletion:', convoErr);
+    }
+
+    // 3. Remove user document and private subcollection from Firestore
+    try {
+      const keyBackupRef = doc(db, 'users', uid, 'private', 'keyBackup');
+      await deleteDoc(keyBackupRef).catch(() => {});
+
+      const userRef = doc(db, 'users', uid);
+      await deleteDoc(userRef);
+    } catch (e) {
+      console.warn('Failed to delete user document in Firestore:', e);
+    }
+
+    // 4. Delete user from Firebase Auth
+    try {
+      await deleteUser(firebaseUser);
+    } catch (deleteErr: any) {
+      if (deleteErr?.code === 'auth/requires-recent-login') {
+        const provider = new GoogleAuthProvider();
+        await reauthenticateWithPopup(firebaseUser, provider);
+        await deleteUser(firebaseUser);
+      } else {
+        throw deleteErr;
+      }
+    }
+
+    this.currentUser.set(null);
   }
 }
 

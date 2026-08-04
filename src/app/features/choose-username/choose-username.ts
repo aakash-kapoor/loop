@@ -1,6 +1,7 @@
 import { Component, inject, signal, ElementRef, viewChild, AfterViewInit, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
 import { Auth } from '../../core/auth';
+import { auth } from '../../core/firebase.config';
 import { CryptoService } from '../../services/crypto.service';
 import { animate } from 'motion';
 import { FormsModule } from '@angular/forms';
@@ -124,13 +125,14 @@ export class ChooseUsername implements AfterViewInit, OnDestroy {
     this.isSubmitting.set(true);
     try {
       const user = this.auth.currentUser();
-      if (!user) throw new Error('Not authenticated');
+      const uid = user?.uid || auth.currentUser?.uid;
+      if (!uid) throw new Error('Not authenticated');
 
       // Generate RSA key pair locally
       const keyPair = await this.cryptoService.generateUserKeyPair();
 
       // Encrypt and backup the private key using the passphrase
-      const backup = await this.cryptoService.backupPrivateKey(user.uid, keyPair.privateKey, pass);
+      const backup = await this.cryptoService.backupPrivateKey(uid, keyPair.privateKey, pass);
 
       // Export public key to JWK
       const publicJwk = await window.crypto.subtle.exportKey('jwk', keyPair.publicKey);
@@ -145,7 +147,7 @@ export class ChooseUsername implements AfterViewInit, OnDestroy {
       );
 
       // Store private key locally in IndexedDB
-      await this.cryptoService.savePrivateKeyToLocal(user.uid, keyPair.privateKey);
+      await this.cryptoService.savePrivateKeyToLocal(uid, keyPair.privateKey);
 
       this.router.navigate(['/']);
     } catch (err: any) {

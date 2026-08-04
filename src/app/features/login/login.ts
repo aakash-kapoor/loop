@@ -1,5 +1,5 @@
 import { Component, inject, ElementRef, viewChild, AfterViewInit, signal, effect } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { Auth } from '../../core/auth';
 import { CryptoService } from '../../services/crypto.service';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
@@ -17,9 +17,11 @@ import { evaluatePassphraseStrength } from '../../shared/passphrase-validator';
 export class Login implements AfterViewInit {
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly cryptoService = inject(CryptoService);
   
   readonly isLoggingIn = signal<boolean>(false);
+  readonly accountDeletedMessage = signal<boolean>(false);
 
   // E2EE Restore States
   readonly recoveryPassphrase = signal<string>(``);
@@ -42,6 +44,11 @@ export class Login implements AfterViewInit {
   private readonly actionBtn = viewChild<ElementRef<HTMLElement>>('actionBtn');
 
   constructor() {
+    const deleted = this.route.snapshot.queryParamMap.get('deleted');
+    if (deleted === 'true') {
+      this.accountDeletedMessage.set(true);
+    }
+
     // Monitor user authentication to verify backup presence
     effect(() => {
       const user = this.currentUser();

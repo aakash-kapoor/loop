@@ -3,11 +3,12 @@ import { Router, RouterLink } from '@angular/router';
 import { NgClass } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Auth } from '../../core/auth';
+import { ConfirmModal } from '../../shared/confirm-modal/confirm-modal';
 import { fileToCompressedDataUrl, formatBytes, MAX_FILE_SIZE_BYTES } from '../../shared/utils/image-compressor';
 
 @Component({
   selector: 'app-settings',
-  imports: [NgClass, RouterLink, FormsModule],
+  imports: [NgClass, RouterLink, FormsModule, ConfirmModal],
   templateUrl: './settings.html',
   styleUrl: './settings.scss',
   host: {
@@ -34,6 +35,38 @@ export class Settings implements OnInit {
   readonly profileError = signal<string | null>(null);
   readonly profileSuccess = signal<string | null>(null);
   readonly newAvatarDataUrl = signal<string | null>(null);
+
+  // Delete Account Confirmation State Signals
+  readonly showDeleteModal = signal<boolean>(false);
+  readonly isDeletingAccount = signal<boolean>(false);
+  readonly deleteModalError = signal<string | null>(null);
+
+  openDeleteModal() {
+    this.deleteModalError.set(null);
+    this.showDeleteModal.set(true);
+  }
+
+  closeDeleteModal() {
+    if (this.isDeletingAccount()) return;
+    this.deleteModalError.set(null);
+    this.showDeleteModal.set(false);
+  }
+
+  async confirmDeleteAccount() {
+    this.isDeletingAccount.set(true);
+    this.deleteModalError.set(null);
+    try {
+      await this.auth.deleteAccount();
+      this.showDeleteModal.set(false);
+      this.router.navigate(['/login'], { queryParams: { deleted: 'true' } });
+    } catch (err: any) {
+      console.error('Delete account failed:', err);
+      this.deleteModalError.set(err.message || 'Failed to delete account.');
+      // Keep delete modal open so error is displayed directly in the modal
+    } finally {
+      this.isDeletingAccount.set(false);
+    }
+  }
 
   private readonly photoInput = viewChild<ElementRef<HTMLInputElement>>('photoInput');
 
