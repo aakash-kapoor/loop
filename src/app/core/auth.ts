@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { GoogleAuthProvider, signInWithPopup, reauthenticateWithPopup, reauthenticateWithRedirect, signOut, onAuthStateChanged, deleteUser } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, limit, deleteField, deleteDoc, addDoc, serverTimestamp, increment } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, limit, deleteField, deleteDoc, addDoc, serverTimestamp, increment, arrayRemove } from 'firebase/firestore';
 import { auth, db } from './firebase.config';
 import { AppUser } from '../models/user.model';
 
@@ -361,7 +361,7 @@ export class Auth {
     const displayName = user.displayName || user.username || 'A user';
     const sysMessageText = `${displayName} deleted their account`;
 
-    // 2. Post system message to all conversations where user is a participant
+    // 2. Post system message and clean up user from conversations (participants & key envelopes)
     try {
       const convosQuery = query(collection(db, 'conversations'), where('participants', 'array-contains', uid));
       const convosSnap = await getDocs(convosQuery);
@@ -372,6 +372,7 @@ export class Auth {
           const convoData = convoDoc.data();
           const participants: string[] = convoData['participants'] || [];
 
+          // Post system notification message to remaining members
           await addDoc(collection(db, 'conversations', convoDoc.id, 'messages'), {
             senderId: 'system',
             text: sysMessageText,
@@ -381,10 +382,17 @@ export class Auth {
             replyTo: null,
           });
 
+          // Delete the user's E2EE key envelope for this conversation
+          const keyEnvelopeRef = doc(db, 'conversations', convoDoc.id, 'keys', uid);
+          await deleteDoc(keyEnvelopeRef).catch(() => {});
+
+          // Remove user from participants array and delete unreadCount field entry
           const updates: Record<string, any> = {
             lastMessage: sysMessageText,
             lastMessageAt: now,
             lastMessageIsSystem: true,
+            participants: arrayRemove(uid),
+            [`unreadCount.${uid}`]: deleteField(),
           };
 
           participants.forEach((pId: string) => {
@@ -395,7 +403,7 @@ export class Auth {
 
           await updateDoc(doc(db, 'conversations', convoDoc.id), updates);
         } catch (subErr) {
-          console.warn(`Failed to send system message to conversation ${convoDoc.id}:`, subErr);
+          console.warn(`Failed to clean up conversation ${convoDoc.id}:`, subErr);
         }
       }
     } catch (convoErr) {
