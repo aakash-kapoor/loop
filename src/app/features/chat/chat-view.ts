@@ -6,6 +6,7 @@ import { Subscription } from 'rxjs';
 import { ConversationService } from '../../services/conversation.service';
 import { MessageService } from '../../services/message.service';
 import { UserService } from '../../services/user.service';
+import { DraftService } from '../../services/draft.service';
 import { Auth } from '../../core/auth';
 import { MessageBubble } from './message-bubble';
 import { Avatar } from '../../shared/avatar/avatar';
@@ -50,6 +51,7 @@ export class ChatViewComponent implements OnInit, OnDestroy {
   readonly conversationService = inject(ConversationService);
   readonly messageService = inject(MessageService);
   private readonly userService = inject(UserService);
+  private readonly draftService = inject(DraftService);
   private readonly auth = inject(Auth);
 
   readonly text = signal<string>('');
@@ -101,6 +103,8 @@ export class ChatViewComponent implements OnInit, OnDestroy {
   private routeSub?: Subscription;
   private themeObserver?: MutationObserver;
   private typingDebounceTimer?: ReturnType<typeof setTimeout>;
+  private draftSaveTimer?: ReturnType<typeof setTimeout>;
+  private activeConvoId: string | null = null;
   private readonly messagesContainer = viewChild<ElementRef<HTMLElement>>('messagesContainer');
   private readonly messageInput = viewChild<ElementRef<HTMLInputElement>>('messageInput');
   private readonly searchInput = viewChild<ElementRef<HTMLInputElement>>('searchInput');
@@ -361,14 +365,42 @@ export class ChatViewComponent implements OnInit, OnDestroy {
         this.messageService.markMessagesAsSeen(convoId, msgs);
       }
     });
+
+    // Reactive debounced draft persistence effect
+    effect(() => {
+      const convoId = this.convo()?.id;
+      const currentText = this.text();
+
+      if (!convoId) return;
+
+      clearTimeout(this.draftSaveTimer);
+      this.draftSaveTimer = setTimeout(() => {
+        if (this.activeConvoId === convoId) {
+          this.draftService.saveDraft(convoId, currentText);
+        }
+      }, 300);
+    });
   }
 
   ngOnInit() {
     this.routeSub = this.route.paramMap.subscribe((params) => {
       const id = params.get('id');
+
+      // 1. Immediately save draft of previous conversation before switching active ID context
+      const prevId = this.activeConvoId;
+      if (prevId && prevId !== id) {
+        clearTimeout(this.draftSaveTimer);
+        this.draftService.saveDraft(prevId, this.text());
+      }
+
+      this.activeConvoId = id;
       this.conversationService.selectConversation(id);
       this.replyingTo.set(null);
-      this.text.set('');
+
+      // 2. Restore draft for the newly selected conversation
+      const restoredDraft = id ? this.draftService.getDraft(id) : '';
+      this.text.set(restoredDraft);
+
       this.isEmojiPickerOpen.set(false);
       this.sendError.set(null);
       this.closeSearch();
@@ -388,6 +420,12 @@ export class ChatViewComponent implements OnInit, OnDestroy {
     clearTimeout(this.typingDebounceTimer);
     clearTimeout(this.highlightTimeout);
     clearTimeout(this.initialLoadTimer);
+    clearTimeout(this.draftSaveTimer);
+
+    if (this.activeConvoId) {
+      this.draftService.saveDraft(this.activeConvoId, this.text());
+    }
+
     // Clear typing indicator immediately when leaving the chat
     const convoId = this.convo()?.id;
     if (convoId) {
@@ -665,6 +703,9 @@ export class ChatViewComponent implements OnInit, OnDestroy {
         attachments.length > 0 ? attachments : undefined
       );
       this.text.set('');
+      if (convoId) {
+        this.draftService.clearDraft(convoId);
+      }
       this.replyingTo.set(null);
       this.mentionedUids.set([]);
       this.isMentionPickerOpen.set(false);
@@ -914,6 +955,7 @@ export class ChatViewComponent implements OnInit, OnDestroy {
 
   async handleConfirm() {
     const action = this.activeConfirmAction();
+    const convoId = this.convo()?.id;
     if (!action) return;
 
     this.isSubmittingConfirm.set(true);
@@ -923,6 +965,10 @@ export class ChatViewComponent implements OnInit, OnDestroy {
       } else if (action === 'delete') {
         await this.conversationService.deleteConversationForMe();
       }
+      if (convoId) {
+        this.draftService.clearDraft(convoId);
+      }
+      this.text.set('');
       this.closeConfirm();
     } catch (err: any) {
       console.error(`${action} failed:`, err);

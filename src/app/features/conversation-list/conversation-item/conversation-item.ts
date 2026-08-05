@@ -4,6 +4,7 @@ import { Conversation } from '../../../models/conversation.model';
 import { Auth } from '../../../core/auth';
 import { UserService } from '../../../services/user.service';
 import { ConversationService } from '../../../services/conversation.service';
+import { DraftService } from '../../../services/draft.service';
 import { NgClass } from '@angular/common';
 import { Avatar } from '../../../shared/avatar/avatar';
 
@@ -26,6 +27,7 @@ export class ConversationItem {
   private readonly auth = inject(Auth);
   private readonly userService = inject(UserService);
   private readonly conversationService = inject(ConversationService);
+  private readonly draftService = inject(DraftService);
   private readonly router = inject(Router);
 
   // Get the other participant's UID (for DM)
@@ -83,6 +85,16 @@ export class ConversationItem {
       || 'Someone';
     const extra = uids.length > 1 ? ` and ${uids.length - 1} other${uids.length > 2 ? 's' : ''}` : '';
     return `${name}${extra} is typing…`;
+  });
+
+  // Unsent draft text for this conversation (truncated to ~40 chars)
+  readonly draftText = computed(() => {
+    const convoId = this.convoSignal()?.id;
+    if (!convoId) return null;
+    const raw = this.draftService.drafts()[convoId];
+    if (!raw || !raw.trim()) return null;
+    const trimmed = raw.trim();
+    return trimmed.length > 40 ? trimmed.substring(0, 40) + '…' : trimmed;
   });
 
   // Smart sidebar timestamp (Today -> 3:37 PM, Yesterday -> Yesterday, Older -> 19 Jul)

@@ -37,6 +37,11 @@
           </span>
           <span class="italic">{{ typingPreview() }}</span>
         </p>
+      } @else if (draftText()) {
+        <!-- Draft preview -->
+        <p class="text-xs text-amber-500 font-medium truncate pr-2">
+          <span class="font-bold text-amber-600 dark:text-amber-400">Draft:</span> {{ draftText() }}
+        </p>
       } @else {
         <p class="text-xs text-text-secondary truncate pr-2 font-normal">
           {{ isClearedForMe() ? 'Chat cleared' : convo.lastMessage }}
@@ -45,6 +50,11 @@
 
       <!-- Badge Indicators -->
       <div class="flex items-center gap-1.5 flex-shrink-0">
+        @if (draftText()) {
+          <span class="text-[9px] font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded">
+            Draft
+          </span>
+        }
         @if (isMessageRequest()) {
           <span class="text-[9px] font-semibold bg-accent/15 text-accent px-1.5 py-0.5 rounded">
             Request
