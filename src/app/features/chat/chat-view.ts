@@ -62,6 +62,8 @@ export class ChatViewComponent implements OnInit, OnDestroy {
   readonly isEmojiPickerOpen = signal<boolean>(false);
   readonly isDarkTheme = signal<boolean>(false);
   readonly sendError = signal<string | null>(null);
+  readonly messagesVisible = signal<boolean>(false);
+  readonly isScrolledUp = signal<boolean>(false);
 
   // Message Search State Signals
   readonly isSearchOpen = signal<boolean>(false);
@@ -249,6 +251,8 @@ export class ChatViewComponent implements OnInit, OnDestroy {
 
   private previousMessageCount = 0;
   private previousConvoId: string | null = null;
+  private isInitialLoadPhase = false;
+  private initialLoadTimer?: ReturnType<typeof setTimeout>;
   private highlightTimeout?: ReturnType<typeof setTimeout>;
 
   constructor() {
@@ -288,21 +292,53 @@ export class ChatViewComponent implements OnInit, OnDestroy {
       const msgs = this.messages();
       const currentConvoId = this.convo()?.id || null;
 
-      if (msgs.length === 0 || !currentConvoId) {
+      if (!currentConvoId) {
         this.previousMessageCount = 0;
-        this.previousConvoId = currentConvoId;
+        this.previousConvoId = null;
+        this.isInitialLoadPhase = false;
+        clearTimeout(this.initialLoadTimer);
+        this.messagesVisible.set(false);
         return;
       }
 
       const isDifferentConvo = currentConvoId !== this.previousConvoId;
-      const isNewMessageAdded = msgs.length > this.previousMessageCount;
+      if (isDifferentConvo) {
+        this.previousConvoId = currentConvoId;
+        this.previousMessageCount = 0;
+        this.isInitialLoadPhase = true;
+        this.messagesVisible.set(false);
 
-      if ((isDifferentConvo || isNewMessageAdded) && !this.searchQuery().trim()) {
+        clearTimeout(this.initialLoadTimer);
+        this.initialLoadTimer = setTimeout(() => {
+          this.isInitialLoadPhase = false;
+        }, 400);
+      }
+
+      if (this.isInitialLoadPhase) {
+        if (msgs.length > 0) {
+          this.previousMessageCount = msgs.length;
+          if (!this.searchQuery().trim()) {
+            setTimeout(() => {
+              this.scrollToBottom(true);
+              this.messagesVisible.set(true);
+            }, 80);
+          } else {
+            this.messagesVisible.set(true);
+          }
+        } else {
+          // If conversation has 0 messages, show empty chat placeholder immediately
+          this.messagesVisible.set(true);
+        }
+        return;
+      }
+
+      const isNewMessageAdded = msgs.length > this.previousMessageCount;
+      if (isNewMessageAdded && !this.searchQuery().trim()) {
         setTimeout(() => this.scrollToBottom(), 30);
       }
 
       this.previousMessageCount = msgs.length;
-      this.previousConvoId = currentConvoId;
+      this.messagesVisible.set(true);
     });
 
     // Reset match index and scroll to first match when searchQuery changes
@@ -351,6 +387,7 @@ export class ChatViewComponent implements OnInit, OnDestroy {
     this.themeObserver?.disconnect();
     clearTimeout(this.typingDebounceTimer);
     clearTimeout(this.highlightTimeout);
+    clearTimeout(this.initialLoadTimer);
     // Clear typing indicator immediately when leaving the chat
     const convoId = this.convo()?.id;
     if (convoId) {
@@ -360,11 +397,19 @@ export class ChatViewComponent implements OnInit, OnDestroy {
     this.conversationService.selectConversation(null);
   }
 
-  scrollToBottom() {
+  scrollToBottom(instant = false) {
     const el = this.messagesContainer()?.nativeElement;
-    if (el) {
-      el.scrollTop = el.scrollHeight;
-    }
+    if (!el) return;
+
+    el.style.scrollBehavior = instant ? 'auto' : 'smooth';
+    el.scrollTop = el.scrollHeight;
+    this.isScrolledUp.set(false);
+  }
+
+  onMessagesScroll(event: Event) {
+    const el = event.target as HTMLElement;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    this.isScrolledUp.set(distanceFromBottom > 120);
   }
 
   onTextInput() {

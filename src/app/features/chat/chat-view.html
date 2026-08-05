@@ -13,7 +13,7 @@
     } @else {
     <!-- Chat Header -->
     <div
-      class="flex items-center gap-3 px-4 py-3 border-b border-border-light/60 bg-surface-0/75 backdrop-blur-xl flex-shrink-0 z-10">
+      class="flex items-center gap-3 px-4 py-3 border-b border-border-light/60 bg-surface-0/75 backdrop-blur-xl flex-shrink-0 z-30 relative">
       <!-- Close / Back button -->
       <button (click)="goBack()"
         class="text-text-secondary hover:text-accent hover:bg-surface-1 w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer mr-1 active-press"
@@ -181,7 +181,10 @@
     }
 
     <!-- Messages Container -->
-    <div #messagesContainer class="flex-1 overflow-y-auto px-4 py-3 flex flex-col bg-bg-main bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-accent/5 via-transparent to-transparent scroll-smooth">
+    <div #messagesContainer class="flex-1 overflow-y-auto px-4 py-3 flex flex-col bg-bg-main bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-accent/5 via-transparent to-transparent"
+      [style.opacity]="messagesVisible() ? '1' : '0'"
+      [style.transition]="'opacity 200ms ease'"
+      (scroll)="onMessagesScroll($event)">
       @if (messages().length === 0) {
       <div class="flex-1 flex flex-col items-center justify-center text-text-muted/60 p-8 select-none">
         <i class="ti ti-message-2 text-4xl mb-2 text-border-strong/60 animate-pulse"></i>
@@ -222,6 +225,15 @@
       }
       }
     </div>
+
+    <!-- Scroll to Bottom FAB -->
+    @if (isScrolledUp()) {
+    <button (click)="scrollToBottom()"
+      class="absolute bottom-24 right-4 z-20 w-10 h-10 rounded-full bg-surface-0 border border-border-light shadow-lg text-text-secondary hover:text-accent hover:border-accent hover:shadow-accent/20 flex items-center justify-center transition-all duration-200 cursor-pointer active-press animate-scaleIn"
+      title="Scroll to bottom" aria-label="Scroll to bottom">
+      <i class="ti ti-chevrons-down text-lg"></i>
+    </button>
+    }
 
     <!-- Message Request Banner (If pending and sent by OTHER participant) -->
     @if (isMessageRequest()) {
