@@ -1,4 +1,4 @@
-<div class="flex h-full bg-bg-main overflow-hidden w-full relative">
+<div class="flex h-full h-dvh bg-bg-main overflow-hidden w-full relative">
   <!-- Main Chat Feed Column -->
   <div class="flex-1 flex flex-col h-full min-w-0 overflow-hidden relative">
     @if (!convo()) {
@@ -13,17 +13,17 @@
     } @else {
     <!-- Chat Header -->
     <div
-      class="flex items-center gap-3 px-4 py-3 border-b border-border-light/60 bg-surface-0/75 backdrop-blur-xl flex-shrink-0 z-30 relative">
+      class="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-border-light/60 bg-surface-0/75 backdrop-blur-xl flex-shrink-0 z-30 relative">
       <!-- Close / Back button -->
       <button (click)="goBack()"
-        class="text-text-secondary hover:text-accent hover:bg-surface-1 w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer mr-1 active-press"
+        class="text-text-secondary hover:text-accent hover:bg-surface-1 w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer mr-0.5 sm:mr-1 flex-shrink-0 active-press"
         title="Close chat" aria-label="Close chat">
         <i class="ti ti-chevron-left text-lg"></i>
       </button>
 
       <!-- Avatar -->
       <app-avatar [photoURL]="convo()?.type === 'group' ? convo()?.groupIcon : chatPartner()?.photoURL" [displayName]="convo()?.type === 'group' ? convo()?.groupName : chatPartner()?.displayName"
-        [isOnline]="chatPartnerOnline()" [isGroup]="convo()?.type === 'group'" size="md"></app-avatar>
+        [isOnline]="chatPartnerOnline()" [isGroup]="convo()?.type === 'group'" size="md" class="flex-shrink-0"></app-avatar>
 
       <!-- User/Group Info -->
       <div class="flex-1 min-w-0"
@@ -37,7 +37,7 @@
             <i class="ti ti-bell-off text-xs text-text-muted flex-shrink-0" title="Notifications muted"></i>
           }
         </div>
-        <span class="text-[10px] font-medium"
+        <span class="text-[10px] font-medium block truncate"
           [ngClass]="convo()?.type === 'dm' && chatPartnerOnline() ? 'text-emerald-600' : 'text-text-muted'">
           @if (convo()?.type === 'dm') {
           @if (chatPartnerOnline()) {
@@ -54,7 +54,7 @@
       </div>
 
       <!-- Action buttons -->
-      <div class="flex items-center gap-1 text-text-secondary relative">
+      <div class="flex items-center gap-0.5 sm:gap-1 text-text-secondary relative flex-shrink-0">
         <!-- Search Messages Button -->
         <button (click)="toggleSearch()"
           class="w-8 h-8 rounded-full hover:bg-surface-1 flex items-center justify-center transition-colors cursor-pointer text-text-muted hover:text-accent active-press"
@@ -211,23 +211,23 @@
 
     <!-- WhatsApp-Style Pinned Message Banner -->
     @if (pinnedMessage() && !isSearchOpen()) {
-    <div class="flex items-center justify-between px-4 py-2 bg-surface-1/90 border-b border-border-light text-xs text-text-primary backdrop-blur-md flex-shrink-0 z-10 animate-slideDown shadow-xs">
-      <div (click)="jumpToPinnedMessage()" class="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer group/pin hover:opacity-90 transition-opacity">
-        <div class="w-7 h-7 rounded-full bg-amber-500/15 text-amber-500 dark:bg-amber-400/20 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
-          <i class="ti ti-pin text-sm"></i>
+    <div class="flex items-center justify-between px-3 sm:px-4 py-2 bg-surface-1/90 border-b border-border-light text-xs text-text-primary backdrop-blur-md flex-shrink-0 z-10 animate-slideDown shadow-xs">
+      <div (click)="jumpToPinnedMessage()" class="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1 cursor-pointer group/pin hover:opacity-90 transition-opacity">
+        <div class="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-amber-500/15 text-amber-500 dark:bg-amber-400/20 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
+          <i class="ti ti-pin text-xs sm:text-sm"></i>
         </div>
         <div class="flex flex-col min-w-0 flex-1">
-          <div class="flex items-center gap-1.5">
-            <span class="text-[10px] font-bold text-amber-500 uppercase tracking-wider">Pinned Message</span>
-            <span class="text-[10px] text-text-muted">• {{ pinnedSenderName() }}</span>
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="text-[10px] font-bold text-amber-500 uppercase tracking-wider flex-shrink-0">Pinned Message</span>
+            <span class="text-[10px] text-text-muted truncate">• {{ pinnedSenderName() }}</span>
           </div>
           <span class="text-xs truncate font-medium text-text-primary group-hover/pin:text-accent transition-colors">
             {{ pinnedMessage()?.text || (pinnedMessage()?.attachments?.length ? 'Media attachment' : 'Pinned message') }}
           </span>
         </div>
       </div>
-      <button (click)="unpinMessage()" class="w-7 h-7 rounded-full hover:bg-surface-2 text-text-muted hover:text-text-primary flex items-center justify-center transition-colors cursor-pointer flex-shrink-0 ml-2" title="Unpin message" aria-label="Unpin message">
-        <i class="ti ti-x text-sm"></i>
+      <button (click)="unpinMessage()" class="w-6 h-6 sm:w-7 sm:h-7 rounded-full hover:bg-surface-2 text-text-muted hover:text-text-primary flex items-center justify-center transition-colors cursor-pointer flex-shrink-0 ml-1.5 sm:ml-2" title="Unpin message" aria-label="Unpin message">
+        <i class="ti ti-x text-xs sm:text-sm"></i>
       </button>
     </div>
     }
@@ -308,7 +308,7 @@
 
     <!-- Bottom Input Dock -->
     @if (!isPending() || initiatedByMe()) {
-    <div class="flex flex-col border-t border-border-light/60 bg-surface-0/75 backdrop-blur-xl flex-shrink-0 relative">
+    <div class="flex flex-col border-t border-border-light/60 bg-surface-0/75 backdrop-blur-xl flex-shrink-0 relative pb-[env(safe-area-inset-bottom,0px)]">
 
       <!-- Reply Target Preview Bar -->
       @if (replyingTo()) {
@@ -403,7 +403,7 @@
       }
 
       <!-- Text input area -->
-      <div class="flex items-center gap-2 p-3 relative">
+      <div class="flex items-center gap-1.5 sm:gap-2 p-2.5 sm:p-3 relative">
         <!-- Hidden file input for attachment upload -->
         <input #fileInput type="file" multiple (change)="onFilesSelected($event)" class="hidden"
           accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.csv" />
@@ -448,28 +448,28 @@
 
         <!-- Paperclip / Media trigger button -->
         <button (click)="triggerFileInput()"
-          class="w-10 h-10 rounded-full hover:bg-surface-1 text-text-muted hover:text-text-secondary flex items-center justify-center transition-colors cursor-pointer flex-shrink-0 active-press"
+          class="w-9 h-9 sm:w-10 sm:h-10 rounded-full hover:bg-surface-1 text-text-muted hover:text-text-secondary flex items-center justify-center transition-colors cursor-pointer flex-shrink-0 active-press"
           title="Attach files or photos" aria-label="Attach files or photos">
-          <i class="ti ti-paperclip text-lg"></i>
+          <i class="ti ti-paperclip text-base sm:text-lg"></i>
         </button>
 
         <!-- Emoji trigger button -->
         <button (click)="toggleEmojiPicker($event)"
-          class="w-10 h-10 rounded-full hover:bg-surface-1 text-text-muted hover:text-text-secondary flex items-center justify-center transition-colors cursor-pointer flex-shrink-0 active-press"
+          class="w-9 h-9 sm:w-10 sm:h-10 rounded-full hover:bg-surface-1 text-text-muted hover:text-text-secondary flex items-center justify-center transition-colors cursor-pointer flex-shrink-0 active-press"
           title="Add emoji" aria-label="Add emoji">
-          <i class="ti ti-mood-smile text-lg"></i>
+          <i class="ti ti-mood-smile text-base sm:text-lg"></i>
         </button>
 
         <input #messageInput type="text" [ngModel]="text()" (ngModelChange)="text.set($event)" (input)="onTextInput()" (keydown)="onInputKeydown($event)" placeholder="Type a message…"
           [disabled]="(isPending() && initiatedByMe()) || isUploadingAny()"
-          class="flex-1 px-4 py-3 bg-surface-1/50 border border-border-light rounded-full text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent focus:bg-surface-0 transition-all" />
+          class="flex-1 min-w-0 px-3.5 py-2.5 sm:px-4 sm:py-3 bg-surface-1/50 border border-border-light rounded-full text-xs sm:text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent focus:bg-surface-0 transition-all" />
         <button (click)="send()" [disabled]="(!text().trim() && !hasCompletedAttachments()) || isUploadingAny() || (isPending() && initiatedByMe())"
-          class="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 flex-shrink-0 select-none"
+          class="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all duration-200 flex-shrink-0 select-none"
           [ngClass]="(text().trim() || hasCompletedAttachments()) && !isUploadingAny() && !(isPending() && initiatedByMe()) 
             ? 'bg-accent-gradient text-white shadow-md shadow-indigo-500/25 hover:opacity-95 cursor-pointer active-press' 
             : 'bg-surface-1 text-text-muted/50 border border-border-light/40 cursor-not-allowed opacity-60'"
           aria-label="Send message">
-          <i class="ti ti-send text-base"></i>
+          <i class="ti ti-send text-sm sm:text-base"></i>
         </button>
       </div>
 
