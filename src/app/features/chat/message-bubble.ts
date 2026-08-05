@@ -22,6 +22,10 @@ export class MessageBubble implements OnDestroy {
   // Track tap-to-open state for mobile devices
   readonly isMenuOpen = signal<boolean>(false);
 
+  // Context menu (actions dropdown) open state
+  readonly isContextMenuOpen = signal<boolean>(false);
+  readonly openUpward = signal<boolean>(false);
+
   // Error message shown when delete-for-everyone fails (e.g. window expired)
   readonly deleteError = signal<string | null>(null);
 
@@ -77,11 +81,32 @@ export class MessageBubble implements OnDestroy {
     const clickedInside = this.elementRef.nativeElement.contains(event.target as Node);
     if (!clickedInside) {
       this.isMenuOpen.set(false);
+      this.isContextMenuOpen.set(false);
     }
   }
 
+  @HostListener('mouseleave')
+  onMouseLeave() {
+    this.isMenuOpen.set(false);
+    this.isContextMenuOpen.set(false);
+  }
+
   toggleMenu(event: Event) {
+    this.isContextMenuOpen.set(false);
     this.isMenuOpen.set(!this.isMenuOpen());
+  }
+
+  toggleContextMenu(event: Event) {
+    event.stopPropagation();
+    if (!this.isContextMenuOpen()) {
+      const btn = event.currentTarget as HTMLElement;
+      if (btn) {
+        const rect = btn.getBoundingClientRect();
+        // If button is in lower half of viewport, open menu upward to prevent bottom layout overflow
+        this.openUpward.set(rect.top > window.innerHeight / 2);
+      }
+    }
+    this.isContextMenuOpen.set(!this.isContextMenuOpen());
   }
 
   readonly isOutgoing = computed(() => {
