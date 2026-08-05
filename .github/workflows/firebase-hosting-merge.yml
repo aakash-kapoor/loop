@@ -17,7 +17,7 @@ jobs:
           cat <<'EOF' > src/environments/environment.ts
           ${{ secrets.ENV_FILE_CONTENT }}
           EOF
-      - run: npm ci && npm run build
+      - run: npm install && npm run build
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
