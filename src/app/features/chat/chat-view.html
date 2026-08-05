@@ -245,13 +245,13 @@
       } @else {
       <!-- Render message bubbles -->
       @for (msg of messages(); track msg.id; let i = $index) {
-      <div [id]="'msg-' + msg.id" class="transition-all duration-300 rounded-2xl"
-        [ngClass]="{'ring-2 ring-accent shadow-md shadow-accent/20 bg-accent/5': activeHighlightedMessageId() === msg.id}">
+      <div [id]="'msg-' + msg.id" class="rounded-2xl">
         <app-message-bubble [message]="msg" [replyToMessage]="getReplyMessage(msg.replyTo)"
+          [isHighlighted]="activeHighlightedMessageId() === msg.id"
           [showSenderName]="convo()?.type === 'group'"
           [isPinned]="msg.id === convo()?.pinnedMessageId"
           [participants]="convo()?.participants ?? []"
-          [searchTerm]="searchQuery()" (reply)="onReplyTrigger($event)" (pin)="pinMessage($event)" (unpin)="unpinMessage()" (imageClick)="openLightbox($event)" (forward)="onForwardTrigger($event)"></app-message-bubble>
+          [searchTerm]="searchQuery()" (reply)="onReplyTrigger($event)" (replyClick)="scrollToMatch($event.id)" (pin)="pinMessage($event)" (unpin)="unpinMessage()" (imageClick)="openLightbox($event)" (forward)="onForwardTrigger($event)"></app-message-bubble>
       </div>
       }
 
@@ -314,7 +314,9 @@
       @if (replyingTo()) {
       <div
         class="flex items-center justify-between px-4 py-2 bg-surface-1 border-b border-border-light text-xs text-text-secondary animate-slideDown">
-        <div class="flex items-center gap-2 truncate pr-4">
+        <div (click)="replyingTo() && scrollToMatch(replyingTo()!.id)"
+          class="flex items-center gap-2 truncate pr-4 cursor-pointer hover:opacity-85 transition-opacity"
+          title="Click to jump to message">
           <i class="ti ti-arrow-back-up text-sm text-accent"></i>
           <span class="font-semibold text-text-muted uppercase text-[9px] tracking-wide">Replying to {{
             getReplySenderName(replyingTo()) }}:</span>

@@ -156,13 +156,17 @@
         [ngClass]="{'transition-transform duration-200 ease-out': !isSwiping()}">
         <!-- Reply Block Preview -->
         @if (replyToMessage && !isDeletedForEveryone() && !isDeletedForMe()) {
-        <div
-          class="px-3.5 py-1.5 rounded-t-2xl text-xs flex flex-col gap-0.5 border-l-2 bg-surface-1/40 border-border-strong text-text-secondary select-none opacity-85 min-w-0 max-w-full overflow-hidden"
+        <div (click)="onReplyToClick($event)"
+          class="px-3.5 py-1.5 rounded-t-2xl text-xs flex flex-col gap-0.5 border-l-2 bg-surface-1/40 border-border-strong text-text-secondary select-none opacity-85 hover:opacity-100 transition-opacity min-w-0 max-w-full overflow-hidden cursor-pointer active-press"
           [ngClass]="{
                 'mr-1': isOutgoing(),
-                'ml-1': !isOutgoing()
+                'ml-1': !isOutgoing(),
+                'message-highlight-pulse z-30': isHighlighted
               }">
-          <span class="text-[9px] font-bold tracking-wider text-text-muted">{{ replyToSenderName() }}</span>
+          <span class="text-[9px] font-bold tracking-wider text-text-muted flex items-center gap-1">
+            <i class="ti ti-arrow-back-up text-[10px]"></i>
+            <span>{{ replyToSenderName() }}</span>
+          </span>
           <span class="truncate max-w-full italic">"{{ replyToMessage.text }}"</span>
         </div>
         }
@@ -175,7 +179,8 @@
           [ngClass]="{
                 'rounded-tr-sm': isOutgoing(),
                 'rounded-tl-sm': !isOutgoing(),
-                'rounded-t-none': replyToMessage
+                'rounded-t-none': replyToMessage,
+                'message-highlight-pulse z-30': isHighlighted
               }">
           <i class="ti ti-ban text-xs"></i>
           <span>This message was deleted</span>
@@ -187,7 +192,8 @@
           [ngClass]="{
                 'rounded-tr-sm': isOutgoing(),
                 'rounded-tl-sm': !isOutgoing(),
-                'rounded-t-none': replyToMessage
+                'rounded-t-none': replyToMessage,
+                'message-highlight-pulse z-30': isHighlighted
               }">
           <i class="ti ti-eye-off text-xs"></i>
           <span>You deleted this message</span>
@@ -200,6 +206,7 @@
                 'bg-surface-1 border border-border-light/80 text-text-primary rounded-tl-sm font-sans': !isOutgoing(),
                 'rounded-t-none': replyToMessage,
                 'ring-2 ring-amber-400/80 dark:ring-amber-400/60 shadow-md shadow-amber-500/10': isCurrentMentioned(),
+                'message-highlight-pulse z-30': isHighlighted,
                 'p-3.5': !imageAttachments().length && !isEmojiOnly(),
                 'p-2.5 sm:p-3': !imageAttachments().length && isEmojiOnly(),
                 'p-1.5': imageAttachments().length

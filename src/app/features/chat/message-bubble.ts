@@ -72,6 +72,7 @@ export class MessageBubble implements AfterViewInit, OnDestroy {
 
   @Input() showSenderName = false;
   @Input() isPinned = false;
+  @Input() isHighlighted = false;
 
   readonly searchTermSignal = signal<string>('');
   @Input() set searchTerm(val: string) {
@@ -82,10 +83,19 @@ export class MessageBubble implements AfterViewInit, OnDestroy {
   }
 
   @Output() reply = new EventEmitter<Message>();
+  @Output() replyClick = new EventEmitter<Message>();
   @Output() pin = new EventEmitter<Message>();
   @Output() unpin = new EventEmitter<Message>();
   @Output() imageClick = new EventEmitter<string>();
   @Output() forward = new EventEmitter<Message>();
+
+  onReplyToClick(event: Event) {
+    event.stopPropagation();
+    const replyMsg = this.replyToMessageSignal();
+    if (replyMsg) {
+      this.replyClick.emit(replyMsg);
+    }
+  }
 
   /** All conversation participants — needed for read-receipt status. */
   @Input() participants: string[] = [];

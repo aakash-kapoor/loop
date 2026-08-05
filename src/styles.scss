@@ -158,4 +158,43 @@ html, body {
   background-image: var(--accent-gradient);
 }
 
+/* Soft Speech-Bubble Flash Animation (does not affect avatar) */
+@keyframes messageHighlightPulse {
+  0% {
+    background-color: rgba(59, 130, 246, 0.28);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4);
+  }
+  30% {
+    background-color: rgba(59, 130, 246, 0.22);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 0px transparent;
+  }
+}
+
+@keyframes messageHighlightPulseDark {
+  0% {
+    background-color: rgba(96, 165, 250, 0.32);
+    box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.5);
+  }
+  30% {
+    background-color: rgba(96, 165, 250, 0.24);
+    box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.35);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 0px transparent;
+  }
+}
+
+.message-highlight-pulse {
+  animation: messageHighlightPulse 1.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.dark .message-highlight-pulse {
+  animation-name: messageHighlightPulseDark;
+}
+
 
