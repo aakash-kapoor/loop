@@ -21,4 +21,5 @@ export interface Message {
     mentions?: string[];          // array of mentioned user UIDs
     seenBy?: string[];            // UIDs who have read this message (read receipts)
     attachments?: MessageAttachment[];
+    forwardedFrom?: string;       // source message ID — present only on forwarded copies (cosmetic only)
 }

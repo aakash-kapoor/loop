@@ -11,11 +11,13 @@ import { MessageBubble } from './message-bubble';
 import { Avatar } from '../../shared/avatar/avatar';
 import { Message, MessageAttachment } from '../../models/message.model';
 import { AppUser } from '../../models/user.model';
+import { Conversation } from '../../models/conversation.model';
 import { PickerComponent } from '@ctrl/ngx-emoji-mart';
 import { fileToCompressedDataUrl, formatBytes, MAX_FILE_SIZE_BYTES } from '../../shared/utils/image-compressor';
 
 import { GroupInfoModal } from './group-info-modal/group-info-modal';
 import { ConfirmModal } from '../../shared/confirm-modal/confirm-modal';
+import { ForwardModal } from '../../shared/forward-modal/forward-modal';
 
 export interface UploadingAttachmentItem {
   id: string;
@@ -33,7 +35,7 @@ export interface UploadingAttachmentItem {
 
 @Component({
   selector: 'app-chat-view',
-  imports: [FormsModule, MessageBubble, NgClass, Avatar, PickerComponent, GroupInfoModal, ConfirmModal],
+  imports: [FormsModule, MessageBubble, NgClass, Avatar, PickerComponent, GroupInfoModal, ConfirmModal, ForwardModal],
   templateUrl: './chat-view.html',
   styleUrl: './chat-view.scss',
   host: {
@@ -52,6 +54,7 @@ export class ChatViewComponent implements OnInit, OnDestroy {
 
   readonly text = signal<string>('');
   readonly replyingTo = signal<Message | null>(null);
+  readonly forwardingMessage = signal<Message | null>(null);
   readonly isHeaderMenuOpen = signal<boolean>(false);
   readonly isGroupInfoOpen = signal<boolean>(false);
   readonly activeConfirmAction = signal<'clear' | 'delete' | null>(null);
@@ -76,6 +79,7 @@ export class ChatViewComponent implements OnInit, OnDestroy {
   readonly uploadingFiles = signal<UploadingAttachmentItem[]>([]);
   readonly activeLightboxImage = signal<string | null>(null);
   private readonly fileInput = viewChild<ElementRef<HTMLInputElement>>('fileInput');
+  private readonly forwardModalRef = viewChild<ForwardModal>('forwardModal');
 
   @HostListener('document:keydown.escape')
   onEscapeKey() {
@@ -696,6 +700,29 @@ export class ChatViewComponent implements OnInit, OnDestroy {
     const pinned = this.pinnedMessage();
     if (pinned) {
       this.scrollToMatch(pinned.id);
+    }
+  }
+
+  onForwardTrigger(msg: Message) {
+    this.forwardingMessage.set(msg);
+  }
+
+  onForwardClose() {
+    this.forwardingMessage.set(null);
+  }
+
+  async onForwardConfirm(targetConvo: Conversation) {
+    const msg = this.forwardingMessage();
+    if (!msg) return;
+
+    try {
+      await this.messageService.forwardMessage(msg, targetConvo.id);
+      this.forwardModalRef()?.markSuccess();
+      // Auto-close modal after showing success confirmation
+      setTimeout(() => this.forwardingMessage.set(null), 1200);
+    } catch (err: any) {
+      console.error('Forward failed:', err);
+      this.forwardModalRef()?.markError(err.message || 'Failed to forward message.');
     }
   }
 

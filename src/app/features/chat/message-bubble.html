@@ -59,6 +59,15 @@
           <i class="ti ti-arrow-back-up"></i>
         </button>
 
+        <!-- Forward Message -->
+        @if (!isDeletedForEveryone() && !isDeletedForMe()) {
+        <button (click)="onForward()"
+          class="w-6 h-6 rounded-full hover:bg-surface-1 text-text-secondary flex items-center justify-center text-xs transition-colors cursor-pointer active-press"
+          title="Forward message">
+          <i class="ti ti-corner-up-right"></i>
+        </button>
+        }
+
         <!-- Pin / Unpin Message -->
         @if (isPinned) {
         <button (click)="onUnpin()" class="w-6 h-6 rounded-full hover:bg-amber-500/10 text-amber-500 flex items-center justify-center transition-colors cursor-pointer active-press" title="Unpin message">
@@ -194,6 +203,15 @@
           </div>
           }
         </div>
+        }
+
+        <!-- Forwarded label — shown above text when message was forwarded -->
+        @if (isForwarded() && !isDeletedForEveryone() && !isDeletedForMe()) {
+          <div class="flex items-center gap-1 text-[10px] mb-0.5 select-none"
+               [ngClass]="isOutgoing() ? 'text-white/60' : 'text-text-muted'">
+            <i class="ti ti-corner-up-right text-[10px]"></i>
+            <span class="italic font-medium">Forwarded</span>
+          </div>
         }
 
         <!-- Text Message Body (if non-empty) -->

@@ -60,6 +60,7 @@ export class MessageBubble implements OnDestroy {
   @Output() pin = new EventEmitter<Message>();
   @Output() unpin = new EventEmitter<Message>();
   @Output() imageClick = new EventEmitter<string>();
+  @Output() forward = new EventEmitter<Message>();
 
   /** All conversation participants — needed for read-receipt status. */
   @Input() participants: string[] = [];
@@ -217,6 +218,16 @@ export class MessageBubble implements OnDestroy {
       this.unpin.emit(msg);
     }
   }
+
+  onForward() {
+    const msg = this.messageSignal();
+    if (msg) {
+      this.forward.emit(msg);
+    }
+  }
+
+  /** True when this message was produced by forwarding another message. */
+  readonly isForwarded = computed(() => !!this.messageSignal()?.forwardedFrom);
 
   // Check if deleted for me
   readonly isDeletedForMe = computed(() => {

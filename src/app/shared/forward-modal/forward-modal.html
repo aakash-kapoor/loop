@@ -1,0 +1,136 @@
+<div
+  class="fixed inset-0 bg-black/70 backdrop-blur-sm z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn"
+  (click)="onBackdropClick($event)"
+>
+  <div
+    class="w-full sm:max-w-md bg-surface-0 border border-border-light sm:rounded-3xl rounded-t-3xl shadow-2xl flex flex-col overflow-hidden animate-slideUpFade max-h-[85vh]"
+    (click)="$event.stopPropagation()"
+  >
+    <!-- Modal Header -->
+    <div class="flex items-center justify-between px-5 pt-5 pb-3 flex-shrink-0">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-2xl bg-accent/10 border border-accent/20 text-accent flex items-center justify-center">
+          <i class="ti ti-corner-up-right text-base"></i>
+        </div>
+        <div>
+          <h3 class="text-sm font-bold text-text-primary">Forward Message</h3>
+          <p class="text-[10px] text-text-muted font-normal">Select a conversation to forward to</p>
+        </div>
+      </div>
+      <button
+        (click)="close.emit()"
+        [disabled]="isForwarding()"
+        class="w-8 h-8 rounded-full hover:bg-surface-1 text-text-muted hover:text-text-primary flex items-center justify-center transition-colors cursor-pointer disabled:opacity-40"
+        aria-label="Close"
+      >
+        <i class="ti ti-x text-sm"></i>
+      </button>
+    </div>
+
+    <!-- Message Preview Pill -->
+    <div class="mx-5 mb-3 flex-shrink-0">
+      <div class="flex items-start gap-2 px-3.5 py-2.5 bg-surface-1 border border-border-light/80 rounded-2xl text-xs text-text-secondary">
+        <i class="ti ti-quote text-[11px] text-text-muted flex-shrink-0 mt-0.5"></i>
+        <span class="truncate italic opacity-80 leading-relaxed">
+          {{ message.text || '📎 Attachment' }}
+        </span>
+      </div>
+    </div>
+
+    <!-- Search Input -->
+    <div class="px-5 mb-2 flex-shrink-0">
+      <div class="relative flex items-center">
+        <i class="ti ti-search text-text-muted text-sm absolute left-3 pointer-events-none"></i>
+        <input
+          type="text"
+          [ngModel]="filterQuery()"
+          (ngModelChange)="filterQuery.set($event)"
+          placeholder="Search conversations…"
+          class="w-full pl-9 pr-4 py-2 bg-surface-1 border border-border-light rounded-xl text-xs text-text-primary placeholder-text-muted focus:outline-none focus:border-accent transition-all"
+        />
+      </div>
+    </div>
+
+    <!-- Conversation List -->
+    <div class="flex-1 overflow-y-auto px-3 pb-2 min-h-0">
+      @if (eligibleConversations().length === 0) {
+        <div class="flex flex-col items-center justify-center py-10 text-text-muted/60 select-none gap-2">
+          <i class="ti ti-message-off text-3xl text-border-strong/60"></i>
+          <p class="text-xs font-medium">No conversations to forward to</p>
+        </div>
+      } @else {
+        @for (convo of eligibleConversations(); track convo.id) {
+          <button
+            (click)="selectConvo(convo)"
+            class="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all cursor-pointer text-left group/item mb-0.5 border"
+            [ngClass]="{
+              'bg-accent/10 border-accent/25 ring-1 ring-accent/30': selectedConvo()?.id === convo.id,
+              'border-transparent hover:bg-surface-1 hover:border-border-light/60': selectedConvo()?.id !== convo.id
+            }"
+          >
+            <app-avatar
+              [photoURL]="conversationPhotoURL(convo)"
+              [displayName]="conversationLabel(convo)"
+              [isGroup]="convo.type === 'group'"
+              size="sm"
+              class="flex-shrink-0"
+            ></app-avatar>
+            <div class="flex-1 min-w-0">
+              <p class="text-xs font-semibold text-text-primary truncate">
+                {{ conversationLabel(convo) }}
+              </p>
+              <p class="text-[10px] text-text-muted truncate font-normal">
+                {{ convo.type === 'group' ? convo.participants.length + ' members' : 'Direct message' }}
+              </p>
+            </div>
+            <!-- Selection tick -->
+            @if (selectedConvo()?.id === convo.id) {
+              <div class="w-5 h-5 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
+                <i class="ti ti-check text-[10px] text-white"></i>
+              </div>
+            }
+          </button>
+        }
+      }
+    </div>
+
+    <!-- Error Banner -->
+    @if (forwardError()) {
+      <div class="mx-5 mb-2 flex items-center gap-2 px-3.5 py-2.5 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-rose-500 text-xs font-medium animate-fadeIn flex-shrink-0">
+        <i class="ti ti-alert-circle text-sm flex-shrink-0"></i>
+        <span class="flex-1 text-[11px] leading-tight">{{ forwardError() }}</span>
+      </div>
+    }
+
+    <!-- Success Confirmation -->
+    @if (didSucceed()) {
+      <div class="mx-5 mb-2 flex items-center gap-2 px-3.5 py-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-500 text-xs font-semibold animate-fadeIn flex-shrink-0">
+        <i class="ti ti-circle-check text-sm flex-shrink-0"></i>
+        <span>Forwarded successfully</span>
+      </div>
+    }
+
+    <!-- Action Footer -->
+    <div class="flex items-center gap-2.5 px-5 pb-5 pt-3 flex-shrink-0 border-t border-border-light/50">
+      <button
+        (click)="close.emit()"
+        [disabled]="isForwarding()"
+        class="flex-1 py-2.5 px-4 rounded-2xl bg-surface-1 hover:bg-surface-2 disabled:opacity-50 text-text-secondary text-xs font-semibold border border-border-light transition-all cursor-pointer select-none active-press"
+      >
+        Cancel
+      </button>
+      <button
+        (click)="confirmForward()"
+        [disabled]="!selectedConvo() || isForwarding() || didSucceed()"
+        class="flex-1 py-2.5 px-4 rounded-2xl text-white text-xs font-semibold transition-all shadow-md cursor-pointer disabled:opacity-50 select-none flex items-center justify-center gap-1.5 active-press bg-accent hover:bg-accent-hover shadow-accent/20"
+      >
+        @if (isForwarding()) {
+          <i class="ti ti-loader-2 animate-spin text-sm"></i>
+        } @else {
+          <i class="ti ti-corner-up-right text-sm"></i>
+        }
+        <span>{{ isForwarding() ? 'Forwarding…' : 'Forward' }}</span>
+      </button>
+    </div>
+  </div>
+</div>

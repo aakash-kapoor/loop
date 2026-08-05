@@ -705,4 +705,83 @@ export class MessageService {
       return null;
     }
   }
+
+  /**
+   * Forward an already-decrypted message to a target conversation.
+   *
+   * The source message object received here has already been decrypted by the
+   * active message stream pipeline — no second decryption is needed.
+   * The text is re-encrypted using the *target* conversation's AES key so that
+   * each conversation's E2EE envelope stays isolated.
+   *
+   * Attachments are intentionally NOT forwarded (risk of Firestore 1MB doc limit
+   * with base64 blobs). Attachment-only messages fall back to a '📎 Attachment'
+   * text placeholder so the forwarded bubble is never empty.
+   *
+   * @param sourceMessage  The fully-decrypted source Message object from the UI layer.
+   * @param targetConvoId  The Firestore ID of the destination conversation.
+   */
+  async forwardMessage(sourceMessage: Message, targetConvoId: string): Promise<void> {
+    const user = this.auth.currentUser();
+    if (!user) throw new Error('User not authenticated');
+
+    // Derive plain-text to forward — use the decrypted text if available,
+    // or fall back to the attachment placeholder for attachment-only messages.
+    const plainText = sourceMessage.text?.trim() || '📎 Attachment';
+
+    // ── Fetch target conversation once — reused for self-heal AND metadata update ─
+    const targetConvoRef = doc(db, 'conversations', targetConvoId);
+    const targetConvoSnap = await getDoc(targetConvoRef);
+    if (!targetConvoSnap.exists()) throw new Error('Target conversation not found');
+    const targetParticipants = targetConvoSnap.data()['participants'] as string[];
+
+    // ── Key resolution for the TARGET conversation ───────────────────────────
+    // Explicitly pass targetConvoId — never rely on conversationService.selectedConversation()
+    // which points to the CURRENT open chat, not the forwarding destination.
+    let aesKey = await this.cryptoService.getOrDecryptConversationKey(targetConvoId);
+
+    if (!aesKey) {
+      if (!this.cryptoService.getLoadedPrivateKey()) {
+        throw new Error('Encryption key not loaded. Please unlock your account passphrase to forward messages.');
+      }
+
+      console.warn(`[forwardMessage] Key envelope missing for target convo ${targetConvoId}. Running self-heal...`);
+      aesKey = await this.selfHealGroupKeys(targetConvoId, targetParticipants);
+    }
+
+    // ── Encrypt for target conversation ─────────────────────────────────────
+    const encryptedText = await this.cryptoService.encryptText(plainText, aesKey);
+    const now = Date.now();
+
+    const messageData: Record<string, any> = {
+      senderId: user.uid,
+      text: encryptedText,
+      createdAt: serverTimestamp(),
+      createdAtMs: now,
+      reactions: {},
+      replyTo: null,
+      mentions: [],
+      encryptionVersion: 2,
+      forwardedFrom: sourceMessage.id,
+    };
+
+    const messagesRef = collection(db, 'conversations', targetConvoId, 'messages');
+    await addDoc(messagesRef, messageData);
+
+    // ── Update target conversation metadata ──────────────────────────────────
+    const updates: Record<string, any> = {
+      lastMessage: encryptedText,
+      lastMessageAt: now,
+      lastMessageEncryptionVersion: 2,
+      lastMessageIsSystem: false,
+    };
+
+    targetParticipants.forEach((pId: string) => {
+      if (pId !== user.uid) {
+        updates[`unreadCount.${pId}`] = increment(1);
+      }
+    });
+
+    await updateDoc(targetConvoRef, updates);
+  }
 }

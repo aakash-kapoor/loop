@@ -196,7 +196,7 @@
           [showSenderName]="convo()?.type === 'group'"
           [isPinned]="msg.id === convo()?.pinnedMessageId"
           [participants]="convo()?.participants ?? []"
-          [searchTerm]="searchQuery()" (reply)="onReplyTrigger($event)" (pin)="pinMessage($event)" (unpin)="unpinMessage()" (imageClick)="openLightbox($event)"></app-message-bubble>
+          [searchTerm]="searchQuery()" (reply)="onReplyTrigger($event)" (pin)="pinMessage($event)" (unpin)="unpinMessage()" (imageClick)="openLightbox($event)" (forward)="onForwardTrigger($event)"></app-message-bubble>
       </div>
       }
 
@@ -433,6 +433,16 @@
     [confirmText]="activeConfirmAction() === 'delete' ? 'Delete Chat' : 'Clear Chat'"
     [type]="activeConfirmAction() === 'clear' ? 'warning' : 'danger'" [isSubmitting]="isSubmittingConfirm()"
     (confirm)="handleConfirm()" (cancel)="closeConfirm()"></app-confirm-modal>
+  }
+
+  <!-- Forward Message Conversation Picker Modal -->
+  @if (forwardingMessage()) {
+  <app-forward-modal
+    #forwardModal
+    [message]="forwardingMessage()!"
+    (forward)="onForwardConfirm($event)"
+    (close)="onForwardClose()"
+  ></app-forward-modal>
   }
 
   <!-- Global Fullscreen Lightbox Modal (Root level to prevent parent container clipping) -->
