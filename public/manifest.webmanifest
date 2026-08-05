@@ -1,6 +1,6 @@
 {
-  "name": "loop",
-  "short_name": "loop",
+  "name": "Loop",
+  "short_name": "Loop",
   "display": "standalone",
   "scope": "./",
   "start_url": "./",
