@@ -6,7 +6,7 @@
   </span>
 </div>
 } @else {
-<div class="flex gap-2 w-full my-2 animate-slideUpFade relative" [ngClass]="{
+<div class="flex gap-2 w-full max-w-full my-2 animate-slideUpFade relative" [ngClass]="{
       'justify-end': isOutgoing(),
       'justify-start': !isOutgoing(),
       'z-40': isMenuOpen() || isContextMenuOpen()
@@ -14,14 +14,14 @@
   <!-- Incoming Avatar -->
   @if (!isOutgoing()) {
   <app-avatar [photoURL]="senderProfile()?.photoURL" [displayName]="senderProfile()?.displayName" size="sm"
-    class="self-end mb-1"></app-avatar>
+    class="self-end mb-1 flex-shrink-0"></app-avatar>
   }
 
   <!-- Bubble Wrapper -->
-  <div class="flex flex-col max-w-[70%]" [ngClass]="{'items-end': isOutgoing(), 'items-start': !isOutgoing()}">
+  <div class="flex flex-col max-w-[85%] sm:max-w-[70%] min-w-0" [ngClass]="{'items-end': isOutgoing(), 'items-start': !isOutgoing()}">
     <!-- Sender Name (Group DM incoming only) -->
     @if (showSenderName && !isOutgoing()) {
-    <span class="text-[10px] font-semibold text-text-muted mb-1 ml-1 select-none">
+    <span class="text-[10px] font-semibold text-text-muted mb-1 ml-1 select-none truncate max-w-full">
       {{ senderProfile()?.displayName || 'Loading...' }}
     </span>
     }
@@ -34,7 +34,24 @@
     }
 
     <!-- Message Content Container -->
-    <div class="group relative flex flex-col">
+    <div #swipeContainer
+      (touchstart)="onTouchStart($event)"
+      (touchend)="onTouchEnd()"
+      (touchcancel)="onTouchCancel()"
+      class="group relative flex flex-col max-w-full min-w-0">
+
+      <!-- Swipe reply action badge indicator -->
+      @if (!isDeletedForEveryone() && !isDeletedForMe() && swipeOffset() > 0) {
+      <div class="absolute -left-9 top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none z-0 w-7 h-7 rounded-full transition-all duration-150 select-none"
+        [style.transform]="'translateY(-50%) scale(' + swipeBadgeScale() + ')'"
+        [ngClass]="{
+          'bg-accent text-white shadow-md shadow-accent/40 scale-110': isSwipeThresholdReached(),
+          'bg-surface-2 border border-border-light text-text-secondary': !isSwipeThresholdReached()
+        }">
+        <i class="ti ti-arrow-back-up text-sm leading-none transition-transform" [ngClass]="{'scale-110': isSwipeThresholdReached()}"></i>
+      </div>
+      }
+
       <!-- Hover Reaction Picker Quick Bar -->
       @if (!isDeletedForEveryone() && !isDeletedForMe()) {
       <div
@@ -130,145 +147,150 @@
       </div>
       }
 
-      <!-- Reply Block Preview -->
-      @if (replyToMessage && !isDeletedForEveryone() && !isDeletedForMe()) {
-      <div
-        class="px-3.5 py-1.5 rounded-t-2xl text-xs flex flex-col gap-0.5 border-l-2 bg-surface-1/40 border-border-strong text-text-secondary select-none opacity-85"
-        [ngClass]="{
-              'mr-1': isOutgoing(),
-              'ml-1': !isOutgoing()
-            }">
-        <span class="text-[9px] font-bold tracking-wider text-text-muted">{{ replyToSenderName() }}</span>
-        <span class="truncate max-w-[200px] italic">"{{ replyToMessage.text }}"</span>
-      </div>
-      }
+      <!-- Sliding Content Container (responds to swipe-to-reply gesture) -->
+      <div class="relative z-10 flex flex-col w-full max-w-full min-w-0 touch-pan-y"
+        [style.transform]="swipeOffset() > 0 ? 'translateX(' + swipeOffset() + 'px)' : null"
+        [ngClass]="{'transition-transform duration-200 ease-out': !isSwiping()}">
+        <!-- Reply Block Preview -->
+        @if (replyToMessage && !isDeletedForEveryone() && !isDeletedForMe()) {
+        <div
+          class="px-3.5 py-1.5 rounded-t-2xl text-xs flex flex-col gap-0.5 border-l-2 bg-surface-1/40 border-border-strong text-text-secondary select-none opacity-85 min-w-0 max-w-full overflow-hidden"
+          [ngClass]="{
+                'mr-1': isOutgoing(),
+                'ml-1': !isOutgoing()
+              }">
+          <span class="text-[9px] font-bold tracking-wider text-text-muted">{{ replyToSenderName() }}</span>
+          <span class="truncate max-w-full italic">"{{ replyToMessage.text }}"</span>
+        </div>
+        }
 
-      <!-- Speech Bubble itself (Taps toggle the menu) -->
-      @if (isDeletedForEveryone()) {
-      <!-- Shown to ALL participants -->
-      <div
-        class="px-3.5 py-2.5 shadow-sm text-xs text-text-muted italic bg-surface-1 border border-border-light rounded-2xl flex items-center gap-1.5 select-none"
-        [ngClass]="{
-              'rounded-tr-sm': isOutgoing(),
-              'rounded-tl-sm': !isOutgoing(),
-              'rounded-t-none': replyToMessage
-            }">
-        <i class="ti ti-ban text-xs"></i>
-        <span>This message was deleted</span>
-      </div>
-      } @else if (isDeletedForMe()) {
-      <!-- Shown only to current user -->
-      <div
-        class="px-3.5 py-2.5 shadow-sm text-xs text-text-muted italic bg-surface-1 border border-border-light rounded-2xl flex items-center gap-1.5 select-none"
-        [ngClass]="{
-              'rounded-tr-sm': isOutgoing(),
-              'rounded-tl-sm': !isOutgoing(),
-              'rounded-t-none': replyToMessage
-            }">
-        <i class="ti ti-eye-off text-xs"></i>
-        <span>You deleted this message</span>
-      </div>
-      } @else {
-      <div (click)="toggleMenu($event)"
-        class="shadow-sm text-sm break-words leading-relaxed rounded-2xl cursor-pointer select-none transition-all duration-200 overflow-hidden flex flex-col"
-        [ngClass]="{
-              'bg-accent-gradient text-white rounded-tr-sm shadow-md shadow-indigo-500/15 font-sans': isOutgoing(),
-              'bg-surface-1 border border-border-light/80 text-text-primary rounded-tl-sm font-sans': !isOutgoing(),
-              'rounded-t-none': replyToMessage,
-              'ring-2 ring-amber-400/80 dark:ring-amber-400/60 shadow-md shadow-amber-500/10': isCurrentMentioned(),
-              'p-3.5': !imageAttachments().length && !isEmojiOnly(),
-              'p-2.5 sm:p-3': !imageAttachments().length && isEmojiOnly(),
-              'p-1.5': imageAttachments().length
-            }">
+        <!-- Speech Bubble itself (Taps toggle the menu) -->
+        @if (isDeletedForEveryone()) {
+        <!-- Shown to ALL participants -->
+        <div
+          class="px-3.5 py-2.5 shadow-sm text-xs text-text-muted italic bg-surface-1 border border-border-light rounded-2xl flex items-center gap-1.5 select-none"
+          [ngClass]="{
+                'rounded-tr-sm': isOutgoing(),
+                'rounded-tl-sm': !isOutgoing(),
+                'rounded-t-none': replyToMessage
+              }">
+          <i class="ti ti-ban text-xs"></i>
+          <span>This message was deleted</span>
+        </div>
+        } @else if (isDeletedForMe()) {
+        <!-- Shown only to current user -->
+        <div
+          class="px-3.5 py-2.5 shadow-sm text-xs text-text-muted italic bg-surface-1 border border-border-light rounded-2xl flex items-center gap-1.5 select-none"
+          [ngClass]="{
+                'rounded-tr-sm': isOutgoing(),
+                'rounded-tl-sm': !isOutgoing(),
+                'rounded-t-none': replyToMessage
+              }">
+          <i class="ti ti-eye-off text-xs"></i>
+          <span>You deleted this message</span>
+        </div>
+        } @else {
+        <div (click)="toggleMenu($event)"
+          class="shadow-sm text-sm break-words [overflow-wrap:anywhere] [word-break:break-word] leading-relaxed rounded-2xl cursor-pointer select-none transition-all duration-200 overflow-hidden flex flex-col min-w-0 max-w-full"
+          [ngClass]="{
+                'bg-accent-gradient text-white rounded-tr-sm shadow-md shadow-indigo-500/15 font-sans': isOutgoing(),
+                'bg-surface-1 border border-border-light/80 text-text-primary rounded-tl-sm font-sans': !isOutgoing(),
+                'rounded-t-none': replyToMessage,
+                'ring-2 ring-amber-400/80 dark:ring-amber-400/60 shadow-md shadow-amber-500/10': isCurrentMentioned(),
+                'p-3.5': !imageAttachments().length && !isEmojiOnly(),
+                'p-2.5 sm:p-3': !imageAttachments().length && isEmojiOnly(),
+                'p-1.5': imageAttachments().length
+              }">
 
-        <!-- Image Attachments Grid -->
-        @if (imageAttachments().length > 0) {
-        <div class="rounded-xl overflow-hidden mb-1 w-64 sm:w-80 max-w-full">
-          @if (imageAttachments().length === 1) {
-          <!-- Single Image Card with Uniform Bounds -->
-          <div (click)="openLightbox(imageAttachments()[0].url, $event)"
-            class="relative group/img overflow-hidden bg-black/10 rounded-xl cursor-pointer max-h-72 sm:max-h-80 flex items-center justify-center">
-            <img [src]="imageAttachments()[0].url" [alt]="imageAttachments()[0].fileName"
-              class="w-full h-full max-h-72 sm:max-h-80 object-cover transition-transform duration-300 group-hover/img:scale-105" />
-            <div class="absolute inset-0 bg-black/0 group-hover/img:bg-black/20 transition-colors flex items-center justify-center">
-              <i class="ti ti-maximize text-white text-xl opacity-0 group-hover/img:opacity-100 transition-opacity drop-shadow-md"></i>
-            </div>
-          </div>
-          } @else {
-          <!-- Multi-Image Grid -->
-          <div class="grid grid-cols-2 gap-1">
-            @for (img of imageAttachments(); track img.url) {
-            <div (click)="openLightbox(img.url, $event)"
-              class="relative group/img overflow-hidden bg-black/10 aspect-square rounded-lg cursor-pointer">
-              <img [src]="img.url" [alt]="img.fileName"
-                class="w-full h-full object-cover transition-transform duration-300 group-hover/img:scale-105" />
+          <!-- Image Attachments Grid -->
+          @if (imageAttachments().length > 0) {
+          <div class="rounded-xl overflow-hidden mb-1 w-64 sm:w-80 max-w-full">
+            @if (imageAttachments().length === 1) {
+            <!-- Single Image Card with Uniform Bounds -->
+            <div (click)="openLightbox(imageAttachments()[0].url, $event)"
+              class="relative group/img overflow-hidden bg-black/10 rounded-xl cursor-pointer max-h-72 sm:max-h-80 flex items-center justify-center">
+              <img [src]="imageAttachments()[0].url" [alt]="imageAttachments()[0].fileName"
+                class="w-full h-full max-h-72 sm:max-h-80 object-cover transition-transform duration-300 group-hover/img:scale-105" />
               <div class="absolute inset-0 bg-black/0 group-hover/img:bg-black/20 transition-colors flex items-center justify-center">
                 <i class="ti ti-maximize text-white text-xl opacity-0 group-hover/img:opacity-100 transition-opacity drop-shadow-md"></i>
+              </div>
+            </div>
+            } @else {
+            <!-- Multi-Image Grid -->
+            <div class="grid grid-cols-2 gap-1">
+              @for (img of imageAttachments(); track img.url) {
+              <div (click)="openLightbox(img.url, $event)"
+                class="relative group/img overflow-hidden bg-black/10 aspect-square rounded-lg cursor-pointer">
+                <img [src]="img.url" [alt]="img.fileName"
+                  class="w-full h-full object-cover transition-transform duration-300 group-hover/img:scale-105" />
+                <div class="absolute inset-0 bg-black/0 group-hover/img:bg-black/20 transition-colors flex items-center justify-center">
+                  <i class="ti ti-maximize text-white text-xl opacity-0 group-hover/img:opacity-100 transition-opacity drop-shadow-md"></i>
+                </div>
+              </div>
+              }
+            </div>
+            }
+          </div>
+          }
+
+          <!-- Document Attachments List -->
+          @if (documentAttachments().length > 0) {
+          <div class="flex flex-col gap-1.5 mb-1" [ngClass]="{'px-2 pt-1': imageAttachments().length > 0}">
+            @for (doc of documentAttachments(); track doc.fileName) {
+            <div (click)="downloadAttachment(doc, $event)"
+              class="flex items-center gap-3 p-2.5 rounded-xl transition-all cursor-pointer border select-none group/doc"
+              [ngClass]="isOutgoing() ? 'bg-white/15 hover:bg-white/25 border-white/20 text-white' : 'bg-surface-0 hover:bg-surface-2 border-border-light text-text-primary'">
+              <div class="w-9 h-9 rounded-lg flex items-center justify-center text-lg flex-shrink-0"
+                [ngClass]="isOutgoing() ? 'bg-white/20 text-white' : 'bg-accent/15 text-accent'">
+                <i class="ti ti-file-description"></i>
+              </div>
+              <div class="flex flex-col min-w-0 flex-1">
+                <span class="text-xs font-semibold truncate group-hover/doc:underline" [title]="doc.fileName">
+                  {{ doc.fileName }}
+                </span>
+                <span class="text-[10px] opacity-80 font-medium">
+                  {{ formatFileSize(doc.fileSize) }}
+                </span>
+              </div>
+              <div class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-transform group-hover/doc:scale-110"
+                [ngClass]="isOutgoing() ? 'bg-white/20 text-white' : 'bg-surface-1 text-text-secondary'">
+                <i class="ti ti-download text-xs"></i>
               </div>
             </div>
             }
           </div>
           }
-        </div>
-        }
 
-        <!-- Document Attachments List -->
-        @if (documentAttachments().length > 0) {
-        <div class="flex flex-col gap-1.5 mb-1" [ngClass]="{'px-2 pt-1': imageAttachments().length > 0}">
-          @for (doc of documentAttachments(); track doc.fileName) {
-          <div (click)="downloadAttachment(doc, $event)"
-            class="flex items-center gap-3 p-2.5 rounded-xl transition-all cursor-pointer border select-none group/doc"
-            [ngClass]="isOutgoing() ? 'bg-white/15 hover:bg-white/25 border-white/20 text-white' : 'bg-surface-0 hover:bg-surface-2 border-border-light text-text-primary'">
-            <div class="w-9 h-9 rounded-lg flex items-center justify-center text-lg flex-shrink-0"
-              [ngClass]="isOutgoing() ? 'bg-white/20 text-white' : 'bg-accent/15 text-accent'">
-              <i class="ti ti-file-description"></i>
+          <!-- Forwarded label — shown above text when message was forwarded -->
+          @if (isForwarded() && !isDeletedForEveryone() && !isDeletedForMe()) {
+            <div class="flex items-center gap-1 text-[10px] mb-0.5 select-none"
+                 [ngClass]="isOutgoing() ? 'text-white/60' : 'text-text-muted'">
+              <i class="ti ti-corner-up-right text-[10px]"></i>
+              <span class="italic font-medium">Forwarded</span>
             </div>
-            <div class="flex flex-col min-w-0 flex-1">
-              <span class="text-xs font-semibold truncate group-hover/doc:underline" [title]="doc.fileName">
-                {{ doc.fileName }}
-              </span>
-              <span class="text-[10px] opacity-80 font-medium">
-                {{ formatFileSize(doc.fileSize) }}
-              </span>
-            </div>
-            <div class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-transform group-hover/doc:scale-110"
-              [ngClass]="isOutgoing() ? 'bg-white/20 text-white' : 'bg-surface-1 text-text-secondary'">
-              <i class="ti ti-download text-xs"></i>
-            </div>
-          </div>
           }
-        </div>
-        }
 
-        <!-- Forwarded label — shown above text when message was forwarded -->
-        @if (isForwarded() && !isDeletedForEveryone() && !isDeletedForMe()) {
-          <div class="flex items-center gap-1 text-[10px] mb-0.5 select-none"
-               [ngClass]="isOutgoing() ? 'text-white/60' : 'text-text-muted'">
-            <i class="ti ti-corner-up-right text-[10px]"></i>
-            <span class="italic font-medium">Forwarded</span>
-          </div>
-        }
-
-        <!-- Text Message Body (if non-empty) -->
-        @if (message.text && formattedMessageChunks().length > 0) {
-        <div [ngClass]="[
-          isEmojiOnly() ? emojiSizeClass() : '',
-          (imageAttachments().length > 0 || documentAttachments().length > 0) ? 'px-2 pb-1 pt-1' : ''
-        ]">
-          @for (chunk of formattedMessageChunks(); track $index) {
-            @if (chunk.isMatch) {
-              <mark class="bg-amber-300/80 text-amber-950 dark:bg-amber-400/50 dark:text-amber-100 rounded px-0.5 font-semibold">{{ chunk.text }}</mark>
-            } @else if (chunk.isMention) {
-              <span class="px-1.5 py-0.5 mx-0.5 rounded-md font-semibold text-xs inline-block"
-                [ngClass]="isOutgoing() ? 'bg-white/20 text-white' : 'bg-accent/15 text-accent dark:bg-accent/25'">{{ chunk.text }}</span>
-            } @else {
-              {{ chunk.text }}
+          <!-- Text Message Body (if non-empty) -->
+          @if (message.text && formattedMessageChunks().length > 0) {
+          <div [ngClass]="[
+            isEmojiOnly() ? emojiSizeClass() : '',
+            (imageAttachments().length > 0 || documentAttachments().length > 0) ? 'px-2 pb-1 pt-1' : ''
+          ]">
+            @for (chunk of formattedMessageChunks(); track $index) {
+              @if (chunk.isMatch) {
+                <mark class="bg-amber-300/80 text-amber-950 dark:bg-amber-400/50 dark:text-amber-100 rounded px-0.5 font-semibold">{{ chunk.text }}</mark>
+              } @else if (chunk.isMention) {
+                <span class="px-1.5 py-0.5 mx-0.5 rounded-md font-semibold text-xs inline-block"
+                  [ngClass]="isOutgoing() ? 'bg-white/20 text-white' : 'bg-accent/15 text-accent dark:bg-accent/25'">{{ chunk.text }}</span>
+              } @else {
+                {{ chunk.text }}
+              }
             }
+          </div>
           }
         </div>
         }
       </div>
-      }
     </div>
 
     <!-- Emoji Reactions Bar -->

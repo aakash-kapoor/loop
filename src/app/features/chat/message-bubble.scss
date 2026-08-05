@@ -1,0 +1,9 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.touch-pan-y {
+  touch-action: pan-y;
+  will-change: transform;
+}

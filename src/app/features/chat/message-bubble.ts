@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, inject, computed, signal, HostListener, ElementRef, OnDestroy } from '@angular/core';
+import { Component, Input, Output, EventEmitter, inject, computed, signal, HostListener, ElementRef, OnDestroy, AfterViewInit, viewChild } from '@angular/core';
 import { DatePipe, NgClass } from '@angular/common';
 import { Message, MessageAttachment } from '../../models/message.model';
 import { Auth } from '../../core/auth';
@@ -13,7 +13,7 @@ import { dataUrlToBlob, downloadBlob, formatBytes } from '../../shared/utils/ima
   templateUrl: './message-bubble.html',
   styleUrl: './message-bubble.scss',
 })
-export class MessageBubble implements OnDestroy {
+export class MessageBubble implements AfterViewInit, OnDestroy {
   readonly messageSignal = signal<Message | null>(null);
 
   // Lightbox overlay state for full-resolution image preview
@@ -29,11 +29,32 @@ export class MessageBubble implements OnDestroy {
   // Error message shown when delete-for-everyone fails (e.g. window expired)
   readonly deleteError = signal<string | null>(null);
 
+  // Swipe to reply touch gesture signals
+  readonly swipeOffset = signal<number>(0);
+  readonly isSwiping = signal<boolean>(false);
+  readonly isSwipeThresholdReached = signal<boolean>(false);
+
+  // Computed scale for reply action indicator badge
+  readonly swipeBadgeScale = computed(() => {
+    const offset = this.swipeOffset();
+    if (offset <= 0) return 0;
+    return Math.min(1, offset / 35);
+  });
+
+  private readonly swipeContainerRef = viewChild<ElementRef<HTMLElement>>('swipeContainer');
+  private touchMoveListener?: (e: TouchEvent) => void;
+
+  private touchStartX = 0;
+  private touchStartY = 0;
+  private isDirectionLocked = false;
+  private isSwipingHorizontal = false;
+
   // Clock tick signal so canDeleteForEveryone re-evaluates as time passes (every 30s)
   private readonly clockTick = signal(Date.now());
   private readonly clockInterval = setInterval(() => this.clockTick.set(Date.now()), 30_000);
 
   @Input({ required: true }) set message(val: Message) {
+    this.resetSwipeState();
     this.messageSignal.set(val);
   }
   get message(): Message {
@@ -76,6 +97,105 @@ export class MessageBubble implements OnDestroy {
 
   readonly currentUserId = computed(() => this.auth.currentUser()?.uid);
 
+  ngAfterViewInit() {
+    const el = this.swipeContainerRef()?.nativeElement;
+    if (el) {
+      this.touchMoveListener = (e: TouchEvent) => this.onTouchMove(e);
+      el.addEventListener('touchmove', this.touchMoveListener, { passive: false });
+    }
+  }
+
+  resetSwipeState() {
+    this.swipeOffset.set(0);
+    this.isSwiping.set(false);
+    this.isSwipeThresholdReached.set(false);
+    this.isDirectionLocked = false;
+    this.isSwipingHorizontal = false;
+  }
+
+  onTouchStart(event: TouchEvent) {
+    if (this.isDeletedForEveryone() || this.isDeletedForMe()) return;
+    if (event.touches.length > 1) return;
+
+    const touch = event.touches[0];
+    this.touchStartX = touch.clientX;
+    this.touchStartY = touch.clientY;
+    this.isDirectionLocked = false;
+    this.isSwipingHorizontal = false;
+    this.isSwiping.set(true);
+
+    if (this.isMenuOpen() || this.isContextMenuOpen()) {
+      this.isMenuOpen.set(false);
+      this.isContextMenuOpen.set(false);
+    }
+  }
+
+  onTouchMove(event: TouchEvent) {
+    if (!this.isSwiping() || this.isDeletedForEveryone() || this.isDeletedForMe()) return;
+    if (event.touches.length > 1) return;
+
+    const touch = event.touches[0];
+    const deltaX = touch.clientX - this.touchStartX;
+    const deltaY = touch.clientY - this.touchStartY;
+
+    if (!this.isDirectionLocked) {
+      const distance = Math.hypot(deltaX, deltaY);
+      if (distance < 5) return; // Wait for minimum movement before direction lock
+
+      this.isDirectionLocked = true;
+      this.isSwipingHorizontal = deltaX > 0 && Math.abs(deltaX) > Math.abs(deltaY);
+
+      if (!this.isSwipingHorizontal) {
+        this.isSwiping.set(false);
+        this.swipeOffset.set(0);
+        return;
+      }
+    }
+
+    if (this.isSwipingHorizontal) {
+      if (event.cancelable) {
+        event.preventDefault();
+      }
+
+      const dampenedOffset = Math.min(65, deltaX * 0.45);
+      this.swipeOffset.set(Math.max(0, dampenedOffset));
+
+      const threshold = 45;
+      const wasReached = this.isSwipeThresholdReached();
+      const isReached = dampenedOffset >= threshold;
+
+      if (isReached && !wasReached) {
+        if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+          try {
+            navigator.vibrate(25);
+          } catch (_) {}
+        }
+      }
+
+      this.isSwipeThresholdReached.set(isReached);
+    }
+  }
+
+  onTouchEnd() {
+    if (!this.isSwiping() && this.swipeOffset() === 0) return;
+
+    const thresholdReached = this.isSwipeThresholdReached();
+    this.isSwiping.set(false);
+
+    if (thresholdReached) {
+      this.onReply();
+    }
+
+    this.swipeOffset.set(0);
+    this.isSwipeThresholdReached.set(false);
+    this.isDirectionLocked = false;
+    this.isSwipingHorizontal = false;
+  }
+
+  onTouchCancel() {
+    this.resetSwipeState();
+  }
+
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent) {
     const clickedInside = this.elementRef.nativeElement.contains(event.target as Node);
@@ -92,6 +212,7 @@ export class MessageBubble implements OnDestroy {
   }
 
   toggleMenu(event: Event) {
+    if (this.swipeOffset() > 0) return;
     this.isContextMenuOpen.set(false);
     this.isMenuOpen.set(!this.isMenuOpen());
   }
@@ -301,8 +422,13 @@ export class MessageBubble implements OnDestroy {
   });
 
   ngOnDestroy() {
+    this.resetSwipeState();
     if (this.clockInterval) {
       clearInterval(this.clockInterval);
+    }
+    const el = this.swipeContainerRef()?.nativeElement;
+    if (this.touchMoveListener && el) {
+      el.removeEventListener('touchmove', this.touchMoveListener);
     }
   }
 
