@@ -16,6 +16,13 @@ Loop is a modern, responsive, end-to-end encrypted (E2EE) real-time messaging ap
 
 ### 💬 Chat & Messaging
 - **Direct & Group Conversations**: Start 1-on-1 private DMs or create multi-user group chats.
+- **Mobile Swipe-to-Reply**: Touch-optimized swipe gesture on mobile message bubbles with spring elasticity, direction lock to protect vertical scrolling, and haptic feedback.
+- **Click-to-Scroll & Replied Message Flash**: Click any quoted reply preview or composer banner to smoothly scroll directly to the original message with a soft, Telegram-style background flash highlight.
+- **Message Forwarding**: Forward text and media messages to other direct or group conversations via an interactive modal with instant search.
+- **Conversation Draft Persistence**: Unsent message text auto-saves per conversation in local storage and restores automatically when returning to the chat.
+- **Conversation Muting**: Mute notification alerts for specific chats with visual bell-off indicators.
+- **Pinned Messages**: Pin important messages in a conversation with a quick-jump top banner.
+- **Image & File Attachments**: Share compressed images with lightbox previews and document file downloads.
 - **Message Requests**: Inbox protection for new contacts—DM requests require explicit acceptance.
 - **Rich Message Reactions**: Expressive emoji reactions with real-time sync across devices.
 - **@Mentions**: Tag specific participants or `@everyone` / `@all` in group conversations.
@@ -61,22 +68,29 @@ src/app/
 │   ├── auth.ts            # Authentication state & presence manager
 │   └── firebase.config.ts # Firebase SDK config & persistent offline cache
 ├── features/              # Feature modules & route components
-│   ├── chat/              # Main chat viewport, message bubbles, search, group info modal
+│   ├── chat/              # Chat viewport, swipe-to-reply bubbles, search, group info modal
 │   ├── choose-username/   # First-time onboarding & E2EE key generation
 │   ├── conversation-list/ # Sidebar conversation feed & active chat item
 │   ├── login/             # Google OAuth Sign-in interface
 │   ├── new-conversation/  # User search, DM start, and group creation
 │   ├── privacy/           # Privacy policy page
-│   ├── settings/          # Theme, notification, and privacy preferences
+│   ├── settings/          # Theme, notification, last-seen, & key backup preferences
 │   ├── shell/             # App shell layout wrapper
 │   └── terms/             # Terms of service page
 ├── models/                # TypeScript interfaces (Conversation, Message, User)
 ├── services/              # Domain services
-│   ├── conversation.service.ts # Firestore conversation CRUD & member management
+│   ├── conversation.service.ts # Firestore conversation CRUD, muting & pinning
 │   ├── crypto.service.ts       # Web Crypto API key generation, E2EE, and IndexedDB
-│   ├── message.service.ts      # Message stream, E2EE encryption/decryption, push alerts
+│   ├── draft.service.ts        # LocalStorage unsent draft auto-persistence
+│   ├── message.service.ts      # Message stream, E2EE encryption, forwarding, push alerts
+│   ├── toast.service.ts        # Global toast alert notification service
 │   └── user.service.ts         # User profiles cache & username search
-└── shared/                # Reusable UI components (Avatar, ConfirmModal)
+└── shared/                # Reusable UI components & utilities
+    ├── avatar/            # Online status user & group avatars
+    ├── confirm-modal/     # Confirmation modal dialogs
+    ├── forward-modal/     # Interactive message forwarding modal
+    ├── toast/             # Global toast alert component
+    └── utils/             # Image compressor & canvas blob utilities
 ```
 
 ---
