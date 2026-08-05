@@ -73,8 +73,8 @@ service cloud.firestore {
       allow create: if isAuthenticated() && request.auth.uid in request.resource.data.participants;
 
       // Any participant can update conversation metadata — covers unread
-      // count resets, message-request acceptance, clearedAt/deletedFor
-      // soft-delete flags, and lastMessage preview updates on send.
+      // count resets, message-request acceptance, clearedAt/deletedFor/mutedBy
+      // flags, and lastMessage preview updates on send.
       // Crucially, the 'deletedForEveryone' flag can only be set or changed
       // by active group administrators to prevent unauthorized wipes.
       allow update: if isAuthenticated() && 

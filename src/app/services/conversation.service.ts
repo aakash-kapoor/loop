@@ -24,7 +24,7 @@ import {
 import { db } from '../core/firebase.config';
 import { Auth } from '../core/auth';
 import { UserService } from './user.service';
-import { Conversation } from '../models/conversation.model';
+import { Conversation, isConvoMuted } from '../models/conversation.model';
 import { AppUser } from '../models/user.model';
 import { CryptoService } from './crypto.service';
 
@@ -778,6 +778,48 @@ export class ConversationService {
       const userName = currentUser.displayName || currentUser.username || 'Someone';
       const systemText = messageId ? `${userName} pinned a message` : `${userName} unpinned a message`;
       await this.createSystemMessage(convoId, systemText);
+    }
+  }
+
+  // ── Conversation Muting ──────────────────────────────────────────────────
+
+  /** Mute conversation for durationMs (-1 for indefinite, or ms duration). */
+  async muteConversation(convoId: string, durationMs: number | -1 = -1): Promise<void> {
+    const user = this.auth.currentUser();
+    if (!user) return;
+
+    const convoRef = doc(db, 'conversations', convoId);
+    const until = durationMs === -1 ? -1 : Date.now() + durationMs;
+
+    await updateDoc(convoRef, {
+      [`mutedUntil.${user.uid}`]: until,
+    });
+  }
+
+  /** Unmute conversation for the current user. */
+  async unmuteConversation(convoId: string): Promise<void> {
+    const user = this.auth.currentUser();
+    if (!user) return;
+
+    const convoRef = doc(db, 'conversations', convoId);
+    await updateDoc(convoRef, {
+      [`mutedUntil.${user.uid}`]: deleteField(),
+      mutedBy: arrayRemove(user.uid),
+    });
+  }
+
+  /** Toggle mute state for current user (defaults to indefinite mute if unmuted). */
+  async toggleMuteConversation(convoId: string, durationMs: number | -1 = -1): Promise<void> {
+    const user = this.auth.currentUser();
+    if (!user) return;
+
+    const convo = this.conversations().find((c) => c.id === convoId);
+    const muted = isConvoMuted(convo, user.uid);
+
+    if (muted) {
+      await this.unmuteConversation(convoId);
+    } else {
+      await this.muteConversation(convoId, durationMs);
     }
   }
 }

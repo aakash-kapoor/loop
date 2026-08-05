@@ -23,7 +23,7 @@ import { ConversationService } from './conversation.service';
 import { UserService } from './user.service';
 import { CryptoService } from './crypto.service';
 import { Message, MessageAttachment } from '../models/message.model';
-import { Conversation } from '../models/conversation.model';
+import { Conversation, isConvoMuted } from '../models/conversation.model';
 
 @Injectable({
   providedIn: 'root',
@@ -88,6 +88,7 @@ export class MessageService {
           const isSystem = convo.lastMessageIsSystem;
           const unread = convo.unreadCount?.[user.uid] || 0;
           const hasUnread = unread > 0;
+          const isMuted = isConvoMuted(convo, user.uid);
 
           if (isDevMode()) {
             console.info(`[Notification Evaluation] Convo: ${convo.id}`, {
@@ -99,11 +100,12 @@ export class MessageService {
               isSystem,
               unreadCount: unread,
               hasUnread,
-              willNotify: !isFocusedInChat && hasUnread
+              isMuted,
+              willNotify: !isFocusedInChat && hasUnread && !isMuted
             });
           }
 
-          if (!isFocusedInChat && hasUnread) {
+          if (!isFocusedInChat && hasUnread && !isMuted) {
             this.handleConvoNotification(convo);
           }
         }

@@ -144,6 +144,46 @@
           </button>
         }
 
+        @if (isMuted()) {
+          <button 
+            (click)="unmute()"
+            [disabled]="isSubmitting()"
+            class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-2 border border-border-light text-text-primary font-medium text-xs hover:bg-surface-1 transition-all cursor-pointer"
+          >
+            <i class="ti ti-bell text-sm text-text-muted"></i>
+            <span>Unmute</span>
+          </button>
+        } @else {
+          <div class="relative">
+            <button 
+              (click)="toggleMuteOptions()"
+              [disabled]="isSubmitting()"
+              class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-2 border border-border-light text-text-primary font-medium text-xs hover:bg-surface-1 transition-all cursor-pointer"
+            >
+              <i class="ti ti-bell-off text-sm text-text-muted"></i>
+              <span>Mute</span>
+              <i class="ti ti-chevron-down text-xs text-text-muted transition-transform duration-200" [ngClass]="{'rotate-180': isMuteOptionsOpen()}"></i>
+            </button>
+
+            @if (isMuteOptionsOpen()) {
+              <div class="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 z-50 bg-surface-0/95 backdrop-blur-xl border border-border-light rounded-2xl shadow-xl p-1 flex flex-col gap-0.5 animate-scaleIn origin-top text-xs min-w-[150px]">
+                <button (click)="mute(3600000)" class="w-full text-left px-3 py-1.5 rounded-xl hover:bg-surface-1 text-text-primary flex items-center gap-2 font-medium cursor-pointer transition-colors">
+                  <i class="ti ti-clock text-xs text-text-muted"></i>
+                  <span>1 hour</span>
+                </button>
+                <button (click)="mute(28800000)" class="w-full text-left px-3 py-1.5 rounded-xl hover:bg-surface-1 text-text-primary flex items-center gap-2 font-medium cursor-pointer transition-colors">
+                  <i class="ti ti-clock text-xs text-text-muted"></i>
+                  <span>8 hours</span>
+                </button>
+                <button (click)="mute(-1)" class="w-full text-left px-3 py-1.5 rounded-xl hover:bg-surface-1 text-text-primary flex items-center gap-2 font-medium cursor-pointer transition-colors">
+                  <i class="ti ti-bell-off text-xs text-text-muted"></i>
+                  <span>Until unmuted</span>
+                </button>
+              </div>
+            }
+          </div>
+        }
+
         <button 
           (click)="openConfirm('clear')"
           [disabled]="isSubmitting()"

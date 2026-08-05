@@ -1,7 +1,7 @@
 import { Component, Input, Output, EventEmitter, inject, signal, computed, HostListener, ElementRef, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Conversation } from '../../../models/conversation.model';
+import { Conversation, isConvoMuted } from '../../../models/conversation.model';
 import { AppUser } from '../../../models/user.model';
 import { ConversationService } from '../../../services/conversation.service';
 import { UserService } from '../../../services/user.service';
@@ -136,6 +136,14 @@ export class GroupInfoModal {
   }
 
   readonly currentUserId = computed(() => this.auth.currentUser()?.uid);
+
+  readonly isMuted = computed(() => {
+    const convo = this.conversationSignal();
+    const uid = this.currentUserId();
+    return isConvoMuted(convo, uid);
+  });
+
+  readonly isMuteOptionsOpen = signal<boolean>(false);
 
   readonly isCurrentAdmin = computed(() => {
     const convo = this.conversationSignal();
@@ -319,6 +327,38 @@ export class GroupInfoModal {
       }
     } catch (err: any) {
       this.errorMessage.set(err.message || `Failed to ${action} group`);
+    } finally {
+      this.isSubmitting.set(false);
+    }
+  }
+
+  toggleMuteOptions() {
+    this.isMuteOptionsOpen.set(!this.isMuteOptionsOpen());
+  }
+
+  async mute(durationMs: number | -1) {
+    if (!this.conversation) return;
+    this.isSubmitting.set(true);
+    this.errorMessage.set(null);
+    try {
+      await this.conversationService.muteConversation(this.conversation.id, durationMs);
+      this.isMuteOptionsOpen.set(false);
+    } catch (err: any) {
+      this.errorMessage.set(err.message || 'Failed to mute conversation');
+    } finally {
+      this.isSubmitting.set(false);
+    }
+  }
+
+  async unmute() {
+    if (!this.conversation) return;
+    this.isSubmitting.set(true);
+    this.errorMessage.set(null);
+    try {
+      await this.conversationService.unmuteConversation(this.conversation.id);
+      this.isMuteOptionsOpen.set(false);
+    } catch (err: any) {
+      this.errorMessage.set(err.message || 'Failed to unmute conversation');
     } finally {
       this.isSubmitting.set(false);
     }

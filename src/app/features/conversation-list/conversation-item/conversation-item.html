@@ -4,7 +4,7 @@
     'bg-bg-accent border-l-2 border-accent': isActive(),
     'hover:bg-surface-1/50': !isActive()
   }"
-  class="flex items-center gap-3 p-3 border-l-2 border-transparent cursor-pointer transition-all duration-200"
+  class="group/item flex items-center gap-3 p-3 border-l-2 border-transparent cursor-pointer transition-all duration-200 relative"
 >
   <!-- Avatar / Icon -->
   <app-avatar
@@ -17,13 +17,37 @@
 
   <!-- Meta Info -->
   <div class="flex-1 min-w-0">
-    <div class="flex items-baseline justify-between mb-0.5">
-      <span class="text-sm font-semibold text-text-primary truncate">
-        {{ convo.type === 'dm' ? (otherProfile()?.displayName || 'Loading...') : convo.groupName }}
-      </span>
-      <span class="text-[10px] text-text-muted flex-shrink-0">
-        {{ formattedTime() }}
-      </span>
+    <div class="flex items-center justify-between h-5 mb-0.5">
+      <div class="flex items-center gap-1 min-w-0 pr-2">
+        <span class="text-sm font-semibold text-text-primary truncate leading-none">
+          {{ convo.type === 'dm' ? (otherProfile()?.displayName || 'Loading...') : convo.groupName }}
+        </span>
+        @if (isMuted()) {
+          <i class="ti ti-bell-off text-xs text-text-muted flex-shrink-0" title="Muted"></i>
+        }
+      </div>
+
+      <!-- Right Action / Timestamp Container Slot -->
+      <div class="flex items-center justify-end flex-shrink-0 h-5">
+        <!-- Timestamp (Hidden when hovering or menu open) -->
+        <span
+          class="text-[10px] text-text-muted flex-shrink-0 leading-none transition-opacity select-none"
+          [ngClass]="{'group-hover/item:hidden': !isActionMenuOpen(), 'hidden': isActionMenuOpen()}"
+        >
+          {{ formattedTime() }}
+        </span>
+
+        <!-- Option 2: Hover 3-Dot (⋮) Action Trigger Button -->
+        <button
+          (click)="toggleActionMenu($event)"
+          class="item-action-btn hidden group-hover/item:flex items-center justify-center w-5 h-5 rounded-md text-text-muted hover:text-text-primary hover:bg-surface-2 transition-all cursor-pointer flex-shrink-0 active-press"
+          [ngClass]="{'!flex text-accent bg-surface-2': isActionMenuOpen()}"
+          title="Chat options"
+          aria-label="Chat options"
+        >
+          <i class="ti ti-dots-vertical text-xs"></i>
+        </button>
+      </div>
     </div>
 
     <div class="flex items-center justify-between">
@@ -60,7 +84,7 @@
             Request
           </span>
         }
-        @if (unreadCount() > 0) {
+        @if (unreadCount() > 0 && !isMuted()) {
           <span class="min-w-[16px] h-4 bg-accent text-white font-bold text-[9px] flex items-center justify-center px-1 rounded-full animate-pulse">
             {{ unreadCount() }}
           </span>
@@ -68,4 +92,70 @@
       </div>
     </div>
   </div>
+
+  <!-- Option 2: Sidebar Mini Context Menu Dropdown -->
+  @if (isActionMenuOpen()) {
+    <div
+      (click)="$event.stopPropagation()"
+      class="item-action-dropdown absolute right-2.5 top-9 z-50 bg-surface-0/95 backdrop-blur-xl border border-border-light rounded-2xl shadow-2xl p-1.5 flex flex-col gap-0.5 animate-scaleIn origin-top-right text-xs min-w-[175px]"
+    >
+      @if (isMuted()) {
+        <button
+          (click)="unmute($event)"
+          class="w-full text-left px-3 py-2 rounded-xl hover:bg-surface-1 text-text-primary flex items-center gap-2.5 font-semibold cursor-pointer transition-colors"
+        >
+          <i class="ti ti-bell text-sm text-text-muted"></i>
+          <span>Unmute notifications</span>
+        </button>
+      } @else {
+        <button
+          (click)="toggleMuteSubmenu($event)"
+          class="w-full text-left px-3 py-2 rounded-xl hover:bg-surface-1 text-text-primary flex items-center justify-between font-semibold cursor-pointer transition-colors"
+        >
+          <div class="flex items-center gap-2.5">
+            <i class="ti ti-bell-off text-sm text-text-muted"></i>
+            <span>Mute notifications</span>
+          </div>
+          <i class="ti ti-chevron-right text-xs text-text-muted transition-transform" [ngClass]="{'rotate-90': isMuteSubmenuOpen()}"></i>
+        </button>
+
+        <div class="grid transition-all duration-200 ease-out" [ngClass]="isMuteSubmenuOpen() ? 'grid-rows-[1fr] opacity-100 my-0.5' : 'grid-rows-[0fr] opacity-0 my-0'">
+          <div class="min-h-0 overflow-hidden">
+            <div class="bg-surface-1/60 rounded-xl mx-1 p-1 flex flex-col gap-0.5">
+              <button (click)="muteFor($event, 3600000)" class="w-full px-2.5 py-1.5 text-left text-xs font-medium hover:bg-surface-2 text-text-primary transition-colors rounded-lg flex items-center gap-2 cursor-pointer">
+                <i class="ti ti-clock text-xs text-text-muted"></i>
+                <span>For 1 hour</span>
+              </button>
+              <button (click)="muteFor($event, 28800000)" class="w-full px-2.5 py-1.5 text-left text-xs font-medium hover:bg-surface-2 text-text-primary transition-colors rounded-lg flex items-center gap-2 cursor-pointer">
+                <i class="ti ti-clock text-xs text-text-muted"></i>
+                <span>For 8 hours</span>
+              </button>
+              <button (click)="muteFor($event, -1)" class="w-full px-2.5 py-1.5 text-left text-xs font-medium hover:bg-surface-2 text-text-primary transition-colors rounded-lg flex items-center gap-2 cursor-pointer">
+                <i class="ti ti-bell-off text-xs text-text-muted"></i>
+                <span>Until unmuted</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      }
+
+      <button
+        (click)="clearChat($event)"
+        class="w-full text-left px-3 py-2 rounded-xl hover:bg-surface-1 text-text-primary flex items-center gap-2.5 font-semibold cursor-pointer transition-colors"
+      >
+        <i class="ti ti-trash-x text-sm text-text-muted"></i>
+        <span>Clear chat</span>
+      </button>
+
+      <div class="border-t border-border-light/60 my-0.5"></div>
+
+      <button
+        (click)="deleteChat($event)"
+        class="w-full text-left px-3 py-2 rounded-xl hover:bg-rose-500/10 text-rose-500 hover:text-rose-600 flex items-center gap-2.5 font-semibold cursor-pointer transition-colors"
+      >
+        <i class="ti ti-trash text-sm"></i>
+        <span>Delete chat</span>
+      </button>
+    </div>
+  }
 </div>

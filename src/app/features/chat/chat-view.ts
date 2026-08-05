@@ -12,7 +12,7 @@ import { MessageBubble } from './message-bubble';
 import { Avatar } from '../../shared/avatar/avatar';
 import { Message, MessageAttachment } from '../../models/message.model';
 import { AppUser } from '../../models/user.model';
-import { Conversation } from '../../models/conversation.model';
+import { Conversation, isConvoMuted } from '../../models/conversation.model';
 import { PickerComponent } from '@ctrl/ngx-emoji-mart';
 import { fileToCompressedDataUrl, formatBytes, MAX_FILE_SIZE_BYTES } from '../../shared/utils/image-compressor';
 
@@ -177,6 +177,14 @@ export class ChatViewComponent implements OnInit, OnDestroy {
     if (!c || !uid) return false;
     return c.type === 'group' && c.admins?.includes(uid);
   });
+
+  readonly isMuted = computed(() => {
+    const c = this.convo();
+    const uid = this.currentUserId();
+    return isConvoMuted(c, uid);
+  });
+
+  readonly isMuteSubmenuOpen = signal<boolean>(false);
 
   // Check if DM is pending acceptance
   readonly isPending = computed(() => this.convo()?.isPending || false);
@@ -942,6 +950,38 @@ export class ChatViewComponent implements OnInit, OnDestroy {
   toggleHeaderMenu(event: Event) {
     event.stopPropagation();
     this.isHeaderMenuOpen.set(!this.isHeaderMenuOpen());
+    this.isMuteSubmenuOpen.set(false);
+  }
+
+  toggleMuteSubmenu(event: Event) {
+    event.stopPropagation();
+    this.isMuteSubmenuOpen.set(!this.isMuteSubmenuOpen());
+  }
+
+  async mute(durationMs: number | -1) {
+    const convoId = this.convo()?.id;
+    if (!convoId) return;
+    this.isHeaderMenuOpen.set(false);
+    this.isMuteSubmenuOpen.set(false);
+    try {
+      await this.conversationService.muteConversation(convoId, durationMs);
+    } catch (err: any) {
+      console.error('Mute failed:', err);
+      this.sendError.set(err.message || 'Failed to mute conversation.');
+    }
+  }
+
+  async unmute() {
+    const convoId = this.convo()?.id;
+    if (!convoId) return;
+    this.isHeaderMenuOpen.set(false);
+    this.isMuteSubmenuOpen.set(false);
+    try {
+      await this.conversationService.unmuteConversation(convoId);
+    } catch (err: any) {
+      console.error('Unmute failed:', err);
+      this.sendError.set(err.message || 'Failed to unmute conversation.');
+    }
   }
 
   openConfirm(action: 'clear' | 'delete') {

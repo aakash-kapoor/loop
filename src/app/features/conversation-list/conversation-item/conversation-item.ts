@@ -1,6 +1,6 @@
-import { Component, Input, inject, computed, signal } from '@angular/core';
+import { Component, Input, inject, computed, signal, HostListener } from '@angular/core';
 import { Router } from '@angular/router';
-import { Conversation } from '../../../models/conversation.model';
+import { Conversation, isConvoMuted } from '../../../models/conversation.model';
 import { Auth } from '../../../core/auth';
 import { UserService } from '../../../services/user.service';
 import { ConversationService } from '../../../services/conversation.service';
@@ -54,6 +54,26 @@ export class ConversationItem {
     if (!currentUid) return 0;
     return this.convoSignal()?.unreadCount?.[currentUid] || 0;
   });
+
+  // Check if conversation is muted by current user
+  readonly isMuted = computed(() => {
+    const currentUid = this.auth.currentUser()?.uid;
+    return isConvoMuted(this.convoSignal(), currentUid);
+  });
+
+  readonly isActionMenuOpen = signal<boolean>(false);
+  readonly isMuteSubmenuOpen = signal<boolean>(false);
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+    const isItemBtn = target.closest('.item-action-btn');
+    const isItemDropdown = target.closest('.item-action-dropdown');
+    if (!isItemBtn && !isItemDropdown) {
+      this.isActionMenuOpen.set(false);
+      this.isMuteSubmenuOpen.set(false);
+    }
+  }
 
   // Check if cleared for me
   readonly isClearedForMe = computed(() => {
@@ -128,5 +148,56 @@ export class ConversationItem {
   select() {
     this.conversationService.selectConversation(this.convo.id);
     this.router.navigate(['/chats', this.convo.id]);
+  }
+
+  toggleActionMenu(event: Event) {
+    event.stopPropagation();
+    this.isActionMenuOpen.set(!this.isActionMenuOpen());
+    this.isMuteSubmenuOpen.set(false);
+  }
+
+  toggleMuteSubmenu(event: Event) {
+    event.stopPropagation();
+    this.isMuteSubmenuOpen.set(!this.isMuteSubmenuOpen());
+  }
+
+  muteFor(event: Event, durationMs: number | -1) {
+    event.stopPropagation();
+    const id = this.convoSignal()?.id;
+    if (id) {
+      this.conversationService.muteConversation(id, durationMs);
+    }
+    this.isActionMenuOpen.set(false);
+    this.isMuteSubmenuOpen.set(false);
+  }
+
+  unmute(event: Event) {
+    event.stopPropagation();
+    const id = this.convoSignal()?.id;
+    if (id) {
+      this.conversationService.unmuteConversation(id);
+    }
+    this.isActionMenuOpen.set(false);
+    this.isMuteSubmenuOpen.set(false);
+  }
+
+  async clearChat(event: Event) {
+    event.stopPropagation();
+    this.isActionMenuOpen.set(false);
+    this.isMuteSubmenuOpen.set(false);
+    if (this.convoSignal()?.id) {
+      this.conversationService.selectConversation(this.convoSignal()!.id);
+      await this.conversationService.clearChatForMe();
+    }
+  }
+
+  async deleteChat(event: Event) {
+    event.stopPropagation();
+    this.isActionMenuOpen.set(false);
+    this.isMuteSubmenuOpen.set(false);
+    if (this.convoSignal()?.id) {
+      this.conversationService.selectConversation(this.convoSignal()!.id);
+      await this.conversationService.deleteConversationForMe();
+    }
   }
 }
