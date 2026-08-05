@@ -117,6 +117,12 @@ export class MessageBubble implements AfterViewInit, OnDestroy {
     if (this.isDeletedForEveryone() || this.isDeletedForMe()) return;
     if (event.touches.length > 1) return;
 
+    // Ignore touch gestures originating inside quick action bar or context menu dropdown
+    const target = event.target as HTMLElement | null;
+    if (target && target.closest('.quick-action-bar')) {
+      return;
+    }
+
     const touch = event.touches[0];
     this.touchStartX = touch.clientX;
     this.touchStartY = touch.clientY;
