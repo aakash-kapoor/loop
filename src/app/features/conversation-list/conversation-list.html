@@ -6,11 +6,23 @@
       <ng-container *ngTemplateOutlet="listTemplate"></ng-container>
     </div>
     <!-- Desktop View: renders placeholder since sidebar already lists chats -->
-    <div class="hidden md:flex flex-col items-center justify-center h-full w-full text-text-muted bg-bg-main">
-      <div class="w-16 h-16 bg-surface-1 rounded-2xl flex items-center justify-center mb-4 text-border-strong text-2xl border border-border-light">
-        <i class="ti ti-message-circle"></i>
+    <div class="hidden md:flex flex-col items-center justify-center h-full w-full text-text-muted bg-bg-main relative overflow-hidden">
+      <!-- Ambient Background Glow Orbs -->
+      <div class="absolute w-80 h-80 rounded-full bg-accent/5 blur-3xl pointer-events-none -top-12 -right-12"></div>
+      <div class="absolute w-80 h-80 rounded-full bg-indigo-500/5 blur-3xl pointer-events-none -bottom-12 -left-12"></div>
+
+      <!-- Glass Hero Card -->
+      <div class="relative z-10 flex flex-col items-center max-w-sm p-8 glass-liquid-card rounded-3xl text-center shadow-xl">
+        <div class="w-16 h-16 bg-accent/10 text-accent rounded-2xl flex items-center justify-center mb-4 text-2xl border border-accent/20 shadow-inner">
+          <i class="ti ti-messages"></i>
+        </div>
+        <h3 class="text-lg font-bold text-text-primary mb-1">Welcome to Loop</h3>
+        <p class="text-xs text-text-muted leading-relaxed mb-6">Select a chat from the sidebar or start a new conversation to begin end-to-end encrypted messaging.</p>
+        <div class="flex items-center gap-1.5 px-3.5 py-1.5 bg-surface-1/80 border border-border-light/80 rounded-full text-[11px] text-text-secondary font-semibold select-none">
+          <i class="ti ti-lock text-accent text-xs"></i>
+          <span>End-to-End Encrypted</span>
+        </div>
       </div>
-      <p class="text-sm font-medium">Select a chat to start messaging</p>
     </div>
   </div>
 } @else {
@@ -20,32 +32,111 @@
 
 <ng-template #listTemplate>
   <div class="flex flex-col h-full bg-surface-0 w-full overflow-hidden">
-    <!-- Sidebar Header -->
-    <div class="flex items-center justify-between px-4 pb-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] flex-shrink-0 border-b border-border-light/60 bg-surface-0/80 backdrop-blur-xl">
-      <span class="text-xl font-display font-bold tracking-tight text-text-primary">Loop</span>
-      <div class="flex items-center gap-2">
-        <a routerLink="/new" class="w-8 h-8 rounded-full hover:bg-surface-1 text-text-secondary flex items-center justify-center transition-colors cursor-pointer active-press" title="New conversation" aria-label="New conversation">
-          <i class="ti ti-plus text-lg"></i>
-        </a>
-        <a routerLink="/settings" class="w-8 h-8 rounded-full hover:bg-surface-1 text-text-secondary flex items-center justify-center transition-colors cursor-pointer active-press" title="Settings" aria-label="Settings">
-          <i class="ti ti-settings text-lg"></i>
-        </a>
+    <!-- Sidebar Header & Filter Bar -->
+    <div class="flex flex-col flex-shrink-0 border-b border-border-light/60 bg-surface-0/80 backdrop-blur-xl z-10">
+      <div class="flex items-center justify-between px-4 pb-2 pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
+        <span class="text-xl font-display font-bold tracking-tight text-text-primary">Loop</span>
+        <div class="flex items-center gap-1.5">
+          <a routerLink="/new" class="w-8 h-8 rounded-full hover:bg-surface-1 text-text-secondary flex items-center justify-center transition-colors cursor-pointer active-press" title="New conversation" aria-label="New conversation">
+            <i class="ti ti-plus text-lg"></i>
+          </a>
+          <a routerLink="/settings" class="w-8 h-8 rounded-full hover:bg-surface-1 text-text-secondary flex items-center justify-center transition-colors cursor-pointer active-press" title="Settings" aria-label="Settings">
+            <i class="ti ti-settings text-lg"></i>
+          </a>
+        </div>
+      </div>
+
+      <!-- Instant Search Filter Input Bar -->
+      <div class="px-3.5 pb-2.5">
+        <div class="relative flex items-center w-full">
+          <i class="ti ti-search absolute left-3 text-text-muted text-sm pointer-events-none"></i>
+          <input
+            type="text"
+            [ngModel]="searchQuery()"
+            (ngModelChange)="searchQuery.set($event)"
+            placeholder="Search conversations..."
+            class="w-full pl-9 pr-8 py-1.5 bg-surface-1 border border-border-light rounded-xl text-xs font-semibold text-text-primary placeholder-text-muted focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all"
+          />
+          @if (searchQuery()) {
+            <button
+              (click)="clearSearch()"
+              class="absolute right-2.5 w-4 h-4 rounded-full bg-surface-2 hover:bg-border-strong text-text-secondary flex items-center justify-center text-[10px] transition-colors cursor-pointer active-press"
+              title="Clear search"
+            >
+              <i class="ti ti-x text-[10px]"></i>
+            </button>
+          }
+        </div>
+      </div>
+
+      <!-- Category Filter Tabs -->
+      <div class="flex items-center gap-1.5 px-3.5 pb-2.5 overflow-x-auto no-scrollbar select-none">
+        <button
+          (click)="setCategory('all')"
+          class="px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer flex items-center gap-1 flex-shrink-0 active-press"
+          [ngClass]="activeCategory() === 'all' ? 'bg-accent text-white shadow-xs' : 'bg-surface-1 text-text-muted hover:text-text-primary hover:bg-surface-2'"
+        >
+          <span>All</span>
+        </button>
+
+        <button
+          (click)="setCategory('unread')"
+          class="px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 flex-shrink-0 active-press"
+          [ngClass]="activeCategory() === 'unread' ? 'bg-accent text-white shadow-xs' : 'bg-surface-1 text-text-muted hover:text-text-primary hover:bg-surface-2'"
+        >
+          <span>Unread</span>
+          @if (unreadTotalCount() > 0) {
+            <span
+              class="px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none transition-colors"
+              [ngClass]="activeCategory() === 'unread' ? 'bg-white text-accent shadow-xs' : 'bg-accent text-white'"
+            >
+              {{ unreadTotalCount() }}
+            </span>
+          }
+        </button>
+
+        <button
+          (click)="setCategory('groups')"
+          class="px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 flex-shrink-0 active-press"
+          [ngClass]="activeCategory() === 'groups' ? 'bg-accent text-white shadow-xs' : 'bg-surface-1 text-text-muted hover:text-text-primary hover:bg-surface-2'"
+        >
+          <span>Groups</span>
+          @if (groupsTotalCount() > 0) {
+            <span
+              class="px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none transition-colors"
+              [ngClass]="activeCategory() === 'groups' ? 'bg-white text-accent shadow-xs' : 'bg-accent text-white'"
+            >
+              {{ groupsTotalCount() }}
+            </span>
+          }
+        </button>
       </div>
     </div>
 
     <!-- Scrollable Chat List -->
     <div class="flex-1 min-h-0 overflow-y-auto pb-24 md:pb-0">
-      @if (conversations().length === 0) {
-        <div class="flex flex-col items-center justify-center p-8 text-center text-text-muted mt-8">
-          <div class="w-12 h-12 bg-surface-1 rounded-xl flex items-center justify-center text-text-muted text-xl mb-3 border border-border-light">
-            <i class="ti ti-message-off"></i>
-          </div>
-          <p class="text-xs font-semibold">No chats found</p>
-          <a routerLink="/new" class="mt-2 text-xs font-semibold text-accent hover:underline">Start a new chat</a>
+      @if (filteredConversations().length === 0) {
+        <div class="flex flex-col items-center justify-center p-8 text-center text-text-muted mt-6 animate-fadeIn">
+          @if (searchQuery() || activeCategory() !== 'all') {
+            <div class="w-12 h-12 bg-surface-1 rounded-2xl flex items-center justify-center text-text-muted text-xl mb-3 border border-border-light shadow-inner">
+              <i class="ti ti-search-off"></i>
+            </div>
+            <p class="text-xs font-semibold text-text-primary">No conversations found</p>
+            <p class="text-[11px] text-text-muted mt-1">Try adjusting your search or category filters.</p>
+            <button (click)="clearSearch(); setCategory('all')" class="mt-3 px-3 py-1.5 bg-surface-1 hover:bg-surface-2 border border-border-light rounded-xl text-xs font-semibold text-accent transition-all cursor-pointer active-press">
+              Reset Filters
+            </button>
+          } @else {
+            <div class="w-12 h-12 bg-surface-1 rounded-2xl flex items-center justify-center text-text-muted text-xl mb-3 border border-border-light shadow-inner">
+              <i class="ti ti-message-off"></i>
+            </div>
+            <p class="text-xs font-semibold text-text-primary">No chats yet</p>
+            <a routerLink="/new" class="mt-2 text-xs font-semibold text-accent hover:underline">Start a new chat</a>
+          }
         </div>
       } @else {
         <div class="flex flex-col divide-y divide-border-light/40">
-          @for (convo of conversations(); track convo.id) {
+          @for (convo of filteredConversations(); track convo.id) {
             <app-conversation-item [convo]="convo"></app-conversation-item>
           }
         </div>
