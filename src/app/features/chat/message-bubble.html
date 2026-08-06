@@ -103,12 +103,9 @@
               [ngClass]="{
                 'bottom-full mb-1.5': openUpward(),
                 'top-full mt-1.5': !openUpward(),
-                'right-0': isOutgoing(),
-                'left-0': !isOutgoing(),
-                'origin-bottom-right': openUpward() && isOutgoing(),
-                'origin-bottom-left': openUpward() && !isOutgoing(),
-                'origin-top-right': !openUpward() && isOutgoing(),
-                'origin-top-left': !openUpward() && !isOutgoing()
+                'right-0': true,
+                'origin-bottom-right': openUpward(),
+                'origin-top-right': !openUpward()
               }">
 
               <button (click)="onReply(); isContextMenuOpen.set(false); isMenuOpen.set(false)"
