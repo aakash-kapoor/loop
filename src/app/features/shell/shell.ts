@@ -1,4 +1,5 @@
 import { Component, inject, computed } from '@angular/core';
+import { NgClass } from '@angular/common';
 import { Router, RouterOutlet, RouterLink, RouterLinkActive, NavigationEnd } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map } from 'rxjs/operators';
@@ -6,7 +7,7 @@ import { ConversationList } from '../conversation-list/conversation-list';
 
 @Component({
   selector: 'app-shell',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, ConversationList],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, NgClass, ConversationList],
   templateUrl: './shell.html',
   styleUrl: './shell.scss',
 })

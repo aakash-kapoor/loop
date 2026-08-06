@@ -12,18 +12,24 @@
 
     <!-- Bottom Navigation Bar (Mobile only, hidden inside active chat) -->
     @if (!isChatActive()) {
-      <div class="md:hidden flex items-center justify-around h-16 border-t border-border-light bg-surface-0 flex-shrink-0">
-        <a routerLink="/chats" routerLinkActive="text-accent" [routerLinkActiveOptions]="{exact: true}" class="flex flex-col items-center justify-center text-text-muted w-1/3 h-full cursor-pointer">
-          <i class="ti ti-message text-xl"></i>
-          <span class="text-[10px] mt-0.5 font-medium">Chats</span>
+      <div class="md:hidden flex items-center justify-around h-16 border-t border-border-light/80 bg-surface-0/85 backdrop-blur-xl flex-shrink-0 z-30 shadow-2xl pb-[env(safe-area-inset-bottom,0px)]">
+        <a routerLink="/chats" routerLinkActive="text-accent font-bold" [routerLinkActiveOptions]="{exact: true}" #chatsLink="routerLinkActive" class="flex flex-col items-center justify-center text-text-muted w-1/3 h-full cursor-pointer transition-all duration-200 active-press group">
+          <div class="px-3.5 py-1 rounded-2xl flex flex-col items-center transition-all duration-200" [ngClass]="chatsLink.isActive ? 'bg-accent/12 text-accent scale-105' : 'group-hover:text-text-primary'">
+            <i class="ti ti-messages text-xl transition-transform group-hover:scale-110"></i>
+            <span class="text-[10px] mt-0.5 font-medium tracking-tight">Chats</span>
+          </div>
         </a>
-        <a routerLink="/new" routerLinkActive="text-accent" class="flex flex-col items-center justify-center text-text-muted w-1/3 h-full cursor-pointer">
-          <i class="ti ti-plus text-xl"></i>
-          <span class="text-[10px] mt-0.5 font-medium">New Chat</span>
+        <a routerLink="/new" routerLinkActive="text-accent font-bold" #newLink="routerLinkActive" class="flex flex-col items-center justify-center text-text-muted w-1/3 h-full cursor-pointer transition-all duration-200 active-press group">
+          <div class="px-3.5 py-1 rounded-2xl flex flex-col items-center transition-all duration-200" [ngClass]="newLink.isActive ? 'bg-accent/12 text-accent scale-105' : 'group-hover:text-text-primary'">
+            <i class="ti ti-plus text-xl transition-transform group-hover:scale-110"></i>
+            <span class="text-[10px] mt-0.5 font-medium tracking-tight">New Chat</span>
+          </div>
         </a>
-        <a routerLink="/settings" routerLinkActive="text-accent" class="flex flex-col items-center justify-center text-text-muted w-1/3 h-full cursor-pointer">
-          <i class="ti ti-settings text-xl"></i>
-          <span class="text-[10px] mt-0.5 font-medium">Settings</span>
+        <a routerLink="/settings" routerLinkActive="text-accent font-bold" #settingsLink="routerLinkActive" class="flex flex-col items-center justify-center text-text-muted w-1/3 h-full cursor-pointer transition-all duration-200 active-press group">
+          <div class="px-3.5 py-1 rounded-2xl flex flex-col items-center transition-all duration-200" [ngClass]="settingsLink.isActive ? 'bg-accent/12 text-accent scale-105' : 'group-hover:text-text-primary'">
+            <i class="ti ti-settings text-xl transition-transform group-hover:scale-110"></i>
+            <span class="text-[10px] mt-0.5 font-medium tracking-tight">Settings</span>
+          </div>
         </a>
       </div>
     }
