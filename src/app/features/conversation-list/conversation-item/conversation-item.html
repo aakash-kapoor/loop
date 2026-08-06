@@ -10,7 +10,7 @@
   <app-avatar
     [photoURL]="convo.type === 'group' ? convo.groupIcon : otherProfile()?.photoURL"
     [displayName]="convo.type === 'group' ? convo.groupName : otherProfile()?.displayName"
-    [isOnline]="otherProfile()?.isOnline ?? false"
+    [isOnline]="isOtherUserOnline()"
     [isGroup]="convo.type === 'group'"
     size="md"
   ></app-avatar>

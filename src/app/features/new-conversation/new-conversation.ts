@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnDestroy, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnDestroy, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { NgClass } from '@angular/common';
@@ -27,6 +27,18 @@ export class NewConversation implements OnInit, OnDestroy {
   private readonly toastService = inject(ToastService);
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
+
+  readonly existingDMMap = computed(() => {
+    const convos = this.conversationService.conversations();
+    const map: Record<string, string> = {};
+    convos.forEach(c => {
+      if (c.type === 'dm') {
+        const otherUid = c.participants.find(p => p !== this.auth.currentUser()?.uid);
+        if (otherUid) map[otherUid] = c.id;
+      }
+    });
+    return map;
+  });
 
   readonly searchQuery = signal<string>('');
   readonly searchResults = signal<AppUser[]>([]);
@@ -110,6 +122,12 @@ export class NewConversation implements OnInit, OnDestroy {
   }
 
   async startDM(recipientUid: string) {
+    const existing = this.existingDMMap()[recipientUid];
+    if (existing) {
+      this.conversationService.selectConversation(existing);
+      this.router.navigate(['/chats', existing]);
+      return;
+    }
     try {
       const id = await this.conversationService.startConversation(recipientUid);
       this.conversationService.selectConversation(id);
@@ -125,12 +143,18 @@ export class NewConversation implements OnInit, OnDestroy {
     }
   }
 
-  toggleUserSelection(uid: string) {
+  toggleUserSelection(uid: string, user?: AppUser) {
     const current = this.selectedUsers();
     if (current.includes(uid)) {
       this.selectedUsers.set(current.filter((id) => id !== uid));
     } else {
       this.selectedUsers.set([...current, uid]);
+      if (user) {
+        this.userService.usersCache.set({
+          ...this.userService.usersCache(),
+          [uid]: user,
+        });
+      }
       this.userService.fetchParticipantProfiles([uid]);
     }
   }

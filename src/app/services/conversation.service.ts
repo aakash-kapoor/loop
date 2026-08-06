@@ -724,7 +724,7 @@ export class ConversationService {
         uids.map((uid) => this.userService.getUserProfile(uid))
       );
 
-      return profiles.filter(Boolean) as AppUser[];
+      return profiles.filter((p): p is AppUser => Boolean(p) && p?.username !== 'deleted_user');
     } catch (err) {
       console.warn('Failed to fetch recent contacts:', err);
       return [];

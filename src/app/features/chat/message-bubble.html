@@ -1,159 +1,165 @@
 @if (message.senderId === 'system') {
-<div class="flex justify-center my-3 w-full animate-slideUpFade">
+<div class="flex justify-center my-2.5 w-full animate-slideUpFade">
   <span
     class="px-3 py-1 bg-surface-1/80 backdrop-blur-sm border border-border-light/60 text-text-muted text-[10px] font-semibold tracking-wide rounded-full">
     {{ message.text }}
   </span>
 </div>
 } @else {
-<div class="flex gap-2 w-full max-w-full my-2 animate-slideUpFade relative" [ngClass]="{
+<div class="flex items-center w-full max-w-full my-1 sm:my-1.5 animate-slideUpFade relative" [ngClass]="{
       'justify-end': isOutgoing(),
       'justify-start': !isOutgoing(),
       'z-40': isMenuOpen() || isContextMenuOpen()
     }">
-  <!-- Incoming Avatar -->
-  @if (!isOutgoing()) {
-  <app-avatar [photoURL]="senderProfile()?.photoURL" [displayName]="senderProfile()?.displayName" size="sm"
-    class="self-end mb-1 flex-shrink-0"></app-avatar>
+  <!-- Swipe reply action badge indicator (reveals smoothly at left edge as avatar and bubble slide right) -->
+  @if (!isDeletedForEveryone() && !isDeletedForMe() && swipeOffset() > 0) {
+  <div class="absolute left-1 top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none z-0 w-7 h-7 rounded-full transition-all duration-150 select-none"
+    [style.transform]="'translateY(-50%) scale(' + swipeBadgeScale() + ')'"
+    [ngClass]="{
+      'bg-accent text-white shadow-md shadow-accent/40 scale-110': isSwipeThresholdReached(),
+      'bg-surface-2 border border-border-light text-text-secondary': !isSwipeThresholdReached()
+    }">
+    <i class="ti ti-arrow-back-up text-sm leading-none transition-transform" [ngClass]="{'scale-110': isSwipeThresholdReached()}"></i>
+  </div>
   }
 
-  <!-- Bubble Wrapper -->
-  <div class="flex flex-col max-w-[85%] sm:max-w-[70%] min-w-0" [ngClass]="{'items-end': isOutgoing(), 'items-start': !isOutgoing()}">
-    <!-- Sender Name (Group DM incoming only) -->
-    @if (showSenderName && !isOutgoing()) {
-    <span class="text-[10px] font-semibold text-text-muted mb-1 ml-1 select-none truncate max-w-full">
-      {{ senderProfile()?.displayName || 'Loading...' }}
-    </span>
+  <!-- Sliding Content Wrapper (Avatar + Bubble move together on swipe) -->
+  <div #swipeContainer
+    (touchstart)="onTouchStart($event)"
+    (touchend)="onTouchEnd()"
+    (touchcancel)="onTouchCancel()"
+    class="relative z-10 flex items-end max-w-full min-w-0 touch-pan-y"
+    [style.transform]="swipeOffset() > 0 ? 'translateX(' + swipeOffset() + 'px)' : null"
+    [ngClass]="{
+      'justify-end w-full': isOutgoing(),
+      'justify-start gap-2': !isOutgoing(),
+      'transition-transform duration-200 ease-out': !isSwiping()
+    }">
+    <!-- Incoming Avatar -->
+    @if (!isOutgoing()) {
+    <app-avatar [photoURL]="senderProfile()?.photoURL" [displayName]="senderProfile()?.displayName" size="sm"
+      class="self-end mb-0.5 flex-shrink-0"></app-avatar>
     }
 
-    <!-- Delete error toast -->
-    @if (deleteError()) {
-    <span class="text-[10px] text-rose-400 font-medium mb-1 self-end animate-fadeIn select-none">
-      {{ deleteError() }}
-    </span>
-    }
-
-    <!-- Message Content Container -->
-    <div #swipeContainer
-      (touchstart)="onTouchStart($event)"
-      (touchend)="onTouchEnd()"
-      (touchcancel)="onTouchCancel()"
-      class="group relative flex flex-col max-w-full min-w-0">
-
-      <!-- Swipe reply action badge indicator -->
-      @if (!isDeletedForEveryone() && !isDeletedForMe() && swipeOffset() > 0) {
-      <div class="absolute -left-9 top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none z-0 w-7 h-7 rounded-full transition-all duration-150 select-none"
-        [style.transform]="'translateY(-50%) scale(' + swipeBadgeScale() + ')'"
-        [ngClass]="{
-          'bg-accent text-white shadow-md shadow-accent/40 scale-110': isSwipeThresholdReached(),
-          'bg-surface-2 border border-border-light text-text-secondary': !isSwipeThresholdReached()
-        }">
-        <i class="ti ti-arrow-back-up text-sm leading-none transition-transform" [ngClass]="{'scale-110': isSwipeThresholdReached()}"></i>
-      </div>
+    <!-- Bubble Wrapper -->
+    <div class="flex flex-col max-w-[85%] sm:max-w-[70%] min-w-0" [ngClass]="{'items-end': isOutgoing(), 'items-start': !isOutgoing()}">
+      <!-- Sender Name (Group DM incoming only) -->
+      @if (showSenderName && !isOutgoing()) {
+      <span class="text-[10px] font-semibold text-text-muted mb-0.5 ml-1 select-none truncate max-w-full">
+        {{ senderProfile()?.displayName || 'Loading...' }}
+      </span>
       }
 
-      <!-- Hover Reaction Picker Quick Bar -->
-      @if (!isDeletedForEveryone() && !isDeletedForMe()) {
-      <div
-        (touchstart)="$event.stopPropagation()"
-        (touchmove)="$event.stopPropagation()"
-        (touchend)="$event.stopPropagation()"
-        class="quick-action-bar absolute -top-9 z-[100] bg-surface-0 border border-border-light rounded-full px-1.5 py-1 shadow-md shadow-black/5 transition-all duration-150 ease-out flex items-center gap-0.5 origin-bottom scale-95"
-        [ngClass]="{
-              'right-0': isOutgoing(),
-              'left-0': !isOutgoing(),
-              'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto': !isMenuOpen() && !isContextMenuOpen(),
-              'opacity-100 scale-100 pointer-events-auto': isMenuOpen() || isContextMenuOpen()
-            }">
-        <!-- Invisible hover bridge to prevent cursor tracking loss -->
-        <div class="absolute -bottom-2 left-0 right-0 h-2 bg-transparent pointer-events-auto"></div>
+      <!-- Delete error toast -->
+      @if (deleteError()) {
+      <span class="text-[10px] text-rose-400 font-medium mb-0.5 self-end animate-fadeIn select-none">
+        {{ deleteError() }}
+      </span>
+      }
 
-        <!-- Quick emoji reactions -->
-        @for (emoji of ['👍', '❤️', '😂', '😮', '😢', '🙏']; track emoji) {
-        <button (click)="react(emoji)"
-          class="w-7 h-7 rounded-full hover:bg-surface-1 flex items-center justify-center text-sm transition-all duration-100 cursor-pointer active-press hover:scale-125">
-          {{ emoji }}
-        </button>
-        }
+      <!-- Message Content Container -->
+      <div class="group relative flex flex-col max-w-full min-w-0">
 
-        <!-- Separator -->
-        <div class="w-[1px] h-4 bg-border-light mx-1 flex-shrink-0"></div>
+        <!-- Hover Reaction Picker Quick Bar -->
+        @if (!isDeletedForEveryone() && !isDeletedForMe()) {
+        <div
+          (touchstart)="$event.stopPropagation()"
+          (touchmove)="$event.stopPropagation()"
+          (touchend)="$event.stopPropagation()"
+          class="quick-action-bar absolute -top-9 z-[100] bg-surface-0 border border-border-light rounded-full px-1.5 py-1 shadow-md shadow-black/5 transition-all duration-150 ease-out flex items-center gap-0.5 origin-bottom scale-95"
+          [ngClass]="{
+                'right-0': isOutgoing(),
+                'left-0': !isOutgoing(),
+                'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto': !isMenuOpen() && !isContextMenuOpen(),
+                'opacity-100 scale-100 pointer-events-auto': isMenuOpen() || isContextMenuOpen()
+              }">
+          <!-- Invisible hover bridge to prevent cursor tracking loss -->
+          <div class="absolute -bottom-2 left-0 right-0 h-2 bg-transparent pointer-events-auto"></div>
 
-        <!-- ⋮ More actions button -->
-        <div class="relative">
-          <button (click)="toggleContextMenu($event)"
-            class="w-7 h-7 rounded-full hover:bg-surface-1 text-text-secondary flex items-center justify-center transition-colors cursor-pointer active-press"
-            [ngClass]="{'bg-surface-1 text-text-primary': isContextMenuOpen()}"
-            title="More actions">
-            <i class="ti ti-dots-vertical text-sm"></i>
+          <!-- Quick emoji reactions -->
+          @for (emoji of ['👍', '❤️', '😂', '😮', '😢', '🙏']; track emoji) {
+          <button (click)="react(emoji)"
+            class="w-7 h-7 rounded-full hover:bg-surface-1 flex items-center justify-center text-sm transition-all duration-100 cursor-pointer active-press hover:scale-125">
+            {{ emoji }}
           </button>
+          }
 
-          <!-- Context Menu Dropdown -->
-          @if (isContextMenuOpen()) {
-          <div
-            class="absolute bg-surface-0 border border-border-light rounded-2xl shadow-xl p-1.5 min-w-[165px] z-[120] animate-scaleIn flex flex-col gap-0.5"
-            [ngClass]="{
-              'bottom-full mb-1.5': openUpward(),
-              'top-full mt-1.5': !openUpward(),
-              'right-0': isOutgoing(),
-              'left-0': !isOutgoing(),
-              'origin-bottom-right': openUpward() && isOutgoing(),
-              'origin-bottom-left': openUpward() && !isOutgoing(),
-              'origin-top-right': !openUpward() && isOutgoing(),
-              'origin-top-left': !openUpward() && !isOutgoing()
-            }">
+          <!-- Separator -->
+          <div class="w-[1px] h-4 bg-border-light mx-1 flex-shrink-0"></div>
 
-            <button (click)="onReply(); isContextMenuOpen.set(false); isMenuOpen.set(false)"
-              class="w-full px-3 py-2 text-left text-xs font-semibold hover:bg-surface-1 text-text-primary transition-colors rounded-xl flex items-center gap-2.5 cursor-pointer">
-              <i class="ti ti-arrow-back-up text-sm text-text-muted"></i>
-              <span>Reply</span>
+          <!-- ⋮ More actions button -->
+          <div class="relative">
+            <button (click)="toggleContextMenu($event)"
+              class="w-7 h-7 rounded-full hover:bg-surface-1 text-text-secondary flex items-center justify-center transition-colors cursor-pointer active-press"
+              [ngClass]="{'bg-surface-1 text-text-primary': isContextMenuOpen()}"
+              title="More actions">
+              <i class="ti ti-dots-vertical text-sm"></i>
             </button>
 
-            <button (click)="onForward(); isContextMenuOpen.set(false); isMenuOpen.set(false)"
-              class="w-full px-3 py-2 text-left text-xs font-semibold hover:bg-surface-1 text-text-primary transition-colors rounded-xl flex items-center gap-2.5 cursor-pointer">
-              <i class="ti ti-corner-up-right text-sm text-text-muted"></i>
-              <span>Forward</span>
-            </button>
+            <!-- Context Menu Dropdown -->
+            @if (isContextMenuOpen()) {
+            <div
+              class="absolute bg-surface-0 border border-border-light rounded-2xl shadow-xl p-1.5 min-w-[165px] z-[120] animate-scaleIn flex flex-col gap-0.5"
+              [ngClass]="{
+                'bottom-full mb-1.5': openUpward(),
+                'top-full mt-1.5': !openUpward(),
+                'right-0': isOutgoing(),
+                'left-0': !isOutgoing(),
+                'origin-bottom-right': openUpward() && isOutgoing(),
+                'origin-bottom-left': openUpward() && !isOutgoing(),
+                'origin-top-right': !openUpward() && isOutgoing(),
+                'origin-top-left': !openUpward() && !isOutgoing()
+              }">
 
-            @if (isPinned) {
-            <button (click)="onUnpin(); isContextMenuOpen.set(false); isMenuOpen.set(false)"
-              class="w-full px-3 py-2 text-left text-xs font-semibold hover:bg-surface-1 text-text-primary transition-colors rounded-xl flex items-center gap-2.5 cursor-pointer">
-              <i class="ti ti-pin text-sm text-amber-500 rotate-45"></i>
-              <span>Unpin</span>
-            </button>
-            } @else {
-            <button (click)="onPin(); isContextMenuOpen.set(false); isMenuOpen.set(false)"
-              class="w-full px-3 py-2 text-left text-xs font-semibold hover:bg-surface-1 text-text-primary transition-colors rounded-xl flex items-center gap-2.5 cursor-pointer">
-              <i class="ti ti-pin text-sm text-text-muted"></i>
-              <span>Pin</span>
-            </button>
-            }
+              <button (click)="onReply(); isContextMenuOpen.set(false); isMenuOpen.set(false)"
+                class="w-full px-3 py-2 text-left text-xs font-semibold hover:bg-surface-1 text-text-primary transition-colors rounded-xl flex items-center gap-2.5 cursor-pointer">
+                <i class="ti ti-arrow-back-up text-sm text-text-muted"></i>
+                <span>Reply</span>
+              </button>
 
-            <div class="border-t border-border-light/60 my-0.5"></div>
+              <button (click)="onForward(); isContextMenuOpen.set(false); isMenuOpen.set(false)"
+                class="w-full px-3 py-2 text-left text-xs font-semibold hover:bg-surface-1 text-text-primary transition-colors rounded-xl flex items-center gap-2.5 cursor-pointer">
+                <i class="ti ti-corner-up-right text-sm text-text-muted"></i>
+                <span>Forward</span>
+              </button>
 
-            <button (click)="deleteForMe(); isContextMenuOpen.set(false); isMenuOpen.set(false)"
-              class="w-full px-3 py-2 text-left text-xs font-semibold hover:bg-surface-1 text-text-secondary transition-colors rounded-xl flex items-center gap-2.5 cursor-pointer">
-              <i class="ti ti-eye-off text-sm text-text-muted"></i>
-              <span>Delete for me</span>
-            </button>
+              @if (isPinned) {
+              <button (click)="onUnpin(); isContextMenuOpen.set(false); isMenuOpen.set(false)"
+                class="w-full px-3 py-2 text-left text-xs font-semibold hover:bg-surface-1 text-text-primary transition-colors rounded-xl flex items-center gap-2.5 cursor-pointer">
+                <i class="ti ti-pin text-sm text-amber-500 rotate-45"></i>
+                <span>Unpin</span>
+              </button>
+              } @else {
+              <button (click)="onPin(); isContextMenuOpen.set(false); isMenuOpen.set(false)"
+                class="w-full px-3 py-2 text-left text-xs font-semibold hover:bg-surface-1 text-text-primary transition-colors rounded-xl flex items-center gap-2.5 cursor-pointer">
+                <i class="ti ti-pin text-sm text-text-muted"></i>
+                <span>Pin</span>
+              </button>
+              }
 
-            @if (canDeleteForEveryone()) {
-            <button (click)="deleteForEveryone(); isContextMenuOpen.set(false); isMenuOpen.set(false)"
-              class="w-full px-3 py-2 text-left text-xs font-semibold hover:bg-rose-500/10 text-rose-500 transition-colors rounded-xl flex items-center gap-2.5 cursor-pointer">
-              <i class="ti ti-trash text-sm"></i>
-              <span>Delete for everyone</span>
-            </button>
+              <div class="border-t border-border-light/60 my-0.5"></div>
+
+              <button (click)="deleteForMe(); isContextMenuOpen.set(false); isMenuOpen.set(false)"
+                class="w-full px-3 py-2 text-left text-xs font-semibold hover:bg-surface-1 text-text-secondary transition-colors rounded-xl flex items-center gap-2.5 cursor-pointer">
+                <i class="ti ti-eye-off text-sm text-text-muted"></i>
+                <span>Delete for me</span>
+              </button>
+
+              @if (canDeleteForEveryone()) {
+              <button (click)="deleteForEveryone(); isContextMenuOpen.set(false); isMenuOpen.set(false)"
+                class="w-full px-3 py-2 text-left text-xs font-semibold hover:bg-rose-500/10 text-rose-500 transition-colors rounded-xl flex items-center gap-2.5 cursor-pointer">
+                <i class="ti ti-trash text-sm"></i>
+                <span>Delete for everyone</span>
+              </button>
+              }
+            </div>
             }
           </div>
-          }
         </div>
-      </div>
-      }
+        }
 
-      <!-- Sliding Content Container (responds to swipe-to-reply gesture) -->
-      <div class="relative z-10 flex flex-col w-full max-w-full min-w-0 touch-pan-y"
-        [style.transform]="swipeOffset() > 0 ? 'translateX(' + swipeOffset() + 'px)' : null"
-        [ngClass]="{'transition-transform duration-200 ease-out': !isSwiping()}">
+        <!-- Sliding Content Container (responds to swipe-to-reply gesture) -->
+        <div class="relative flex flex-col w-full max-w-full min-w-0">
         <!-- Reply Block Preview -->
         @if (replyToMessage && !isDeletedForEveryone() && !isDeletedForMe()) {
         <div (click)="onReplyToClick($event)"
@@ -175,7 +181,7 @@
         @if (isDeletedForEveryone()) {
         <!-- Shown to ALL participants -->
         <div
-          class="px-3.5 py-2.5 shadow-sm text-xs text-text-muted italic bg-surface-1 border border-border-light rounded-2xl flex items-center gap-1.5 select-none"
+          class="px-3.5 py-2 shadow-sm text-xs text-text-muted italic bg-surface-1 border border-border-light rounded-2xl flex items-center gap-1.5 select-none"
           [ngClass]="{
                 'rounded-tr-sm': isOutgoing(),
                 'rounded-tl-sm': !isOutgoing(),
@@ -188,7 +194,7 @@
         } @else if (isDeletedForMe()) {
         <!-- Shown only to current user -->
         <div
-          class="px-3.5 py-2.5 shadow-sm text-xs text-text-muted italic bg-surface-1 border border-border-light rounded-2xl flex items-center gap-1.5 select-none"
+          class="px-3.5 py-2 shadow-sm text-xs text-text-muted italic bg-surface-1 border border-border-light rounded-2xl flex items-center gap-1.5 select-none"
           [ngClass]="{
                 'rounded-tr-sm': isOutgoing(),
                 'rounded-tl-sm': !isOutgoing(),
@@ -200,21 +206,21 @@
         </div>
         } @else {
         <div (click)="toggleMenu($event)"
-          class="shadow-sm text-sm break-words [overflow-wrap:anywhere] [word-break:break-word] leading-relaxed rounded-2xl cursor-pointer select-none transition-all duration-200 overflow-hidden flex flex-col min-w-0 max-w-full"
+          class="shadow-sm text-sm break-words [overflow-wrap:anywhere] [word-break:break-word] leading-relaxed rounded-2xl cursor-pointer select-none transition-all duration-200 overflow-hidden flex flex-col min-w-[75px] max-w-full relative"
           [ngClass]="{
                 'bg-accent-gradient text-white rounded-tr-sm shadow-md shadow-indigo-500/15 font-sans': isOutgoing(),
                 'bg-surface-1 border border-border-light/80 text-text-primary rounded-tl-sm font-sans': !isOutgoing(),
                 'rounded-t-none': replyToMessage,
                 'ring-2 ring-amber-400/80 dark:ring-amber-400/60 shadow-md shadow-amber-500/10': isCurrentMentioned(),
                 'message-highlight-pulse z-30': isHighlighted,
-                'p-3.5': !imageAttachments().length && !isEmojiOnly(),
+                'px-3.5 pt-2.5 pb-2': !imageAttachments().length && !isEmojiOnly(),
                 'p-2.5 sm:p-3': !imageAttachments().length && isEmojiOnly(),
                 'p-1.5': imageAttachments().length
               }">
 
           <!-- Image Attachments Grid -->
           @if (imageAttachments().length > 0) {
-          <div class="rounded-xl overflow-hidden mb-1 w-64 sm:w-80 max-w-full">
+          <div class="rounded-xl overflow-hidden mb-1 w-64 sm:w-80 max-w-full relative">
             @if (imageAttachments().length === 1) {
             <!-- Single Image Card with Uniform Bounds -->
             <div (click)="openLightbox(imageAttachments()[0].url, $event)"
@@ -237,6 +243,26 @@
                   <i class="ti ti-maximize text-white text-xl opacity-0 group-hover/img:opacity-100 transition-opacity drop-shadow-md"></i>
                 </div>
               </div>
+              }
+            </div>
+            }
+
+            <!-- Overlay Badge for Image-Only Messages -->
+            @if (!message.text && imageAttachments().length > 0) {
+            <div class="absolute bottom-2 right-2 px-2 py-0.5 bg-black/50 backdrop-blur-md rounded-full text-white text-[9.5px] flex items-center gap-1 shadow-sm select-none z-10 whitespace-nowrap">
+              @if (isPinned) {
+                <i class="ti ti-pin text-[10px] text-amber-400 font-bold" title="Pinned message"></i>
+              }
+              <span class="whitespace-nowrap">{{ message.createdAt | date:'shortTime' }}</span>
+              @if (isOutgoing()) {
+                @if (readStatus() === 'seen') {
+                  <span class="flex items-center -space-x-[5px] flex-shrink-0" title="Seen">
+                    <i class="ti ti-check text-[10px] text-sky-300 font-bold"></i>
+                    <i class="ti ti-check text-[10px] text-sky-300 font-bold"></i>
+                  </span>
+                } @else {
+                  <i class="ti ti-check text-[10px] text-white/70 flex-shrink-0" title="Sent"></i>
+                }
               }
             </div>
             }
@@ -280,22 +306,43 @@
             </div>
           }
 
-          <!-- Text Message Body (if non-empty) -->
+          <!-- Text Message Body (if non-empty) with Timestamp Below -->
           @if (message.text && formattedMessageChunks().length > 0) {
           <div [ngClass]="[
             isEmojiOnly() ? emojiSizeClass() : '',
             (imageAttachments().length > 0 || documentAttachments().length > 0) ? 'px-2 pb-1 pt-1' : ''
           ]">
-            @for (chunk of formattedMessageChunks(); track $index) {
-              @if (chunk.isMatch) {
-                <mark class="bg-amber-300/80 text-amber-950 dark:bg-amber-400/50 dark:text-amber-100 rounded px-0.5 font-semibold">{{ chunk.text }}</mark>
-              } @else if (chunk.isMention) {
-                <span class="px-1.5 py-0.5 mx-0.5 rounded-md font-semibold text-xs inline-block"
-                  [ngClass]="isOutgoing() ? 'bg-white/20 text-white' : 'bg-accent/15 text-accent dark:bg-accent/25'">{{ chunk.text }}</span>
-              } @else {
-                {{ chunk.text }}
+            <div>
+              @for (chunk of formattedMessageChunks(); track $index) {
+                @if (chunk.isMatch) {
+                  <mark class="bg-amber-300/80 text-amber-950 dark:bg-amber-400/50 dark:text-amber-100 rounded px-0.5 font-semibold">{{ chunk.text }}</mark>
+                } @else if (chunk.isMention) {
+                  <span class="px-1.5 py-0.5 mx-0.5 rounded-md font-semibold text-xs inline-block"
+                    [ngClass]="isOutgoing() ? 'bg-white/20 text-white' : 'bg-accent/15 text-accent dark:bg-accent/25'">{{ chunk.text }}</span>
+                } @else {
+                  {{ chunk.text }}
+                }
               }
-            }
+            </div>
+
+            <!-- Embedded Timestamp & Read Receipt Badge (Always on line below) -->
+            <div class="flex items-center justify-end gap-1 mt-1 select-none text-[9.5px] leading-none opacity-85 whitespace-nowrap"
+              [ngClass]="isOutgoing() ? 'text-white/85' : 'text-text-secondary font-medium'">
+              @if (isPinned) {
+                <i class="ti ti-pin text-[10px] text-amber-400 font-bold flex-shrink-0" title="Pinned message"></i>
+              }
+              <span class="whitespace-nowrap">{{ message.createdAt | date:'shortTime' }}</span>
+              @if (isOutgoing()) {
+                @if (readStatus() === 'seen') {
+                  <span class="flex items-center -space-x-[5px] transition-all duration-300 flex-shrink-0" title="Seen">
+                    <i class="ti ti-check text-[10px] font-bold" [ngClass]="isOutgoing() ? 'text-white' : 'text-accent'"></i>
+                    <i class="ti ti-check text-[10px] font-bold" [ngClass]="isOutgoing() ? 'text-white' : 'text-accent'"></i>
+                  </span>
+                } @else {
+                  <i class="ti ti-check text-[10px] flex-shrink-0" [ngClass]="isOutgoing() ? 'text-white/70' : 'text-text-muted/60'" title="Sent"></i>
+                }
+              }
+            </div>
           </div>
           }
         </div>
@@ -305,7 +352,7 @@
 
     <!-- Emoji Reactions Bar -->
     @if (reactionsList().length > 0 && !isDeletedForEveryone() && !isDeletedForMe()) {
-    <div class="flex flex-wrap gap-1 mt-1.5" [ngClass]="{'justify-end': isOutgoing(), 'justify-start': !isOutgoing()}">
+    <div class="flex flex-wrap gap-1 mt-1" [ngClass]="{'justify-end': isOutgoing(), 'justify-start': !isOutgoing()}">
       @for (rx of reactionsList(); track rx.emoji) {
       <button (click)="react(rx.emoji)" [ngClass]="{
                 'bg-accent/10 border-accent/30 text-accent font-semibold': rx.active,
@@ -319,31 +366,7 @@
       }
     </div>
     }
-
-    <!-- Timestamp + Read Receipt tick -->
-    <div class="flex items-center gap-1 mt-1 select-none"
-         [ngClass]="{'justify-end mr-1': isOutgoing(), 'ml-1': !isOutgoing()}">
-      @if (isPinned && !isDeletedForEveryone() && !isDeletedForMe()) {
-        <i class="ti ti-pin text-[10px] text-amber-500 font-bold" title="Pinned message"></i>
-      }
-      <span class="text-[9px] text-text-muted">
-        {{ message.createdAt | date:'shortTime' }}
-      </span>
-      <!-- Double-tick read receipt — outgoing only, non-deleted -->
-      @if (isOutgoing() && !isDeletedForEveryone() && !isDeletedForMe()) {
-        @if (readStatus() === 'seen') {
-          <!-- Double tick (seen) -->
-          <span class="flex items-center -space-x-[5px] transition-all duration-300"
-                title="Seen">
-            <i class="ti ti-check text-[10px] text-accent"></i>
-            <i class="ti ti-check text-[10px] text-accent"></i>
-          </span>
-        } @else {
-          <!-- Single tick (sent) -->
-          <i class="ti ti-check text-[10px] text-text-muted/60" title="Sent"></i>
-        }
-      }
-    </div>
   </div>
 </div>
-}
+</div>
+}

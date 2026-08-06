@@ -64,7 +64,13 @@ export const routes: Routes = [
     ],
   },
   {
+    path: '404',
+    loadComponent: () =>
+      import('./features/not-found/not-found').then((m) => m.NotFoundComponent),
+  },
+  {
     path: '**',
-    redirectTo: '',
+    loadComponent: () =>
+      import('./features/not-found/not-found').then((m) => m.NotFoundComponent),
   },
 ];

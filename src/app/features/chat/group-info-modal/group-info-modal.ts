@@ -166,18 +166,20 @@ export class GroupInfoModal {
 
     return convo.participants.map((uid) => {
       const isSelf = uid === currentUser?.uid;
-      const user = cache[uid] || (isSelf && currentUser ? currentUser : null) || {
+      const cachedUser = cache[uid] || (isSelf && currentUser ? currentUser : null);
+      const user: AppUser = cachedUser || {
         uid,
         username: isSelf && currentUser?.username ? currentUser.username : 'user',
         usernameLower: isSelf && currentUser?.usernameLower ? currentUser.usernameLower : 'user',
         displayName: isSelf && currentUser?.displayName ? currentUser.displayName : 'Loading...',
         photoURL: isSelf ? currentUser?.photoURL : undefined,
-        isOnline: isSelf ? true : false,
+        isOnline: false,
         lastSeen: isSelf && currentUser ? currentUser.lastSeen : 0,
       };
+      const isOnline = isSelf ? true : this.userService.isUserOnline(cachedUser);
       const isAdmin = convo.admins?.includes(uid) ?? false;
       const isCreator = convo.creatorId === uid;
-      return { ...user, isAdmin, isCreator };
+      return { ...user, isOnline, isAdmin, isCreator };
     });
   });
 

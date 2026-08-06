@@ -43,6 +43,11 @@ export class ConversationItem {
     return this.userService.usersCache()[uid] || null;
   });
 
+  // True online status with staleness check (< 35s)
+  readonly isOtherUserOnline = computed(() => {
+    return this.userService.isUserOnline(this.otherProfile());
+  });
+
   // Check if active
   readonly isActive = computed(() => {
     return this.conversationService.selectedConversation()?.id === this.convoSignal()?.id;
