@@ -56,6 +56,14 @@
   --accent-gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
 }
 
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, a, input, select, textarea, [role="button"], .cursor-pointer {
+  touch-action: manipulation;
+}
+
 html, body {
   margin: 0;
   padding: 0;
@@ -66,6 +74,20 @@ html, body {
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   transition: background-color 0.2s ease, color 0.2s ease;
   overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Allow text selection inside inputs, message text, and designated content */
+input, textarea, [contenteditable="true"], .select-text, .message-bubble-content, .selectable-text {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Contain scroll chaining on internal scroll containers */
+.overflow-y-auto, .overflow-auto, .overflow-x-auto {
+  overscroll-behavior-y: contain;
 }
 
 /* Custom Scrollbar Styles */

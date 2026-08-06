@@ -227,6 +227,11 @@ export class Settings implements OnInit {
     const isDark = document.documentElement.classList.toggle('dark');
     this.darkModeEnabled.set(isDark);
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
+
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) {
+      metaTheme.setAttribute('content', isDark ? '#0b0f19' : '#f8fafc');
+    }
   }
 
   toggleNotifications() {
