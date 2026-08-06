@@ -150,7 +150,39 @@ export class ConversationItem {
     }
   });
 
+  private longPressTimer: any = null;
+  private isLongPressing = false;
+
+  onTouchStart(event: TouchEvent) {
+    this.isLongPressing = false;
+    this.longPressTimer = setTimeout(() => {
+      this.isLongPressing = true;
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate(45);
+      }
+      this.isActionMenuOpen.set(true);
+    }, 500);
+  }
+
+  onTouchEnd(event: TouchEvent) {
+    if (this.longPressTimer) {
+      clearTimeout(this.longPressTimer);
+      this.longPressTimer = null;
+    }
+  }
+
+  onTouchMove(event: TouchEvent) {
+    if (this.longPressTimer) {
+      clearTimeout(this.longPressTimer);
+      this.longPressTimer = null;
+    }
+  }
+
   select() {
+    if (this.isLongPressing) {
+      this.isLongPressing = false;
+      return;
+    }
     this.conversationService.selectConversation(this.convo.id);
     this.router.navigate(['/chats', this.convo.id]);
   }

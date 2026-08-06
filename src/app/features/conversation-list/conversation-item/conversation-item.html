@@ -1,10 +1,13 @@
 <div 
   (click)="select()"
+  (touchstart)="onTouchStart($event)"
+  (touchend)="onTouchEnd($event)"
+  (touchmove)="onTouchMove($event)"
   [ngClass]="{
     'bg-bg-accent border-l-2 border-accent': isActive(),
     'hover:bg-surface-1/50': !isActive()
   }"
-  class="group/item flex items-center gap-3 p-3 border-l-2 border-transparent cursor-pointer transition-all duration-200 relative"
+  class="group/item flex items-center gap-3 p-3 border-l-2 border-transparent cursor-pointer transition-all duration-200 relative select-none"
 >
   <!-- Avatar / Icon -->
   <app-avatar
@@ -29,18 +32,18 @@
 
       <!-- Right Action / Timestamp Container Slot -->
       <div class="flex items-center justify-end flex-shrink-0 h-5">
-        <!-- Timestamp (Hidden when hovering or menu open) -->
+        <!-- Timestamp (Hidden on hover on desktop or when menu open) -->
         <span
           class="text-[10px] text-text-muted flex-shrink-0 leading-none transition-opacity select-none"
-          [ngClass]="{'group-hover/item:hidden': !isActionMenuOpen(), 'hidden': isActionMenuOpen()}"
+          [ngClass]="{'md:group-hover/item:hidden': !isActionMenuOpen(), 'hidden': isActionMenuOpen()}"
         >
           {{ formattedTime() }}
         </span>
 
-        <!-- Option 2: Hover 3-Dot (⋮) Action Trigger Button -->
+        <!-- Hover 3-Dot (⋮) Action Trigger Button (Desktop hover only) -->
         <button
           (click)="toggleActionMenu($event)"
-          class="item-action-btn hidden group-hover/item:flex items-center justify-center w-5 h-5 rounded-md text-text-muted hover:text-text-primary hover:bg-surface-2 transition-all cursor-pointer flex-shrink-0 active-press"
+          class="item-action-btn hidden md:group-hover/item:flex items-center justify-center w-5 h-5 rounded-md text-text-muted hover:text-text-primary hover:bg-surface-2 transition-all cursor-pointer flex-shrink-0 active-press"
           [ngClass]="{'!flex text-accent bg-surface-2': isActionMenuOpen()}"
           title="Chat options"
           aria-label="Chat options"
