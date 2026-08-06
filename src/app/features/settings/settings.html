@@ -234,7 +234,7 @@
       <!-- Privacy Policy Row -->
       <a 
         routerLink="/privacy"
-        class="flex items-center justify-between px-4 py-3.5 hover:bg-surface-1/40 cursor-pointer transition-colors group"
+        class="flex items-center justify-between px-4 py-3.5 border-b border-border-light/40 hover:bg-surface-1/40 cursor-pointer transition-colors group"
       >
         <div class="flex items-center gap-3">
           <div class="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center group-hover:scale-105 transition-transform">
@@ -244,6 +244,25 @@
         </div>
         <i class="ti ti-chevron-right text-text-muted group-hover:text-text-primary transition-colors"></i>
       </a>
+
+      <!-- Check for Updates Row -->
+      <div
+        (click)="checkForUpdates()"
+        class="flex items-center justify-between px-4 py-4 hover:bg-surface-1/40 cursor-pointer transition-colors group select-none"
+      >
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-500 flex items-center justify-center group-hover:scale-105 transition-transform">
+            <i class="ti ti-refresh text-lg" [ngClass]="{'animate-spin': isCheckingForUpdates()}"></i>
+          </div>
+          <div class="flex flex-col">
+            <span class="text-sm font-semibold text-text-primary">Check for Updates</span>
+            <span class="text-[11px] text-text-muted">Tap to check for new updates</span>
+          </div>
+        </div>
+        <span class="text-xs font-semibold text-accent">
+          {{ isCheckingForUpdates() ? 'Checking...' : 'Check' }}
+        </span>
+      </div>
     </div>
 
     <!-- Account Actions -->

@@ -2,6 +2,7 @@ import { Component, inject, computed, effect } from '@angular/core';
 import { Router, RouterOutlet } from '@angular/router';
 import { Auth } from './core/auth';
 import { CryptoService } from './services/crypto.service';
+import { PwaService } from './services/pwa.service';
 import { ToastComponent } from './shared/toast/toast';
 
 @Component({
@@ -14,6 +15,7 @@ export class App {
   private readonly authService = inject(Auth);
   private readonly router = inject(Router);
   private readonly cryptoService = inject(CryptoService);
+  private readonly pwaService = inject(PwaService);
 
   // App is loading while the initial authentication state is unresolved (undefined)
   readonly isLoading = computed(() => this.authService.currentUser() === undefined);
@@ -24,8 +26,10 @@ export class App {
       const user = this.authService.currentUser();
       if (user === undefined) return; // Wait for initial session fetch
 
-      // Use router.url to inspect the active route path safely without breaking SSR
-      const currentPath = this.router.url || (typeof window !== 'undefined' ? window.location.pathname : '/');
+      // Read the actual browser pathname safely to prevent premature redirect to /chats on page refresh
+      const currentPath = (typeof window !== 'undefined' && window.location.pathname) 
+        ? window.location.pathname 
+        : (this.router.url || '/');
 
       if (!user) {
         // If not logged in, redirect to login page

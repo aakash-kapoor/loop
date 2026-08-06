@@ -4,6 +4,7 @@ import { NgClass } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Auth } from '../../core/auth';
 import { ToastService } from '../../services/toast.service';
+import { PwaService } from '../../services/pwa.service';
 import { ConfirmModal } from '../../shared/confirm-modal/confirm-modal';
 import { fileToCompressedDataUrl, formatBytes, MAX_FILE_SIZE_BYTES } from '../../shared/utils/image-compressor';
 
@@ -20,6 +21,7 @@ export class Settings implements OnInit {
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
   private readonly toastService = inject(ToastService);
+  private readonly pwaService = inject(PwaService);
 
   readonly currentUser = computed(() => this.auth.currentUser());
 
@@ -27,6 +29,23 @@ export class Settings implements OnInit {
   readonly notificationsEnabled = signal<boolean>(true);
   readonly soundEnabled = signal<boolean>(true);
   readonly showLastSeenEnabled = signal<boolean>(true);
+  readonly isCheckingForUpdates = signal<boolean>(false);
+
+  async checkForUpdates() {
+    if (this.isCheckingForUpdates()) return;
+    this.isCheckingForUpdates.set(true);
+    try {
+      const updated = await this.pwaService.checkForUpdates();
+      if (!updated) {
+        this.toastService.show('You are running the latest version of Loop.', 'success');
+      }
+    } catch (err) {
+      console.error('Update check failed:', err);
+      this.toastService.show('Failed to check for updates.', 'error');
+    } finally {
+      this.isCheckingForUpdates.set(false);
+    }
+  }
 
   // Profile Edit State Signals
   readonly isEditingProfile = signal<boolean>(false);
