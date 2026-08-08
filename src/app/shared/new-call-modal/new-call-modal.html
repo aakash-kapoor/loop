@@ -1,0 +1,149 @@
+<div (click)="onBackdropClick($event)"
+     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fadeIn">
+  
+  <div class="flex flex-col w-full max-w-md max-h-[85vh] bg-surface-0 border border-border-light/80 rounded-3xl shadow-2xl overflow-hidden animate-scaleUp">
+    
+    <!-- Header -->
+    <div class="flex items-center justify-between px-6 py-4 border-b border-border-light/80 bg-surface-0 flex-shrink-0">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-accent/10 flex items-center justify-center text-accent">
+          <i class="ti ti-phone-call text-lg"></i>
+        </div>
+        <h2 class="text-lg font-bold text-text-primary">Start a New Call</h2>
+      </div>
+
+      <button (click)="close.emit()"
+              class="w-8 h-8 rounded-full bg-surface-1 hover:bg-surface-2 text-text-muted hover:text-text-primary flex items-center justify-center transition-colors cursor-pointer"
+              title="Close">
+        <i class="ti ti-x text-lg"></i>
+      </button>
+    </div>
+
+    <!-- Search Input Bar -->
+    <div class="p-4 border-b border-border-light/60 bg-surface-0 flex-shrink-0">
+      <div class="relative flex items-center">
+        <i class="ti ti-search absolute left-3.5 text-text-muted text-lg"></i>
+        <input type="text"
+               [ngModel]="searchQuery()"
+               (ngModelChange)="onSearchChange($event)"
+               placeholder="Search by username or name..."
+               class="w-full pl-10 pr-10 py-2.5 bg-surface-1 border border-border-light/60 rounded-2xl text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent transition-all">
+        @if (searchQuery()) {
+          <button (click)="onSearchChange('')" class="absolute right-3 text-text-muted hover:text-text-primary">
+            <i class="ti ti-x text-sm"></i>
+          </button>
+        }
+      </div>
+    </div>
+
+    <!-- Contact List Content -->
+    <div class="flex-1 overflow-y-auto p-4 space-y-4">
+      
+      <!-- Search Results Section -->
+      @if (searchQuery().trim()) {
+        <div>
+          <h4 class="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2 px-1">
+            Search Results
+          </h4>
+
+          @if (isSearching()) {
+            <div class="flex items-center justify-center py-8 text-text-muted gap-2 text-xs">
+              <i class="ti ti-loader animate-spin text-lg text-accent"></i>
+              <span>Searching users...</span>
+            </div>
+          } @else if (searchResults().length > 0) {
+            <div class="space-y-1.5">
+              @for (user of searchResults(); track user.uid) {
+                <div class="flex items-center justify-between p-3 rounded-2xl bg-surface-1/40 hover:bg-surface-1 border border-border-light/50 transition-all">
+                  <div class="flex items-center gap-3 min-w-0 flex-1">
+                    <app-avatar [photoURL]="user.photoURL" [displayName]="user.displayName || user.username" [isOnline]="user.isOnline" size="md" class="flex-shrink-0"></app-avatar>
+                    <div class="flex flex-col min-w-0 flex-1">
+                      <span class="text-sm font-semibold text-text-primary truncate">
+                        {{ user.displayName || user.username }}
+                      </span>
+                      <span class="text-xs text-text-muted truncate">
+                        &#64;{{ user.username }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- Call Action Buttons -->
+                  <div class="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                    <button (click)="startCallWithUser(user, true)"
+                            [disabled]="startingCallUid() === user.uid"
+                            class="w-9 h-9 rounded-xl bg-accent/10 hover:bg-accent/20 text-accent flex items-center justify-center transition-all cursor-pointer disabled:opacity-50"
+                            title="Audio Call">
+                      <i class="ti ti-phone text-base"></i>
+                    </button>
+                    <button (click)="startCallWithUser(user, false)"
+                            [disabled]="startingCallUid() === user.uid"
+                            class="w-9 h-9 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 flex items-center justify-center transition-all cursor-pointer disabled:opacity-50"
+                            title="Video Call">
+                      <i class="ti ti-video text-base"></i>
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="py-8 text-center text-text-muted text-xs">
+              No users found matching "{{ searchQuery() }}"
+            </div>
+          }
+        </div>
+      } @else {
+        <!-- Recent / Previous Contacts Section -->
+        <div>
+          <h4 class="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2 px-1">
+            Previous Contacts
+          </h4>
+
+          @if (isLoadingRecent()) {
+            <div class="flex items-center justify-center py-8 text-text-muted gap-2 text-xs">
+              <i class="ti ti-loader animate-spin text-lg text-accent"></i>
+              <span>Loading contacts...</span>
+            </div>
+          } @else if (recentContacts().length > 0) {
+            <div class="space-y-1.5">
+              @for (user of recentContacts(); track user.uid) {
+                <div class="flex items-center justify-between p-3 rounded-2xl bg-surface-1/40 hover:bg-surface-1 border border-border-light/50 transition-all">
+                  <div class="flex items-center gap-3 min-w-0 flex-1">
+                    <app-avatar [photoURL]="user.photoURL" [displayName]="user.displayName || user.username" [isOnline]="user.isOnline" size="md" class="flex-shrink-0"></app-avatar>
+                    <div class="flex flex-col min-w-0 flex-1">
+                      <span class="text-sm font-semibold text-text-primary truncate">
+                        {{ user.displayName || user.username }}
+                      </span>
+                      <span class="text-xs text-text-muted truncate">
+                        &#64;{{ user.username }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- Call Action Buttons -->
+                  <div class="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                    <button (click)="startCallWithUser(user, true)"
+                            [disabled]="startingCallUid() === user.uid"
+                            class="w-9 h-9 rounded-xl bg-accent/10 hover:bg-accent/20 text-accent flex items-center justify-center transition-all cursor-pointer disabled:opacity-50"
+                            title="Audio Call">
+                      <i class="ti ti-phone text-base"></i>
+                    </button>
+                    <button (click)="startCallWithUser(user, false)"
+                            [disabled]="startingCallUid() === user.uid"
+                            class="w-9 h-9 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 flex items-center justify-center transition-all cursor-pointer disabled:opacity-50"
+                            title="Video Call">
+                      <i class="ti ti-video text-base"></i>
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="py-8 text-center text-text-muted text-xs">
+              Search by username above to start a call with anyone!
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</div>

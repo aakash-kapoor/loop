@@ -1,0 +1,259 @@
+<div class="flex flex-col h-full w-full bg-bg-main overflow-hidden relative">
+  <!-- Top Header Bar -->
+  <div class="flex items-center justify-between px-3 sm:px-6 h-16 border-b border-border-light/80 bg-surface-0/80 backdrop-blur-xl flex-shrink-0 z-10 gap-2">
+    <div class="flex items-center gap-1.5 sm:gap-3 min-w-0">
+      <!-- Navigation Back Button (Consistent with Settings page) -->
+      <button (click)="goBack()"
+              class="text-accent hover:bg-surface-1 w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer flex-shrink-0"
+              title="Back to Chats"
+              aria-label="Back to Chats">
+        <i class="ti ti-arrow-left text-xl"></i>
+      </button>
+
+      <h1 class="text-lg sm:text-xl font-bold tracking-tight text-text-primary truncate">Calls</h1>
+
+      @if (callHistoryService.missedCallsCount() > 0) {
+        <span class="px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-rose-500/15 text-rose-500 flex-shrink-0">
+          {{ callHistoryService.missedCallsCount() }} missed
+        </span>
+      }
+    </div>
+
+    <div class="flex items-center gap-2 flex-shrink-0">
+      <!-- Filter Segmented Controller -->
+      <div class="flex items-center p-1 bg-surface-1 rounded-xl border border-border-light/60">
+        <button (click)="setTab('all')"
+                class="px-2.5 sm:px-3.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer"
+                [ngClass]="activeTab() === 'all' ? 'bg-surface-0 text-text-primary shadow-sm' : 'text-text-muted hover:text-text-primary'">
+          All
+        </button>
+        <button (click)="setTab('missed')"
+                class="px-2.5 sm:px-3.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer"
+                [ngClass]="activeTab() === 'missed' ? 'bg-surface-0 text-rose-500 shadow-sm' : 'text-text-muted hover:text-text-primary'">
+          Missed
+        </button>
+      </div>
+
+      <!-- Clear All History Button -->
+      @if (groupedCalls().length > 0) {
+        <button (click)="openClearConfirm()"
+                class="p-2 rounded-xl bg-surface-1 hover:bg-rose-500/15 text-text-muted hover:text-rose-500 border border-border-light/60 transition-all cursor-pointer flex items-center justify-center gap-1.5 text-xs font-medium"
+                title="Clear Call History">
+          <i class="ti ti-trash text-sm"></i>
+          <span class="hidden sm:inline">Clear All</span>
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- Calls List Container -->
+  <div class="flex-1 overflow-y-auto p-3 sm:p-6 flex flex-col h-full bg-bg-main pb-24 sm:pb-8">
+    @if (groupedCalls().length > 0) {
+      <div class="space-y-3 w-full max-w-4xl mx-auto">
+        @for (group of groupedCalls(); track group.groupId) {
+          <div class="rounded-2xl bg-surface-1/40 hover:bg-surface-1/70 border border-border-light/60 transition-all duration-200 overflow-hidden shadow-sm">
+            
+            <!-- Group Accordion Header -->
+            <div (click)="openChat(group.convoId, group.groupId)"
+                 class="flex items-center justify-between p-3 sm:p-4 cursor-pointer group select-none gap-2">
+              
+              <div class="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
+                <!-- Avatar -->
+                <app-avatar [photoURL]="group.photoURL" [displayName]="group.displayName" size="md" class="flex-shrink-0"></app-avatar>
+
+                <!-- Contact Info & Call Count -->
+                <div class="flex flex-col min-w-0 flex-1">
+                  <div class="flex items-center gap-1.5 min-w-0">
+                    <span class="text-xs sm:text-sm font-bold text-text-primary truncate max-w-[120px] sm:max-w-[200px]">
+                      {{ group.displayName }}
+                    </span>
+
+                    <!-- Call Count Badge (e.g. "(3)") -->
+                    @if (group.totalCount > 1) {
+                      <span class="text-[10px] sm:text-xs font-semibold text-text-muted bg-surface-2/80 px-1.5 py-0.5 rounded-full border border-border-light/40 flex-shrink-0">
+                        ({{ group.totalCount }})
+                      </span>
+                    }
+
+                    <!-- Missed Status Indicator Dot on Group Header -->
+                    @if (group.hasUnreadMissed) {
+                      <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse flex-shrink-0" title="Unread missed calls"></span>
+                    }
+
+                    <!-- Latest Call Direction Arrow Icon -->
+                    @if (group.latestCall.status === 'completed') {
+                      @if (isOutgoing(group.latestCall)) {
+                        <i class="ti ti-phone-outgoing text-sky-500 text-xs sm:text-sm flex-shrink-0" title="Outgoing call"></i>
+                      } @else {
+                        <i class="ti ti-phone-incoming text-emerald-500 text-xs sm:text-sm flex-shrink-0" title="Incoming call"></i>
+                      }
+                    } @else {
+                      <i class="ti ti-phone-x text-rose-500 text-xs sm:text-sm flex-shrink-0" title="Missed call"></i>
+                    }
+                  </div>
+
+                  <!-- Subtitle Info (Compact & Responsive) -->
+                  <div class="flex items-center gap-1 text-[11px] sm:text-xs text-text-muted mt-0.5 truncate leading-tight">
+                    <span class="font-semibold text-text-secondary flex-shrink-0">{{ group.dateLabel }}</span>
+                    <span>•</span>
+                    <span class="truncate">{{ group.latestCall.callType === 'video' ? 'Video' : 'Audio' }}</span>
+                    <span>•</span>
+                    @if (group.latestCall.status === 'completed') {
+                      <span class="flex-shrink-0">{{ callHistoryService.formatDuration(group.latestCall.durationSeconds) }}</span>
+                    } @else {
+                      <span class="text-rose-500 font-medium flex-shrink-0">Missed</span>
+                    }
+                    <span>•</span>
+                    <span class="flex-shrink-0">{{ group.latestCall.createdAt?.toDate ? (group.latestCall.createdAt.toDate() | date:'shortTime') : 'Just now' }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Quick Action & Accordion Chevron Buttons -->
+              <div class="flex items-center gap-1 sm:gap-1.5 flex-shrink-0" (click)="$event.stopPropagation()">
+                <button (click)="initiateCall(group.latestCall, true)"
+                        class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-surface-0 hover:bg-accent/15 hover:text-accent border border-border-light/80 text-text-secondary flex items-center justify-center transition-all cursor-pointer active-press shadow-sm"
+                        title="Start Audio Call">
+                  <i class="ti ti-phone text-xs sm:text-base"></i>
+                </button>
+                <button (click)="initiateCall(group.latestCall, false)"
+                        class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-surface-0 hover:bg-accent/15 hover:text-accent border border-border-light/80 text-text-secondary flex items-center justify-center transition-all cursor-pointer active-press shadow-sm"
+                        title="Start Video Call">
+                  <i class="ti ti-video text-xs sm:text-base"></i>
+                </button>
+
+                <!-- Accordion Toggle Chevron -->
+                @if (group.totalCount > 1) {
+                  <button (click)="toggleAccordion(group.groupId, $event)"
+                          class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-surface-0 hover:bg-surface-2 text-text-muted hover:text-text-primary border border-border-light/80 flex items-center justify-center transition-all cursor-pointer active-press shadow-sm"
+                          [title]="isExpanded(group.groupId) ? 'Collapse Call History' : 'Expand Call History'">
+                    <i class="ti text-xs sm:text-base transition-transform duration-300" [ngClass]="isExpanded(group.groupId) ? 'ti-chevron-up' : 'ti-chevron-down'"></i>
+                  </button>
+                }
+              </div>
+            </div>
+
+            <!-- Expanded Accordion Drawer for Individual Calls -->
+            @if (group.totalCount > 1) {
+              <div class="transition-all duration-300 ease-out border-t border-border-light/40 bg-surface-1/30"
+                   [ngClass]="isExpanded(group.groupId) ? 'overflow-y-auto max-h-[380px]' : 'overflow-hidden max-h-0 opacity-0'"
+                   [style.opacity]="isExpanded(group.groupId) ? '1' : '0'">
+                <div class="p-3 sm:p-4 space-y-2">
+                  <p class="text-[11px] font-bold uppercase tracking-wider text-text-muted px-1 mb-1">
+                    Call Occurrences ({{ group.records.length }})
+                  </p>
+                  @for (record of group.records; track record.id || $index) {
+                    <div class="flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-surface-0/60 hover:bg-surface-0 border border-border-light/50 transition-all duration-150 group/item">
+                      <div class="flex items-center gap-3 min-w-0 flex-1">
+                        <!-- Icon -->
+                        <div class="w-7 h-7 rounded-lg bg-surface-1 flex items-center justify-center flex-shrink-0">
+                          @if (record.status === 'completed') {
+                            @if (isOutgoing(record)) {
+                              <i class="ti ti-phone-outgoing text-sky-500 text-xs"></i>
+                            } @else {
+                              <i class="ti ti-phone-incoming text-emerald-500 text-xs"></i>
+                            }
+                          } @else {
+                            <i class="ti ti-phone-x text-rose-500 text-xs"></i>
+                          }
+                        </div>
+
+                        <!-- Record Info -->
+                        <div class="flex flex-col min-w-0 flex-1">
+                          <div class="flex items-center gap-2">
+                            <span class="text-xs font-semibold text-text-primary">
+                              {{ isOutgoing(record) ? 'Outgoing' : 'Incoming' }} {{ record.callType === 'video' ? 'Video' : 'Audio' }}
+                            </span>
+                            @if (record.status === 'completed') {
+                              <span class="text-[11px] text-text-muted">• {{ callHistoryService.formatDuration(record.durationSeconds) }}</span>
+                            } @else {
+                              <span class="text-[11px] text-rose-500 font-semibold">• Missed</span>
+                            }
+                          </div>
+                          <span class="text-[10px] text-text-muted mt-0.5">
+                            {{ record.createdAt?.toDate ? (record.createdAt.toDate() | date:'medium') : 'Just now' }}
+                          </span>
+                        </div>
+                      </div>
+
+                      <!-- Individual Delete Button -->
+                      <button (click)="openDeleteSingleConfirm($event, record.id)"
+                              class="w-7 h-7 rounded-lg bg-surface-1 hover:bg-rose-500/15 hover:text-rose-500 text-text-muted flex items-center justify-center transition-all cursor-pointer opacity-100 sm:opacity-0 sm:group-hover/item:opacity-100"
+                              title="Delete this record">
+                        <i class="ti ti-trash text-xs"></i>
+                      </button>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+
+          </div>
+        }
+      </div>
+    } @else {
+      <div class="flex-1 w-full h-full flex flex-col items-center justify-center p-6 text-center select-none relative bg-bg-main">
+        <!-- Ambient Glowing Background Aura -->
+        <div class="absolute w-72 h-72 bg-accent/10 rounded-full blur-3xl -z-10 pointer-events-none"></div>
+
+        <!-- Glassmorphic Icon Badge -->
+        <div class="relative mb-5 group">
+          <div class="w-20 h-20 rounded-3xl bg-surface-1/90 border border-border-light/80 backdrop-blur-md flex items-center justify-center shadow-lg shadow-accent/5 group-hover:scale-105 transition-transform duration-300">
+            <i class="ti ti-phone-call text-4xl text-accent group-hover:text-accent transition-colors"></i>
+          </div>
+          <div class="w-7 h-7 rounded-full bg-surface-0 border border-border-light/80 flex items-center justify-center text-rose-500 text-xs shadow-md absolute -top-1 -right-1">
+            <i class="ti ti-phone-x"></i>
+          </div>
+        </div>
+
+        <!-- Title & Subtitle -->
+        <h3 class="text-xl font-bold text-text-primary tracking-tight">
+          {{ activeTab() === 'missed' ? 'No missed calls' : 'No call history yet' }}
+        </h3>
+        <p class="text-xs sm:text-sm text-text-muted mt-2 max-w-xs sm:max-w-sm leading-relaxed">
+          {{ activeTab() === 'missed' ? 'Calls you miss will appear here so you can return them easily.' : 'Connect with friends and colleagues instantly with high-quality audio & video calls.' }}
+        </p>
+
+        <!-- Action CTA Button -->
+        <button (click)="startNewCall()"
+                class="mt-6 px-5 py-2.5 bg-accent-gradient text-white rounded-xl text-xs sm:text-sm font-semibold shadow-md shadow-accent/20 hover:shadow-lg hover:shadow-accent/30 active:scale-95 transition-all duration-200 flex items-center gap-2 cursor-pointer">
+          <i class="ti ti-phone-call text-base"></i>
+          <span>Start a Call</span>
+        </button>
+      </div>
+    }
+  </div>
+
+  <!-- Floating Action Button (FAB) for Starting New Call -->
+  <button (click)="openNewCallModal()"
+          class="fixed bottom-20 right-5 sm:bottom-6 sm:right-6 z-40 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-accent hover:bg-accent-hover text-white shadow-xl shadow-accent/30 border border-white/20 flex items-center justify-center transition-all duration-200 hover:scale-105 active-press cursor-pointer"
+          title="Start New Call">
+    <i class="ti ti-phone-plus text-lg sm:text-2xl"></i>
+  </button>
+</div>
+
+@if (showClearConfirm()) {
+  <app-confirm-modal
+    title="Clear Call History"
+    message="Are you sure you want to clear all your call history? This action cannot be undone."
+    confirmText="Clear All"
+    type="danger"
+    (confirm)="confirmClearAllHistory()"
+    (cancel)="closeClearConfirm()">
+  </app-confirm-modal>
+}
+
+@if (showSingleDeleteConfirm()) {
+  <app-confirm-modal
+    title="Delete Call Log"
+    message="Are you sure you want to delete this call log?"
+    confirmText="Delete"
+    type="danger"
+    (confirm)="confirmDeleteSingleCall()"
+    (cancel)="closeDeleteSingleConfirm()">
+  </app-confirm-modal>
+}
+
+@if (showNewCallModal()) {
+  <app-new-call-modal (close)="closeNewCallModal()"></app-new-call-modal>
+}

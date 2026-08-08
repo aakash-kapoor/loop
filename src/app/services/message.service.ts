@@ -484,6 +484,7 @@ export class MessageService {
       lastMessageAt: now,
       lastMessageEncryptionVersion: 2,
       lastMessageIsSystem: false,
+      lastMessageSenderId: user.uid,
     };
 
     convo.participants.forEach((pId: string) => {

@@ -115,11 +115,8 @@ export class ConversationService {
           if (convo.lastMessage && convo.lastMessageEncryptionVersion === 2) {
             // Bypass decryption if it is a system message preview
             const isSystemMessage =
-              convo.lastMessageIsSystem ||
-              convo.lastMessage === 'Conversation started' ||
-              convo.lastMessage === 'Group created' ||
-              convo.lastMessage === 'Message deleted' ||
-              convo.lastMessage === 'Group deleted by admin';
+              convo.lastMessageIsSystem === true ||
+              (convo as any).lastMessageSenderId === 'system';
 
             if (isSystemMessage) {
               return convo;
