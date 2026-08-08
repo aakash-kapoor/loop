@@ -83,11 +83,39 @@ export class LiveKitService {
 
   constructor() {}
 
+  private vibrateInterval?: any;
+
+  public startVibration(): void {
+    this.stopVibration();
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        const trigger = () => {
+          navigator.vibrate([1000, 1000]);
+        };
+        trigger();
+        this.vibrateInterval = setInterval(trigger, 2000);
+      } catch (e) {}
+    }
+  }
+
+  public stopVibration(): void {
+    if (this.vibrateInterval) {
+      clearInterval(this.vibrateInterval);
+      this.vibrateInterval = undefined;
+    }
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate(0);
+      } catch (e) {}
+    }
+  }
+
   /**
-   * Play incoming call ringtone audio
+   * Play incoming call ringtone audio & trigger vibration pattern
    */
   public playIncomingRingtone(): void {
     this.stopRingtone();
+    this.startVibration();
     try {
       this.ringtoneAudio = new Audio('/assets/sounds/ringtone.mp3');
       this.ringtoneAudio.loop = true;
@@ -109,9 +137,10 @@ export class LiveKitService {
   }
 
   /**
-   * Stop ringtone audio
+   * Stop ringtone audio and cancel vibration
    */
   public stopRingtone(): void {
+    this.stopVibration();
     if (this.ringtoneAudio) {
       try {
         this.ringtoneAudio.pause();
