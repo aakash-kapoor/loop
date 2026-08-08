@@ -54,11 +54,18 @@ export class CallHistoryService {
     if (!currentUser) return;
 
     const nowMs = Date.now();
-    const callRecordData = {
+    const callRecordData: any = {
       ...record,
       createdAtMs: nowMs,
       createdAt: serverTimestamp(),
     };
+
+    // Remove undefined properties for Firestore compatibility
+    Object.keys(callRecordData).forEach((key) => {
+      if (callRecordData[key] === undefined) {
+        delete callRecordData[key];
+      }
+    });
 
     try {
       // 1. Save to callHistory collection using deterministic ID to prevent duplicate call records

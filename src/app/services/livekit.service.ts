@@ -173,7 +173,10 @@ export class LiveKitService {
     const convoId = convo.id;
     const callerName = currentUser.displayName || currentUser.username || 'User';
     const callerPhoto = currentUser.photoURL || '';
-    const participantIds = convo.participants || [];
+    let participantIds = [...(convo.participants || [])];
+    if (!participantIds.includes(currentUser.uid)) {
+      participantIds.push(currentUser.uid);
+    }
 
     const isGroup = convo.type === 'group' || participantIds.length > 2;
     let receiverName = isGroup ? (convo.groupName || 'Group Call') : 'User';
@@ -211,7 +214,7 @@ export class LiveKitService {
     };
 
     // 1. Create active call signal for all remote participants
-    const callData: IncomingCall = {
+    const rawCallData: IncomingCall = {
       callId: convoId,
       convoId: convoId,
       callerUid: currentUser.uid,
@@ -222,6 +225,11 @@ export class LiveKitService {
       callType: audioOnly ? 'audio' : 'video',
       status: 'ringing',
     };
+
+    // Sanitize object to remove undefined values for Firestore compatibility
+    const callData: any = { ...rawCallData };
+    if (!callData.groupName) delete callData.groupName;
+    if (!callData.callerPhoto) delete callData.callerPhoto;
 
     try {
       // 1. Set active call document FIRST so it is guaranteed to exist in Firestore before recipients receive signals
@@ -748,16 +756,21 @@ export class LiveKitService {
     if (!activeId || !this.callInfoForHistory) return;
 
     const info = this.callInfoForHistory;
-    const callData: IncomingCall = {
+    const rawCallData: IncomingCall = {
       callId: activeId,
       convoId: activeId,
       callerUid: info.callerUid,
       callerName: info.callerName,
       callerPhoto: info.callerPhoto,
+      groupName: info.groupName,
       participantIds: this.activeCallParticipantIds(),
       callType: info.callType,
       status: 'ringing',
     };
+
+    const callData: any = { ...rawCallData };
+    if (!callData.groupName) delete callData.groupName;
+    if (!callData.callerPhoto) delete callData.callerPhoto;
 
     try {
       await setDoc(doc(db, 'userCalls', uid), {
@@ -804,16 +817,21 @@ export class LiveKitService {
     if (!activeId || !this.callInfoForHistory) return;
 
     const info = this.callInfoForHistory;
-    const callData: IncomingCall = {
+    const rawCallData: IncomingCall = {
       callId: activeId,
       convoId: activeId,
       callerUid: info.callerUid,
       callerName: info.callerName,
       callerPhoto: info.callerPhoto,
+      groupName: info.groupName,
       participantIds: this.activeCallParticipantIds(),
       callType: info.callType,
       status: 'ringing',
     };
+
+    const callData: any = { ...rawCallData };
+    if (!callData.groupName) delete callData.groupName;
+    if (!callData.callerPhoto) delete callData.callerPhoto;
 
     try {
       // Atomic overwrite with pingAt to guarantee onSnapshot fires
