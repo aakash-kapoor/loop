@@ -18,6 +18,7 @@ import { Conversation, isConvoMuted } from '../../models/conversation.model';
 import { PickerComponent } from '@ctrl/ngx-emoji-mart';
 import { formatBytes } from '../../shared/utils/image-compressor';
 
+import { LiveKitService } from '../../services/livekit.service';
 import { GroupInfoModal } from './group-info-modal/group-info-modal';
 import { ConfirmModal } from '../../shared/confirm-modal/confirm-modal';
 import { ForwardModal } from '../../shared/forward-modal/forward-modal';
@@ -41,6 +42,7 @@ export class ChatViewComponent implements OnInit, OnDestroy {
   readonly attachmentService = inject(AttachmentUploadService);
   readonly chatSearchService = inject(ChatSearchService);
   readonly mentionService = inject(MentionService);
+  readonly liveKitService = inject(LiveKitService);
 
   private readonly userService = inject(UserService);
   private readonly draftService = inject(DraftService);
@@ -756,6 +758,22 @@ export class ChatViewComponent implements OnInit, OnDestroy {
       this.sendError.set(err.message || `Failed to ${action} chat.`);
     } finally {
       this.isSubmittingConfirm.set(false);
+    }
+  }
+
+  /** Initiates an Audio-only call via LiveKit with real-time signaling */
+  startAudioCall(): void {
+    const convo = this.convo();
+    if (convo) {
+      this.liveKitService.initiateCall(convo, true);
+    }
+  }
+
+  /** Initiates a Video call via LiveKit with real-time signaling */
+  startVideoCall(): void {
+    const convo = this.convo();
+    if (convo) {
+      this.liveKitService.initiateCall(convo, false);
     }
   }
 }

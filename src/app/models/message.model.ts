@@ -7,6 +7,14 @@ export interface MessageAttachment {
     storagePath?: string;
 }
 
+export interface MessageCallLog {
+    callType: 'audio' | 'video';
+    status: 'completed' | 'missed' | 'declined';
+    durationSeconds: number;
+    callerUid: string;
+    callerName: string;
+}
+
 export interface Message {
     id: string;
     senderId: string;
@@ -22,4 +30,5 @@ export interface Message {
     seenBy?: string[];            // UIDs who have read this message (read receipts)
     attachments?: MessageAttachment[];
     forwardedFrom?: string;       // source message ID — present only on forwarded copies (cosmetic only)
+    callLog?: MessageCallLog;
 }

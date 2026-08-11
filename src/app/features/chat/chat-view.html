@@ -14,11 +14,11 @@
     <!-- Chat Header -->
     <div
       class="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 pb-2.5 sm:pb-3 pt-[calc(0.625rem+env(safe-area-inset-top,0px))] border-b border-border-light/60 bg-surface-0/75 backdrop-blur-xl flex-shrink-0 z-30 relative">
-      <!-- Close / Back button -->
+      <!-- Navigation Back Button (Consistent with Settings page) -->
       <button (click)="goBack()"
-        class="text-text-secondary hover:text-accent hover:bg-surface-1 w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer mr-0.5 sm:mr-1 flex-shrink-0 active-press"
+        class="text-accent hover:bg-surface-1 w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer mr-0.5 sm:mr-1 flex-shrink-0 active-press"
         title="Close chat" aria-label="Close chat">
-        <i class="ti ti-chevron-left text-lg"></i>
+        <i class="ti ti-arrow-left text-xl"></i>
       </button>
 
       <!-- Avatar -->
@@ -55,6 +55,20 @@
 
       <!-- Action buttons -->
       <div class="flex items-center gap-0.5 sm:gap-1 text-text-secondary relative flex-shrink-0">
+        <!-- Audio Call Button -->
+        <button (click)="startAudioCall()"
+          class="w-8 h-8 rounded-full hover:bg-surface-1 flex items-center justify-center transition-colors cursor-pointer text-text-muted hover:text-accent active-press"
+          title="Start Audio Call" aria-label="Start Audio Call">
+          <i class="ti ti-phone text-lg"></i>
+        </button>
+
+        <!-- Video Call Button -->
+        <button (click)="startVideoCall()"
+          class="w-8 h-8 rounded-full hover:bg-surface-1 flex items-center justify-center transition-colors cursor-pointer text-text-muted hover:text-accent active-press"
+          title="Start Video Call" aria-label="Start Video Call">
+          <i class="ti ti-video text-lg"></i>
+        </button>
+
         <!-- Search Messages Button -->
         <button (click)="toggleSearch()"
           class="w-8 h-8 rounded-full hover:bg-surface-1 flex items-center justify-center transition-colors cursor-pointer text-text-muted hover:text-accent active-press"

@@ -211,6 +211,19 @@ input, textarea, [contenteditable="true"], .select-text, .message-bubble-content
   }
 }
 
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 .message-highlight-pulse {
   animation: messageHighlightPulse 1.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }

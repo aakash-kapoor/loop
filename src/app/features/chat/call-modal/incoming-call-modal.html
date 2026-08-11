@@ -1,0 +1,57 @@
+@if (liveKitService.incomingCall()) {
+  <div class="fixed top-6 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-md bg-surface-0/95 backdrop-blur-2xl border border-border-light rounded-3xl p-5 shadow-2xl shadow-accent/10 animate-bounce-in select-none">
+    <div class="flex items-center gap-4">
+      
+      <!-- Caller Avatar with Ringing Pulse -->
+      <div class="relative flex-shrink-0">
+        <div class="w-14 h-14 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent text-2xl font-bold overflow-hidden shadow-inner">
+          @if (liveKitService.incomingCall()?.callerPhoto) {
+            <img [src]="liveKitService.incomingCall()?.callerPhoto" class="w-full h-full object-cover" alt="Caller photo" />
+          } @else {
+            <i class="ti ti-user"></i>
+          }
+        </div>
+        <!-- Pulsing Ring Badge -->
+        <span class="absolute -top-1 -right-1 flex h-4 w-4">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-4 w-4 bg-emerald-500 border-2 border-surface-0"></span>
+        </span>
+      </div>
+
+      <!-- Caller Information -->
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2">
+          <h4 class="text-text-primary font-semibold text-base truncate">
+            {{ liveKitService.incomingCall()?.callerName }}
+          </h4>
+        </div>
+        <p class="text-xs text-text-secondary font-medium flex items-center gap-1.5 mt-0.5">
+          <i [class]="liveKitService.incomingCall()?.callType === 'audio' ? 'ti ti-phone-call text-accent' : 'ti ti-video text-accent'"></i>
+          @if (liveKitService.incomingCall()?.groupName) {
+            Group {{ liveKitService.incomingCall()?.callType === 'audio' ? 'Audio' : 'Video' }} Call in {{ liveKitService.incomingCall()?.groupName }}...
+          } @else {
+            Incoming {{ liveKitService.incomingCall()?.callType === 'audio' ? 'Audio' : 'Video' }} Call...
+          }
+        </p>
+      </div>
+
+      <!-- Action Buttons (Decline & Accept) -->
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <!-- Decline Button -->
+        <button (click)="liveKitService.declineIncomingCall()"
+                class="w-11 h-11 rounded-full bg-red-500/10 hover:bg-red-600 text-red-500 hover:text-white border border-red-500/20 flex items-center justify-center text-lg transition-all duration-200 cursor-pointer active:scale-95"
+                title="Decline Call">
+          <i class="ti ti-phone-off"></i>
+        </button>
+
+        <!-- Accept Button -->
+        <button (click)="liveKitService.acceptIncomingCall()"
+                class="w-11 h-11 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30 flex items-center justify-center text-lg transition-all duration-200 cursor-pointer active:scale-95 animate-pulse"
+                title="Accept Call">
+          <i class="ti ti-phone-call"></i>
+        </button>
+      </div>
+
+    </div>
+  </div>
+}

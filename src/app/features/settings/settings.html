@@ -19,7 +19,8 @@
 
     <!-- Profile Summary Card -->
     @if (currentUser()) {
-    <div class="flex items-center gap-4 p-4 glass-liquid-card rounded-3xl flex-shrink-0 relative group/avatarCard">
+    <div class="flex items-center gap-4 p-4 glass-liquid-card rounded-3xl flex-shrink-0 relative group/avatarCard transition-all"
+      [ngClass]="isAvatarMenuOpen() ? 'z-30' : 'z-10'">
 
       <!-- Clean Avatar Container (Clicking opens action dropdown menu) -->
       <div class="avatar-container relative cursor-pointer flex-shrink-0 group/avatar"

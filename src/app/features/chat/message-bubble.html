@@ -1,9 +1,77 @@
-@if (message.senderId === 'system') {
+@if (message.senderId === 'system' && !message.callLog) {
 <div class="flex justify-center my-2.5 w-full animate-slideUpFade">
   <span
     class="px-3 py-1 bg-surface-1/80 backdrop-blur-sm border border-border-light/60 text-text-muted text-[10px] font-semibold tracking-wide rounded-full">
     {{ message.text }}
   </span>
+</div>
+} @else if (message.callLog) {
+<div class="flex items-center w-full max-w-full my-1 sm:my-1.5 animate-slideUpFade relative" [ngClass]="{
+  'justify-end': isCallOutgoing(),
+  'justify-start gap-2': !isCallOutgoing()
+}">
+  <!-- Incoming Avatar (Shown on Left for Incoming/Missed Calls) -->
+  @if (!isCallOutgoing()) {
+    <app-avatar [photoURL]="senderProfile()?.photoURL" [displayName]="senderProfile()?.displayName" size="sm" class="self-end mb-0.5 flex-shrink-0"></app-avatar>
+  }
+
+  <div class="flex flex-col max-w-[85%] sm:max-w-[70%] min-w-0" [ngClass]="{'items-end': isCallOutgoing(), 'items-start': !isCallOutgoing()}">
+    <div class="flex items-center gap-3 px-3.5 py-2.5 shadow-sm text-sm rounded-2xl select-none min-w-[210px]"
+      [ngClass]="{
+        'bg-accent-gradient text-white rounded-tr-sm shadow-md shadow-indigo-500/15': isCallOutgoing(),
+        'bg-surface-1 border border-border-light/80 text-text-primary rounded-tl-sm': !isCallOutgoing()
+      }">
+      <!-- Call Icon Badge -->
+      <div class="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
+        [ngClass]="{
+          'bg-white/20 text-white': isCallOutgoing(),
+          'bg-emerald-500/15 text-emerald-500': !isCallOutgoing() && message.callLog.status === 'completed',
+          'bg-rose-500/15 text-rose-500': !isCallOutgoing() && (message.callLog.status === 'missed' || message.callLog.status === 'declined')
+        }">
+        @if (message.callLog.status === 'completed') {
+          <i class="ti" [ngClass]="{
+            'ti-phone-outgoing': isCallOutgoing() && message.callLog.callType === 'audio',
+            'ti-phone-incoming': !isCallOutgoing() && message.callLog.callType === 'audio',
+            'ti-video': message.callLog.callType === 'video'
+          }"></i>
+        } @else {
+          <i class="ti ti-phone-x"></i>
+        }
+      </div>
+
+      <!-- Call Status & Subtitle -->
+      <div class="flex flex-col min-w-0 flex-1">
+        <span class="text-xs font-bold leading-tight" [ngClass]="{'text-rose-400': !isCallOutgoing() && message.callLog.status !== 'completed'}">
+          @if (isCallOutgoing()) {
+            {{ message.callLog.callType === 'video' ? 'Outgoing Video Call' : 'Outgoing Audio Call' }}
+          } @else {
+            @if (message.callLog.status === 'completed') {
+              {{ message.callLog.callType === 'video' ? 'Incoming Video Call' : 'Incoming Audio Call' }}
+            } @else {
+              {{ message.callLog.callType === 'video' ? 'Missed Video Call' : 'Missed Audio Call' }}
+            }
+          }
+        </span>
+        <div class="flex items-center gap-1.5 text-[10.5px] mt-0.5" [ngClass]="isCallOutgoing() ? 'text-white/80' : 'text-text-muted font-medium'">
+          <span>{{ message.text }}</span>
+          <span>•</span>
+          <span>{{ message.createdAt | date:'shortTime' }}</span>
+        </div>
+      </div>
+
+      <!-- One-Click Call Back Button -->
+      <button (click)="callBack(message.callLog.callType === 'audio')"
+              class="px-2.5 py-1 rounded-xl text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer active-press shadow-sm flex-shrink-0"
+              [ngClass]="{
+                'bg-white/20 hover:bg-white/30 text-white': isCallOutgoing(),
+                'bg-accent/15 hover:bg-accent/25 text-accent': !isCallOutgoing()
+              }"
+              title="Call back">
+        <i class="ti" [ngClass]="message.callLog.callType === 'video' ? 'ti-video' : 'ti-phone'"></i>
+        <span>Call</span>
+      </button>
+    </div>
+  </div>
 </div>
 } @else {
 <div class="flex items-center w-full max-w-full my-1 sm:my-1.5 animate-slideUpFade relative" [ngClass]="{

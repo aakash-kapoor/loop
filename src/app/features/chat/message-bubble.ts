@@ -4,6 +4,8 @@ import { Message, MessageAttachment } from '../../models/message.model';
 import { Auth } from '../../core/auth';
 import { UserService } from '../../services/user.service';
 import { MessageService } from '../../services/message.service';
+import { LiveKitService } from '../../services/livekit.service';
+import { ConversationService } from '../../services/conversation.service';
 import { Avatar } from '../../shared/avatar/avatar';
 import { dataUrlToBlob, downloadBlob, formatBytes } from '../../shared/utils/image-compressor';
 
@@ -14,6 +16,8 @@ import { dataUrlToBlob, downloadBlob, formatBytes } from '../../shared/utils/ima
   styleUrl: './message-bubble.scss',
 })
 export class MessageBubble implements AfterViewInit, OnDestroy {
+  private readonly liveKitService = inject(LiveKitService);
+  private readonly conversationService = inject(ConversationService);
   readonly messageSignal = signal<Message | null>(null);
 
   // Lightbox overlay state for full-resolution image preview
@@ -61,6 +65,18 @@ export class MessageBubble implements AfterViewInit, OnDestroy {
     return this.messageSignal()!;
   }
 
+  callBack(audioOnly: boolean = false): void {
+    const convo = this.conversationService.selectedConversation();
+    if (convo) {
+      this.liveKitService.initiateCall(convo, audioOnly);
+    }
+  }
+
+  isCallOutgoing(): boolean {
+    if (!this.message.callLog) return this.isOutgoing();
+    return this.message.callLog.callerUid === this.auth.currentUser()?.uid;
+  }
+
   readonly replyToMessageSignal = signal<Message | null>(null);
 
   @Input() set replyToMessage(val: Message | null) {
@@ -100,7 +116,7 @@ export class MessageBubble implements AfterViewInit, OnDestroy {
   /** All conversation participants — needed for read-receipt status. */
   @Input() participants: string[] = [];
 
-  private readonly auth = inject(Auth);
+  public readonly auth = inject(Auth);
   private readonly userService = inject(UserService);
   private readonly messageService = inject(MessageService);
   private readonly elementRef = inject(ElementRef);
@@ -253,7 +269,17 @@ export class MessageBubble implements AfterViewInit, OnDestroy {
 
   readonly senderProfile = computed(() => {
     const msg = this.messageSignal();
-    if (!msg || msg.senderId === 'system') return null;
+    if (!msg) return null;
+
+    if (msg.callLog?.callerUid) {
+      const profile = this.userService.usersCache()[msg.callLog.callerUid];
+      if (!profile) {
+        this.userService.getUserProfile(msg.callLog.callerUid);
+      }
+      return profile || ({ displayName: msg.callLog.callerName, uid: msg.callLog.callerUid } as any);
+    }
+
+    if (msg.senderId === 'system') return null;
     return this.userService.usersCache()[msg.senderId] || null;
   });
 

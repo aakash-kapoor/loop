@@ -3,11 +3,14 @@ import { Router, RouterOutlet } from '@angular/router';
 import { Auth } from './core/auth';
 import { CryptoService } from './services/crypto.service';
 import { PwaService } from './services/pwa.service';
+import { LiveKitService } from './services/livekit.service';
 import { ToastComponent } from './shared/toast/toast';
+import { IncomingCallModalComponent } from './features/chat/call-modal/incoming-call-modal';
+import { CallModalComponent } from './features/chat/call-modal/call-modal';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, ToastComponent],
+  imports: [RouterOutlet, ToastComponent, IncomingCallModalComponent, CallModalComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss'
 })
@@ -16,11 +19,22 @@ export class App {
   private readonly router = inject(Router);
   private readonly cryptoService = inject(CryptoService);
   private readonly pwaService = inject(PwaService);
+  private readonly liveKitService = inject(LiveKitService);
 
   // App is loading while the initial authentication state is unresolved (undefined)
   readonly isLoading = computed(() => this.authService.currentUser() === undefined);
 
   constructor() {
+    // Listen for incoming call signals for authenticated user
+    effect(() => {
+      const user = this.authService.currentUser();
+      if (user?.uid) {
+        this.liveKitService.listenForIncomingCalls(user.uid);
+      } else if (user === null) {
+        this.liveKitService.stopListeningForIncomingCalls();
+      }
+    });
+
     // Global Routing Coordinator: reactively moves user based on auth profile changes
     effect(() => {
       const user = this.authService.currentUser();

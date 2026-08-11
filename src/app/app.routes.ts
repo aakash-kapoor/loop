@@ -57,6 +57,11 @@ export const routes: Routes = [
           import('./features/settings/settings').then((m) => m.Settings),
       },
       {
+        path: 'calls',
+        loadComponent: () =>
+          import('./features/calls/calls').then((m) => m.CallsComponent),
+      },
+      {
         path: '',
         redirectTo: 'chats',
         pathMatch: 'full',
