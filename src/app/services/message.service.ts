@@ -221,10 +221,10 @@ export class MessageService {
   private async handleConvoNotification(convo: Conversation) {
     console.info('🔔 Triggering notification for conversation:', convo.id, 'Permission:', typeof Notification !== 'undefined' ? Notification.permission : 'unavailable');
 
-    // 1. Play Web Audio synthetic ping sound if enabled
+    // 1. Play MP3 notification chime if enabled
     const soundEnabled = localStorage.getItem('sound_effects') !== 'false';
     if (soundEnabled) {
-      this.playSyntheticPing();
+      this.playNotificationChime();
     }
 
     // 2. Trigger browser native notification if enabled
@@ -297,39 +297,24 @@ export class MessageService {
     }
   }
 
-  private audioCtx: AudioContext | null = null;
-
-  private playSyntheticPing() {
+  private playNotificationChime() {
     try {
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContextClass) return;
+      const audio = new Audio('/assets/sounds/notification.mp3');
+      audio.volume = 0.65;
 
-      if (!this.audioCtx) {
-        this.audioCtx = new AudioContextClass();
-      }
-      const ctx = this.audioCtx;
-      if (ctx.state === 'suspended') {
-        ctx.resume();
-      }
+      audio.onerror = () => {
+        // Fallback pop chime audio if custom local MP3 is missing
+        if (audio && !audio.src.includes('mixkit')) {
+          audio.src = 'https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3';
+          audio.play().catch(() => {});
+        }
+      };
 
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      osc.type = 'sine';
-      // pop chime sweep
-      osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
-      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.08); // A5
-
-      gain.gain.setValueAtTime(0.12, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc.start();
-      osc.stop(ctx.currentTime + 0.22);
+      audio.play().catch((err) => {
+        console.warn('[MessageService] Notification audio playback prevented by browser:', err);
+      });
     } catch (e) {
-      console.warn('Web Audio synthesis failed:', e);
+      console.warn('[MessageService] Notification audio init failed:', e);
     }
   }
 

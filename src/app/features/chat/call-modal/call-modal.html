@@ -44,19 +44,11 @@
   </div>
 
   <!-- Main Media / Participant Display -->
-  <div class="w-full max-w-4xl flex-1 my-auto flex items-center justify-center relative overflow-y-auto max-h-[calc(100vh-140px)] py-2 custom-scrollbar">
+  <div class="w-full max-w-4xl flex-1 my-auto flex items-center justify-center relative py-2"
+    [ngClass]="liveKitService.isGroupCall() ? 'overflow-y-auto max-h-[calc(100vh-140px)] custom-scrollbar' : 'overflow-hidden'">
 
-    <!-- Connecting State -->
-    @if (liveKitService.isConnecting()) {
-    <div class="flex flex-col items-center justify-center text-center p-8">
-      <div
-        class="w-20 h-20 rounded-2xl bg-accent/15 border border-accent/30 flex items-center justify-center mb-5 text-accent text-3xl animate-pulse shadow-xl shadow-accent/10">
-        <i class="ti ti-phone-call"></i>
-      </div>
-      <p class="text-white font-semibold text-xl tracking-tight">Connecting Call</p>
-      <p class="text-slate-400 text-sm mt-1 max-w-sm">Establishing WebRTC audio & video session...</p>
-    </div>
-    } @else if (liveKitService.remoteParticipants().length === 0) {
+    <!-- Main Call Body -->
+    @if (liveKitService.remoteParticipants().length === 0) {
 
     <!-- Compact Ringing Screen with Reduced Avatar Size -->
     <div class="flex flex-col items-center justify-center text-center p-6 w-full max-w-sm my-auto animate-fadeIn">
@@ -64,7 +56,8 @@
       <!-- Concentric Emerald Sonar Rings around Compact Circular Avatar -->
       <div class="relative flex items-center justify-center w-28 h-28 my-3">
         <div class="absolute inset-0 rounded-full border border-emerald-500/40 animate-ping"></div>
-        <div class="absolute w-24 h-24 rounded-full border border-emerald-500/50 animate-ping" style="animation-delay: 0.75s"></div>
+        <div class="absolute w-24 h-24 rounded-full border border-emerald-500/50 animate-ping"
+          style="animation-delay: 0.75s"></div>
         <div
           class="w-20 h-20 rounded-full bg-[#312e81] border-2 border-emerald-500 flex items-center justify-center text-white text-3xl font-semibold z-10 overflow-hidden shadow-xl shadow-emerald-500/20">
           @if (liveKitService.activeCallInfo()?.receiverPhoto) {
@@ -96,14 +89,113 @@
 
     } @else {
 
-    <!-- Active Multi-Participant Grid Layout (Symmetrical aspect tiles across all screens) -->
+    <!-- ─── 1:1 Call: Full-screen remote + PiP local ─── -->
+    @if (!liveKitService.isGroupCall() && liveKitService.remoteParticipants().length === 1) {
+    <div class="relative w-full flex-1 min-h-0 flex items-center justify-center">
+
+      @for (participant of liveKitService.remoteParticipants(); track participant.participantSid) {
+      <!-- Remote: fills the container, 9:16 on mobile, 16:9 on desktop -->
+      <div class="relative w-full aspect-[9/16] sm:aspect-video bg-[#111827] rounded-2xl overflow-hidden shadow-2xl"
+        [style.border]="participant.isSpeaking ? '2px solid #22c55e' : '0.5px solid #1e2535'">
+
+        <!-- REMOTE VIDEO LAYER -->
+        <div [ngClass]="(isPiPSwapped() && !liveKitService.isCameraOff()) ?
+             'absolute bottom-3 right-3 w-24 sm:w-28 aspect-[9/16] sm:aspect-video bg-[#111827] rounded-xl overflow-hidden border-2 border-white/20 shadow-xl z-20 cursor-pointer transition-transform active:scale-95' :
+             'w-full h-full absolute inset-0 z-0'"
+          (click)="(isPiPSwapped() && !liveKitService.isCameraOff()) ? togglePiPSwap() : null"
+          [title]="(isPiPSwapped() && !liveKitService.isCameraOff()) ? 'Tap to swap' : ''">
+
+          <video [id]="'remote-video-' + participant.participantSid" autoplay playsinline
+            class="w-full h-full absolute inset-0"
+            [class.object-contain]="participant.isPortraitStream && !(isPiPSwapped() && !liveKitService.isCameraOff())"
+            [class.object-cover]="!participant.isPortraitStream || (isPiPSwapped() && !liveKitService.isCameraOff())"
+            [class.hidden]="!participant.videoTrack || participant.isVideoMuted"
+            (loadedmetadata)="onVideoMetadataLoaded($event, participant.participantSid)"
+            (resize)="onVideoMetadataLoaded($event, participant.participantSid)"></video>
+          <audio [id]="'remote-audio-' + participant.participantSid" autoplay playsinline></audio>
+
+          @if (!participant.videoTrack || participant.isVideoMuted) {
+          <div class="flex flex-col items-center justify-center gap-1 z-10 text-center w-full h-full">
+            <div
+              [ngClass]="(isPiPSwapped() && !liveKitService.isCameraOff()) ? 'w-8 h-8 rounded-lg text-sm' : 'w-16 h-16 rounded-2xl text-2xl'"
+              class="bg-[#1e3a5f] flex items-center justify-center text-[#bfdbfe] font-semibold overflow-hidden shadow-inner">
+              @if (participant.photoURL) {
+              <img [src]="participant.photoURL" class="w-full h-full object-cover" alt="Avatar" />
+              } @else {
+              <span>{{ (participant.displayName || participant.identity || 'U').charAt(0).toUpperCase() }}</span>
+              }
+            </div>
+            @if (!(isPiPSwapped() && !liveKitService.isCameraOff())) {
+            <span class="text-slate-100 text-sm font-medium mt-2">{{ participant.displayName || participant.identity
+              }}</span>
+            }
+          </div>
+          }
+
+          <!-- Speaking badge -->
+          @if (participant.isSpeaking) {
+          <div
+            [ngClass]="(isPiPSwapped() && !liveKitService.isCameraOff()) ? 'top-1.5 right-1.5 px-1 py-0.5 text-[8px]' : 'top-3 right-3 px-2 py-0.5 text-[10px]'"
+            class="absolute bg-[#052e16] border border-[#166534] rounded-md z-10 flex items-center justify-center">
+            <span class="text-[#4ade80] font-medium leading-none">Speaking</span>
+          </div>
+          }
+
+          <!-- Name + mic badge -->
+          <div
+            [ngClass]="(isPiPSwapped() && !liveKitService.isCameraOff()) ? 'bottom-1.5 left-1.5 px-1.5 py-0.5 border-white/10' : 'bottom-3 left-3 px-2 py-1 border-[#1e2535]'"
+            class="absolute bg-[#0f172a]/90 rounded-lg flex items-center gap-1 border text-xs z-10 leading-none">
+            @if (participant.videoTrack && !participant.isVideoMuted) {
+            <span class="text-[#94a3b8] font-medium truncate leading-none"
+              [ngClass]="(isPiPSwapped() && !liveKitService.isCameraOff()) ? 'max-w-[45px] text-[9px]' : 'max-w-[110px] text-[10px]'">
+              {{ participant.displayName || participant.identity }}
+            </span>
+            }
+            @if (participant.isAudioMuted || !participant.audioTrack) {
+            <i class="ti ti-microphone-off text-rose-500 text-[9px] leading-none" title="Muted"></i>
+            } @else if (participant.isSpeaking) {
+            <div class="flex items-end gap-0.5 h-2">
+              <span class="w-0.5 bg-[#22c55e] rounded-full h-[40%]"></span>
+              <span class="w-0.5 bg-[#22c55e] rounded-full h-[100%]"></span>
+              <span class="w-0.5 bg-[#22c55e] rounded-full h-[60%]"></span>
+            </div>
+            } @else {
+            <i class="ti ti-microphone text-emerald-500 text-[9px] leading-none"></i>
+            }
+          </div>
+        </div>
+
+        <!-- LOCAL VIDEO LAYER -->
+        @if (!liveKitService.isCameraOff()) {
+        <div
+          [ngClass]="isPiPSwapped() ?
+             'w-full h-full absolute inset-0 z-0' :
+             'absolute bottom-3 right-3 w-24 sm:w-28 aspect-[9/16] sm:aspect-video bg-[#111827] rounded-xl overflow-hidden border-2 border-white/20 shadow-xl z-20 cursor-pointer transition-transform active:scale-95'"
+          (click)="!isPiPSwapped() ? togglePiPSwap() : null" [title]="!isPiPSwapped() ? 'Tap to swap' : ''">
+          <video #localVideo autoplay playsinline muted class="w-full h-full object-cover scale-x-[-1]"></video>
+          <!-- You label + mic -->
+          <div class="absolute bottom-2 left-2 bg-[#0f172a]/80 rounded-md px-1.5 py-0.5 flex items-center gap-1 z-10">
+            <span class="text-white text-[9px] font-semibold leading-none">You</span>
+            @if (liveKitService.isMicMuted()) {
+            <i class="ti ti-microphone-off text-rose-500 text-[9px] leading-none"></i>
+            }
+          </div>
+        </div>
+        }
+
+      </div>
+      }
+    </div>
+    }
+
+    <!-- ─── Group Call: symmetric grid tiles ─── -->
+    @if (liveKitService.isGroupCall() || liveKitService.remoteParticipants().length > 1) {
     <div class="w-full max-w-3xl grid gap-2.5 sm:gap-4 items-center justify-center px-1"
       [ngClass]="liveKitService.remoteParticipants().length > 1 ? 'grid-cols-2 sm:grid-cols-2 md:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'">
 
-      <!-- Remote Participants Video/Audio Tiles -->
       @for (participant of liveKitService.remoteParticipants(); track participant.participantSid) {
       <div
-        class="relative bg-[#111827] rounded-2xl overflow-hidden transition-all duration-300 shadow-2xl w-full aspect-video min-h-[120px] sm:min-h-[180px] flex flex-col items-center justify-center p-2.5 sm:p-4 group"
+        class="relative bg-[#111827] rounded-2xl overflow-hidden transition-all duration-300 shadow-2xl w-full flex flex-col items-center justify-center p-2.5 sm:p-4 group aspect-video min-h-[140px] sm:min-h-[180px]"
         [style.border]="participant.isSpeaking ? '2px solid #22c55e' : '0.5px solid #1e2535'">
 
         <video [id]="'remote-video-' + participant.participantSid" autoplay playsinline
@@ -121,18 +213,11 @@
             <span>{{ (participant.displayName || participant.identity || 'U').charAt(0).toUpperCase() }}</span>
             }
           </div>
-          <span class="text-slate-100 text-[11px] sm:text-xs font-medium truncate max-w-[120px]">
-            {{ participant.displayName || participant.identity }}
-          </span>
-          @if (participant.username) {
-          <span class="text-[#64748b] text-[9px] sm:text-[10px] font-normal">
-            &#64;{{ participant.username }}
-          </span>
-          }
+          <span class="text-slate-100 text-[11px] sm:text-xs font-medium truncate max-w-[120px]">{{
+            participant.displayName || participant.identity }}</span>
         </div>
         }
 
-        <!-- Speaking Badge Top Right -->
         @if (participant.isSpeaking) {
         <div
           class="absolute top-2 right-2 bg-[#052e16] border border-[#166534] rounded-md px-1.5 sm:px-2 py-0.5 z-10 flex items-center justify-center leading-none">
@@ -140,18 +225,16 @@
         </div>
         }
 
-        <!-- Participant Tag & Mic Status Bottom Left -->
         <div
           class="absolute bottom-2 left-2 bg-[#0f172a]/90 rounded-lg px-2 py-1 flex items-center gap-1.5 border border-[#1e2535] text-xs z-10 leading-none">
           @if (participant.videoTrack && !participant.isVideoMuted) {
-          <span class="text-[#94a3b8] text-[10px] sm:text-[11px] font-medium truncate max-w-[90px] sm:max-w-[110px] leading-none">
-            {{ participant.displayName || participant.identity }}
-          </span>
+          <span
+            class="text-[#94a3b8] text-[10px] sm:text-[11px] font-medium truncate max-w-[90px] sm:max-w-[110px] leading-none">{{
+            participant.displayName || participant.identity }}</span>
           }
           @if (participant.isAudioMuted || !participant.audioTrack) {
           <i class="ti ti-microphone-off text-rose-500 text-xs leading-none" title="Muted"></i>
           } @else if (participant.isSpeaking) {
-          <!-- Active Speaking Sound Wave Bars -->
           <div class="flex items-end gap-0.5 h-2.5">
             <span class="w-0.5 bg-[#22c55e] rounded-full h-[40%]"></span>
             <span class="w-0.5 bg-[#22c55e] rounded-full h-[100%]"></span>
@@ -164,13 +247,11 @@
       </div>
       }
 
-      <!-- Local User Tile (Symmetrical card identical in shape) -->
+      <!-- Local tile in group grid -->
       <div
-        class="relative bg-[#111827] rounded-2xl overflow-hidden transition-all duration-300 shadow-2xl w-full aspect-video min-h-[120px] sm:min-h-[180px] flex flex-col items-center justify-center p-2.5 sm:p-4 group border border-[#1e2535]">
-
+        class="relative bg-[#111827] rounded-2xl overflow-hidden transition-all duration-300 shadow-2xl w-full flex flex-col items-center justify-center p-2.5 sm:p-4 group border border-[#1e2535] aspect-video min-h-[140px] sm:min-h-[180px]">
         <video #localVideo autoplay playsinline muted class="w-full h-full object-cover rounded-2xl absolute inset-0"
           [class.hidden]="liveKitService.isCameraOff()"></video>
-
         @if (liveKitService.isCameraOff()) {
         <div class="flex flex-col items-center justify-center gap-1 z-10 text-center">
           <div
@@ -182,18 +263,10 @@
               }}</span>
             }
           </div>
-          <span class="text-slate-100 text-[11px] sm:text-xs font-medium truncate max-w-[120px]">
-            {{ auth.currentUser()?.displayName || auth.currentUser()?.username || 'You' }}
-          </span>
-          @if (auth.currentUser()?.username) {
-          <span class="text-[#64748b] text-[9px] sm:text-[10px] font-normal">
-            &#64;{{ auth.currentUser()?.username }}
-          </span>
-          }
+          <span class="text-slate-100 text-[11px] sm:text-xs font-medium truncate max-w-[120px]">{{
+            auth.currentUser()?.displayName || auth.currentUser()?.username || 'You' }}</span>
         </div>
         }
-
-        <!-- Participant Tag & Mic Status Bottom Left -->
         <div
           class="absolute bottom-2 left-2 bg-[#0f172a]/90 rounded-lg px-2 py-1 flex items-center gap-1.5 border border-[#1e2535] text-xs z-10 leading-none">
           @if (!liveKitService.isCameraOff()) {
@@ -209,11 +282,13 @@
 
     </div>
     }
+
+    }
   </div>
 
   <!-- Bottom Controls Floating Bar -->
   <div
-    class="w-full max-w-xs sm:max-w-sm flex items-center justify-center gap-2.5 z-10 p-3 bg-[#111827] border border-[#1e2535] rounded-2xl shadow-2xl">
+    class="w-full max-w-xs sm:max-w-sm flex items-center justify-center gap-2 sm:gap-2.5 z-10 p-3 bg-[#111827] border border-[#1e2535] rounded-2xl shadow-2xl">
     <!-- Mute/Unmute Mic (Slate dark when inactive, red icon when muted) -->
     <button (click)="liveKitService.toggleMicrophone()"
       class="w-11 h-11 rounded-xl bg-[#1e2535] border border-[#2d3a4f] text-[#f1f5f9] flex items-center justify-center transition-all cursor-pointer active-press hover:bg-[#283347]"
@@ -230,6 +305,15 @@
         [ngClass]="liveKitService.isCameraOff() ? 'ti-video-off text-slate-400' : 'ti-video text-slate-100'"></i>
     </button>
 
+    <!-- Camera Flip Button (Front / Rear Camera Toggle — Mobile Only) -->
+    @if (!liveKitService.isCameraOff()) {
+    <button (click)="liveKitService.flipCamera()"
+      class="w-11 h-11 rounded-xl bg-[#1e2535] border border-[#2d3a4f] text-[#f1f5f9] flex items-center justify-center transition-all cursor-pointer active-press hover:bg-[#283347] sm:hidden"
+      title="Flip Camera (Front/Back)">
+      <i class="ti ti-camera-rotate text-xl text-slate-100"></i>
+    </button>
+    }
+
     <!-- Participants Panel Toggle (Group Calls Only) -->
     @if (liveKitService.isGroupCall()) {
     <button (click)="toggleParticipantsPanel()"
@@ -237,7 +321,8 @@
       [ngClass]="showParticipantsPanel() ? 'bg-accent/20 border-accent/40 text-accent' : 'bg-[#1e2535] border-[#2d3a4f] text-[#f1f5f9] hover:bg-[#283347]'"
       title="Participants">
       <i class="ti ti-users text-xl"></i>
-      <span class="absolute -top-1 -right-1 bg-accent text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center leading-none">
+      <span
+        class="absolute -top-1 -right-1 bg-accent text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center leading-none">
         {{ participantCount() }}
       </span>
     </button>
@@ -254,11 +339,11 @@
   <!-- Participants Panel (Slide from Right on Desktop, Bottom Sheet on Mobile) -->
   @if (showParticipantsPanel() && liveKitService.isGroupCall()) {
   <!-- Backdrop -->
-  <div (click)="toggleParticipantsPanel()"
-    class="fixed inset-0 bg-black/40 z-[60] animate-fadeIn"></div>
+  <div (click)="toggleParticipantsPanel()" class="fixed inset-0 bg-black/40 z-[60] animate-fadeIn"></div>
 
   <!-- Panel -->
-  <div class="fixed z-[70] bg-[#0f172a] border-l border-[#1e2535] shadow-2xl overflow-hidden flex flex-col animate-slideInRight
+  <div
+    class="fixed z-[70] bg-[#0f172a] border-l border-[#1e2535] shadow-2xl overflow-hidden flex flex-col animate-slideInRight
     top-0 right-0 h-full w-full max-w-sm
     sm:top-0 sm:right-0 sm:h-full sm:w-96 sm:max-w-sm sm:rounded-none
     max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:right-0 max-sm:w-full max-sm:h-[75vh] max-sm:rounded-t-3xl max-sm:border-t max-sm:border-l-0">
@@ -291,7 +376,8 @@
           <!-- Local User (You) -->
           <div class="flex items-center justify-between p-2.5 rounded-xl bg-[#111827] border border-[#1e2535]">
             <div class="flex items-center gap-2.5 min-w-0 flex-1">
-              <div class="w-9 h-9 rounded-xl bg-[#312e81] flex items-center justify-center text-[#e0e7ff] text-sm font-semibold overflow-hidden flex-shrink-0">
+              <div
+                class="w-9 h-9 rounded-xl bg-[#312e81] flex items-center justify-center text-[#e0e7ff] text-sm font-semibold overflow-hidden flex-shrink-0">
                 @if (auth.currentUser()?.photoURL) {
                 <img [src]="auth.currentUser()?.photoURL" class="w-full h-full object-cover" alt="You" />
                 } @else {
@@ -323,7 +409,8 @@
           @for (participant of liveKitService.remoteParticipants(); track participant.participantSid) {
           <div class="flex items-center justify-between p-2.5 rounded-xl bg-[#111827] border border-[#1e2535]">
             <div class="flex items-center gap-2.5 min-w-0 flex-1">
-              <div class="w-9 h-9 rounded-xl bg-[#1e3a5f] flex items-center justify-center text-[#bfdbfe] text-sm font-semibold overflow-hidden flex-shrink-0">
+              <div
+                class="w-9 h-9 rounded-xl bg-[#1e3a5f] flex items-center justify-center text-[#bfdbfe] text-sm font-semibold overflow-hidden flex-shrink-0">
                 @if (participant.photoURL) {
                 <img [src]="participant.photoURL" class="w-full h-full object-cover" alt="Avatar" />
                 } @else {
@@ -374,7 +461,8 @@
           @for (user of absentProfiles(); track user.uid) {
           <div class="flex items-center justify-between p-2.5 rounded-xl bg-[#111827]/60 border border-[#1e2535]/60">
             <div class="flex items-center gap-2.5 min-w-0 flex-1">
-              <div class="w-9 h-9 rounded-xl bg-[#374151] flex items-center justify-center text-[#9ca3af] text-sm font-semibold overflow-hidden flex-shrink-0 opacity-60">
+              <div
+                class="w-9 h-9 rounded-xl bg-[#374151] flex items-center justify-center text-[#9ca3af] text-sm font-semibold overflow-hidden flex-shrink-0 opacity-60">
                 @if (user.photoURL) {
                 <img [src]="user.photoURL" class="w-full h-full object-cover" alt="Avatar" />
                 } @else {
@@ -410,7 +498,8 @@
           @for (user of invitableProfiles(); track user.uid) {
           <div class="flex items-center justify-between p-2.5 rounded-xl bg-[#111827]/40 border border-[#1e2535]/40">
             <div class="flex items-center gap-2.5 min-w-0 flex-1">
-              <div class="w-9 h-9 rounded-xl bg-[#374151] flex items-center justify-center text-[#9ca3af] text-sm font-semibold overflow-hidden flex-shrink-0">
+              <div
+                class="w-9 h-9 rounded-xl bg-[#374151] flex items-center justify-center text-[#9ca3af] text-sm font-semibold overflow-hidden flex-shrink-0">
                 @if (user.photoURL) {
                 <img [src]="user.photoURL" class="w-full h-full object-cover" alt="Avatar" />
                 } @else {
@@ -437,7 +526,8 @@
       }
 
       <!-- Empty state when no absent or invitable members -->
-      @if (absentProfiles().length === 0 && invitableProfiles().length === 0 && liveKitService.remoteParticipants().length === 0) {
+      @if (absentProfiles().length === 0 && invitableProfiles().length === 0 &&
+      liveKitService.remoteParticipants().length === 0) {
       <div class="flex flex-col items-center justify-center py-8 text-center">
         <i class="ti ti-users-group text-[#374151] text-3xl mb-2"></i>
         <p class="text-[#64748b] text-xs">Waiting for participants to join...</p>

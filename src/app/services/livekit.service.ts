@@ -18,6 +18,7 @@ export interface RemoteParticipantTrack {
   isVideoMuted?: boolean;
   isAudioMuted?: boolean;
   isSpeaking?: boolean;
+  isPortraitStream?: boolean;
 }
 
 export interface IncomingCall {
@@ -81,7 +82,7 @@ export class LiveKitService {
     callType: 'audio' | 'video';
   };
 
-  constructor() {}
+  constructor() { }
 
   private vibrateInterval?: any;
 
@@ -94,7 +95,7 @@ export class LiveKitService {
         };
         trigger();
         this.vibrateInterval = setInterval(trigger, 2000);
-      } catch (e) {}
+      } catch (e) { }
     }
   }
 
@@ -106,7 +107,7 @@ export class LiveKitService {
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       try {
         navigator.vibrate(0);
-      } catch (e) {}
+      } catch (e) { }
     }
   }
 
@@ -124,7 +125,7 @@ export class LiveKitService {
       this.ringtoneAudio.onerror = () => {
         if (this.ringtoneAudio && !this.ringtoneAudio.src.includes('mixkit')) {
           this.ringtoneAudio.src = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
-          this.ringtoneAudio.play().catch(() => {});
+          this.ringtoneAudio.play().catch(() => { });
         }
       };
 
@@ -145,7 +146,7 @@ export class LiveKitService {
       try {
         this.ringtoneAudio.pause();
         this.ringtoneAudio.currentTime = 0;
-      } catch (e) {}
+      } catch (e) { }
       this.ringtoneAudio = undefined;
     }
   }
@@ -352,7 +353,7 @@ export class LiveKitService {
 
     try {
       // Clear user incoming call notification signal
-      await deleteDoc(doc(db, 'userCalls', currentUser.uid)).catch(() => {});
+      await deleteDoc(doc(db, 'userCalls', currentUser.uid)).catch(() => { });
       this.incomingCall.set(null);
 
       // Merge room call status to connected
@@ -369,7 +370,7 @@ export class LiveKitService {
               this.allGroupMembers.set(data['participants']);
             }
           }
-        }).catch(() => {});
+        }).catch(() => { });
       }
       this.callerUid.set(call.callerUid);
       this.activeConvoType.set((call.participantIds?.length || 0) > 2 || !!call.groupName ? 'group' : 'dm');
@@ -418,14 +419,31 @@ export class LiveKitService {
     }
 
     // Clear user call signal
-    await deleteDoc(doc(db, 'userCalls', currentUser.uid)).catch(() => {});
+    await deleteDoc(doc(db, 'userCalls', currentUser.uid)).catch(() => { });
     this.incomingCall.set(null);
 
     // Notify room that call was declined ONLY if 1-on-1 call (prevents 1 user from killing ongoing group call)
     const isGroup = (call.participantIds?.length || 0) > 2 || !!call.groupName;
     if (!isGroup) {
-      await setDoc(doc(db, 'calls', call.convoId), { status: 'declined' }, { merge: true }).catch(() => {});
+      await setDoc(doc(db, 'calls', call.convoId), { status: 'declined' }, { merge: true }).catch(() => { });
     }
+  }
+
+  public get isMobileDevice(): boolean {
+    if (typeof window === 'undefined') return false;
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+      (('ontouchstart' in window) && !/Windows NT|Macintosh|Linux x86_64/i.test(navigator.userAgent));
+  }
+
+  public getVideoCaptureResolution(): { width: number; height: number; frameRate?: number; aspectRatio?: number } {
+    const is1on1Mobile = !this.isGroupCall() && this.isMobileDevice;
+    if (is1on1Mobile) {
+      return { width: 720, height: 1280, frameRate: 30, aspectRatio: 9 / 16 }; // True 9:16 portrait video capture
+    }
+    if (this.isGroupCall()) {
+      return VideoPresets.h360.resolution; // 16:9 group call efficiency
+    }
+    return VideoPresets.h720.resolution; // 16:9 desktop 1:1 call
   }
 
   /**
@@ -452,9 +470,6 @@ export class LiveKitService {
       this.room = new Room({
         adaptiveStream: true,
         dynacast: true,
-        videoCaptureDefaults: {
-          resolution: VideoPresets.h720.resolution,
-        },
       });
 
       this.room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, publication: TrackPublication, participant: RemoteParticipant) => {
@@ -521,7 +536,13 @@ export class LiveKitService {
 
       if (!audioOnly) {
         try {
-          await this.room.localParticipant.setCameraEnabled(true);
+          const res = this.getVideoCaptureResolution();
+          await this.room.localParticipant.setCameraEnabled(true, {
+            resolution: res,
+            facingMode: this.facingMode(),
+          });
+          this.isCameraOff.set(false);
+          this.localTrackPublishedSignal.update((n) => n + 1);
         } catch (camErr) {
           console.warn('[LiveKitService] Camera access busy or blocked:', camErr);
           this.isCameraOff.set(true);
@@ -542,6 +563,8 @@ export class LiveKitService {
     for (const pub of publications) {
       if (pub.track) {
         pub.track.attach(element);
+        element.muted = true;
+        element.play().catch(() => { });
         return true;
       }
     }
@@ -555,13 +578,78 @@ export class LiveKitService {
     this.isMicMuted.set(enabled);
   }
 
+  public facingMode = signal<'user' | 'environment'>('user');
+
   async toggleCamera(): Promise<void> {
     if (!this.room) return;
     const enabled = this.room.localParticipant.isCameraEnabled;
-    await this.room.localParticipant.setCameraEnabled(!enabled);
+    const res = this.getVideoCaptureResolution();
+    await this.room.localParticipant.setCameraEnabled(!enabled, {
+      resolution: res,
+      facingMode: this.facingMode(),
+    });
     this.isCameraOff.set(enabled);
     if (!enabled && this.isAudioOnly()) {
       this.isAudioOnly.set(false);
+    }
+  }
+
+  async flipCamera(): Promise<void> {
+    if (!this.room || !this.room.localParticipant) return;
+
+    const currentPubs = Array.from(this.room.localParticipant.videoTrackPublications.values());
+    const currentTrack = currentPubs.find((p) => p.track)?.track;
+    const currentSettings = (currentTrack?.mediaStreamTrack as any)?.getSettings?.();
+    const currentFacing = currentSettings?.facingMode || this.facingMode();
+    const targetFacingMode: 'user' | 'environment' = currentFacing === 'user' ? 'environment' : 'user';
+
+    try {
+      console.log('[LiveKitService] Flipping camera from', currentFacing, 'to', targetFacingMode);
+
+      // 1. Explicitly stop mediaStreamTracks and unpublish to release mobile OS camera lock
+      for (const pub of currentPubs) {
+        if (pub.track) {
+          try {
+            pub.track.mediaStreamTrack.stop();
+          } catch (e) { }
+          await this.room.localParticipant.unpublishTrack(pub.track).catch(() => { });
+        }
+      }
+
+      await this.room.localParticipant.setCameraEnabled(false).catch(() => { });
+
+      // 2. Query available camera devices after camera hardware lock is released
+      const devices = await Room.getLocalDevices('videoinput');
+      const currentDeviceId = currentSettings?.deviceId;
+
+      let targetDevice = devices.find((d) => {
+        const label = (d.label || '').toLowerCase();
+        return targetFacingMode === 'environment'
+          ? label.includes('back') || label.includes('rear') || label.includes('environment') || label.includes('0')
+          : label.includes('front') || label.includes('user') || label.includes('facing front') || label.includes('1');
+      });
+
+      if (!targetDevice && devices.length > 1) {
+        targetDevice = devices.find((d) => d.deviceId !== currentDeviceId && d.deviceId !== '') || devices[1];
+      }
+
+      this.facingMode.set(targetFacingMode);
+
+      // 3. Re-enable camera track with explicit 9:16 portrait resolution and facingMode
+      const captureOptions: any = {
+        resolution: this.getVideoCaptureResolution(),
+        facingMode: targetFacingMode,
+      };
+
+      await this.room.localParticipant.setCameraEnabled(true, captureOptions);
+
+      this.isCameraOff.set(false);
+      if (this.isAudioOnly()) {
+        this.isAudioOnly.set(false);
+      }
+      this.localTrackPublishedSignal.update((n) => n + 1);
+    } catch (err) {
+      console.warn('[LiveKitService] Camera flip error:', err);
     }
   }
 
@@ -600,15 +688,15 @@ export class LiveKitService {
     if (activeId) {
       try {
         if (!this.isGroupCall() || this.remoteParticipants().length === 0) {
-          await updateDoc(doc(db, 'calls', activeId), { status: 'ended' }).catch(() => {});
-          await deleteDoc(doc(db, 'calls', activeId)).catch(() => {});
+          await updateDoc(doc(db, 'calls', activeId), { status: 'ended' }).catch(() => { });
+          await deleteDoc(doc(db, 'calls', activeId)).catch(() => { });
 
           for (const pId of this.activeCallParticipantIds()) {
-            await deleteDoc(doc(db, 'userCalls', pId)).catch(() => {});
+            await deleteDoc(doc(db, 'userCalls', pId)).catch(() => { });
           }
         }
         if (currentUser) {
-          await deleteDoc(doc(db, 'userCalls', currentUser.uid)).catch(() => {});
+          await deleteDoc(doc(db, 'userCalls', currentUser.uid)).catch(() => { });
         }
       } catch (e) {
         // Ignore if already deleted
@@ -681,9 +769,9 @@ export class LiveKitService {
                   data['photoURL']
                 );
               }
-            }).catch(() => {});
+            }).catch(() => { });
           }
-        }).catch(() => {});
+        }).catch(() => { });
       }
     }
 
@@ -726,18 +814,72 @@ export class LiveKitService {
               return [...currentList];
             });
           }
-        }).catch(() => {});
+        }).catch(() => { });
       }
 
       if (track.kind === 'video') {
         existing.videoTrack = action === 'add' ? track : undefined;
         existing.isVideoMuted = action === 'add' ? track.isMuted : false;
+
+        if (action === 'add' && track) {
+          let retryCount = 0;
+          const checkDimensions = () => {
+            const dims = (track as any).dimensions;
+            const settings = (track.mediaStreamTrack as any)?.getSettings?.();
+            const w = dims?.width || settings?.width || 0;
+            const h = dims?.height || settings?.height || 0;
+            const isPortrait = h > w;
+
+            console.log(`[LiveKitService] 📹 Remote Video Stream Dimensions [${participant.identity}]:`, {
+              width: w,
+              height: h,
+              isPortraitStream: isPortrait,
+              trackDimensions: dims,
+              trackSettings: settings,
+            });
+
+            if (w === 0 && h === 0 && retryCount < 12) {
+              retryCount++;
+              setTimeout(checkDimensions, 300);
+              return;
+            }
+
+            this.remoteParticipants.update((curList) => {
+              const target = curList.find((p) => p.participantSid === participant.sid);
+              if (target) {
+                target.isPortraitStream = isPortrait;
+              }
+              return [...curList];
+            });
+          };
+
+          checkDimensions();
+          try {
+            (track as any).on('dimensionsChanged', (newDims: any) => {
+              console.log(`[LiveKitService] 🔄 Remote Video Track Dimensions Changed [${participant.identity}]:`, newDims);
+              checkDimensions();
+            });
+          } catch (e) { }
+        } else {
+          existing.isPortraitStream = false;
+        }
       } else if (track.kind === 'audio') {
         existing.audioTrack = action === 'add' ? track : undefined;
         existing.isAudioMuted = action === 'add' ? track.isMuted : false;
       }
 
       return [...list];
+    });
+  }
+
+  public updateParticipantPortraitState(participantSid: string, isPortrait: boolean): void {
+    this.remoteParticipants.update((curList) => {
+      const target = curList.find((p) => p.participantSid === participantSid);
+      if (target && target.isPortraitStream !== isPortrait) {
+        console.log(`[LiveKitService] 🔄 Portrait State Updated via Video Element Metadata [${participantSid}]:`, isPortrait);
+        target.isPortraitStream = isPortrait;
+      }
+      return [...curList];
     });
   }
 
@@ -765,8 +907,8 @@ export class LiveKitService {
     this.ringTimeoutTimer = setTimeout(async () => {
       console.log('[LiveKitService] Ringing timed out after 30s with no answer');
       try {
-        await setDoc(doc(db, 'calls', convoId), { status: 'missed' }, { merge: true }).catch(() => {});
-      } catch (e) {}
+        await setDoc(doc(db, 'calls', convoId), { status: 'missed' }, { merge: true }).catch(() => { });
+      } catch (e) { }
       this.leaveCall();
     }, 30000);
   }
@@ -835,7 +977,7 @@ export class LiveKitService {
     }
 
     // Clean up Firestore signal for the removed user
-    await deleteDoc(doc(db, 'userCalls', uid)).catch(() => {});
+    await deleteDoc(doc(db, 'userCalls', uid)).catch(() => { });
   }
 
   /**

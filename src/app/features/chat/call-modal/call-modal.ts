@@ -20,6 +20,7 @@ export class CallModalComponent implements OnDestroy {
   readonly formattedCallDuration = signal<string>('00:00');
   readonly isFullscreen = signal<boolean>(false);
   readonly showParticipantsPanel = signal<boolean>(false);
+  readonly isPiPSwapped = signal<boolean>(false);
   private timerInterval?: any;
 
   // Whether the current user is the call initiator (can remove participants)
@@ -91,18 +92,23 @@ export class CallModalComponent implements OnDestroy {
 
     effect(() => {
       const isConnected = this.liveKitService.isConnected();
+      const isConnecting = this.liveKitService.isConnecting();
       const isCameraOff = this.liveKitService.isCameraOff();
       const _trackPubSignal = this.liveKitService.localTrackPublishedSignal();
+      const _remotes = this.liveKitService.remoteParticipants();
 
-      if (isConnected && !isCameraOff) {
+      if ((isConnected || isConnecting) && !isCameraOff) {
         let attempts = 0;
         const tryAttach = () => {
           if (this.localVideoRef?.nativeElement) {
             const attached = this.liveKitService.attachLocalVideo(this.localVideoRef.nativeElement);
-            if (!attached && attempts < 12) {
+            if (!attached && attempts < 35) {
               attempts++;
-              setTimeout(tryAttach, 250);
+              setTimeout(tryAttach, 150);
             }
+          } else if (attempts < 35) {
+            attempts++;
+            setTimeout(tryAttach, 150);
           }
         };
         setTimeout(tryAttach, 50);
@@ -153,10 +159,31 @@ export class CallModalComponent implements OnDestroy {
         this.userService.fetchParticipantProfiles(allUids);
       }
     });
+
+    // Auto-reset PiP swap when camera is turned off
+    effect(() => {
+      if (this.liveKitService.isCameraOff()) {
+        this.isPiPSwapped.set(false);
+      }
+    });
+  }
+
+  onVideoMetadataLoaded(event: Event, participantSid: string): void {
+    const video = event.target as HTMLVideoElement;
+    if (video && video.videoWidth > 0 && video.videoHeight > 0) {
+      const isPortrait = video.videoHeight > video.videoWidth;
+      this.liveKitService.updateParticipantPortraitState(participantSid, isPortrait);
+    }
   }
 
   toggleParticipantsPanel(): void {
     this.showParticipantsPanel.update(v => !v);
+  }
+
+  togglePiPSwap(): void {
+    if (!this.liveKitService.isCameraOff()) {
+      this.isPiPSwapped.update(v => !v);
+    }
   }
 
   async onInviteParticipant(uid: string): Promise<void> {
