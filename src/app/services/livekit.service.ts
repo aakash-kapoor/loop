@@ -89,8 +89,12 @@ export class LiveKitService {
   public startVibration(): void {
     this.stopVibration();
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      if ('userActivation' in navigator && !(navigator as any).userActivation?.hasBeenActive) {
+        return;
+      }
       try {
         const trigger = () => {
+          if ('userActivation' in navigator && !(navigator as any).userActivation?.hasBeenActive) return;
           navigator.vibrate([1000, 1000]);
         };
         trigger();
@@ -105,6 +109,9 @@ export class LiveKitService {
       this.vibrateInterval = undefined;
     }
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      if ('userActivation' in navigator && !(navigator as any).userActivation?.hasBeenActive) {
+        return;
+      }
       try {
         navigator.vibrate(0);
       } catch (e) { }
@@ -333,7 +340,7 @@ export class LiveKitService {
         } else if ((status === 'declined' || status === 'missed') && !this.isGroupCall()) {
           console.log('[LiveKitService] 1-on-1 Call status is', status, ', leaving call');
           this.clearRingingTimeout();
-          this.leaveCall();
+          this.leaveCall(status as 'declined' | 'missed');
         }
       },
       (error) => {
@@ -653,7 +660,7 @@ export class LiveKitService {
     }
   }
 
-  async leaveCall(): Promise<void> {
+  async leaveCall(overrideStatus?: 'declined' | 'missed' | 'completed'): Promise<void> {
     const activeId = this.activeCallId();
     const currentUser = this.auth.currentUser();
 
@@ -666,7 +673,7 @@ export class LiveKitService {
       const info = this.callInfoForHistory;
       const start = this.callStartTime();
       const durationSeconds = start ? Math.max(1, Math.floor((Date.now() - start) / 1000)) : 0;
-      const status = start ? 'completed' : 'missed';
+      const status = overrideStatus || (start ? 'completed' : 'missed');
 
       if (currentUser.uid === info.callerUid) {
         this.callHistoryService.logCallRecord({

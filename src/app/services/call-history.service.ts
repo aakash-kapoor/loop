@@ -4,6 +4,7 @@ import {
   doc,
   query,
   where,
+  orderBy,
   onSnapshot,
   setDoc,
   addDoc,
@@ -58,6 +59,7 @@ export class CallHistoryService {
       ...record,
       createdAtMs: nowMs,
       createdAt: serverTimestamp(),
+      deletedFor: [],
     };
 
     // Remove undefined properties for Firestore compatibility
@@ -127,6 +129,7 @@ export class CallHistoryService {
     const q = query(
       historyRef,
       where('participantIds', 'array-contains', userUid),
+      orderBy('createdAtMs', 'desc'),
       limit(50)
     );
 
@@ -148,8 +151,8 @@ export class CallHistoryService {
         });
 
         records.sort((a, b) => {
-          const tA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt || Date.now());
-          const tB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt || Date.now());
+          const tA = a.createdAtMs || (a.createdAt?.toMillis ? a.createdAt.toMillis() : Date.now());
+          const tB = b.createdAtMs || (b.createdAt?.toMillis ? b.createdAt.toMillis() : Date.now());
           return tB - tA;
         });
 
