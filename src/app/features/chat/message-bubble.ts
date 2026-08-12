@@ -376,6 +376,8 @@ export class MessageBubble implements AfterViewInit, OnDestroy {
   });
 
   async react(emoji: string) {
+    this.isMenuOpen.set(false);
+    this.isContextMenuOpen.set(false);
     const msg = this.messageSignal();
     if (!msg) return;
 
