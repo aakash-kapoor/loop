@@ -7,6 +7,7 @@ import { MessageService } from '../../services/message.service';
 import { LiveKitService } from '../../services/livekit.service';
 import { ConversationService } from '../../services/conversation.service';
 import { Avatar } from '../../shared/avatar/avatar';
+import { ToastService } from '../../services/toast.service';
 import { dataUrlToBlob, downloadBlob, formatBytes } from '../../shared/utils/image-compressor';
 
 @Component({
@@ -18,6 +19,7 @@ import { dataUrlToBlob, downloadBlob, formatBytes } from '../../shared/utils/ima
 export class MessageBubble implements AfterViewInit, OnDestroy {
   private readonly liveKitService = inject(LiveKitService);
   private readonly conversationService = inject(ConversationService);
+  private readonly toastService = inject(ToastService);
   readonly messageSignal = signal<Message | null>(null);
 
   // Lightbox overlay state for full-resolution image preview
@@ -385,6 +387,21 @@ export class MessageBubble implements AfterViewInit, OnDestroy {
       await this.messageService.toggleReaction(msg.id, emoji);
     } catch (err) {
       console.error('Reaction toggle failed in bubble component:', err);
+    }
+  }
+
+  async copyText() {
+    this.isContextMenuOpen.set(false);
+    this.isMenuOpen.set(false);
+    const text = this.messageSignal()?.text;
+    if (!text) return;
+
+    try {
+      await navigator.clipboard.writeText(text);
+      this.toastService.show('Message copied to clipboard', 'success');
+    } catch (err) {
+      console.error('Failed to copy message text:', err);
+      this.toastService.show('Failed to copy text', 'error');
     }
   }
 
