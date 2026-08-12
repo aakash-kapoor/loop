@@ -1,18 +1,20 @@
-<div class="flex items-center justify-center min-h-dvh bg-gradient-to-b from-surface-1 to-bg-main p-4 relative overflow-hidden">
+<div class="h-dvh w-full overflow-x-hidden overflow-y-auto bg-gradient-to-b from-surface-1 to-bg-main p-4 py-8 relative flex flex-col items-center">
   <!-- Glowing Background Orbs -->
-  <div class="absolute top-1/4 left-1/4 w-72 h-72 bg-accent/10 rounded-full blur-3xl -z-10 animate-pulse"></div>
-  <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/5 rounded-full blur-3xl -z-10 animate-pulse" style="animation-delay: 2s;"></div>
+  <div class="absolute inset-0 overflow-hidden pointer-events-none -z-10">
+    <div class="absolute top-1/4 left-1/4 w-72 h-72 bg-accent/10 rounded-full blur-3xl animate-pulse"></div>
+    <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/5 rounded-full blur-3xl animate-pulse" style="animation-delay: 2s;"></div>
+  </div>
 
   <!-- Choose Username Card -->
-  <div #card class="w-full max-w-md bg-surface-0/60 backdrop-blur-md border border-border-light rounded-3xl shadow-xl p-8 md:p-10 flex flex-col items-center opacity-0">
+  <div #card class="w-full max-w-md bg-surface-0/60 backdrop-blur-md border border-border-light rounded-3xl shadow-xl p-6 md:p-10 flex flex-col items-center opacity-0 my-auto">
     
     <!-- Title -->
     <h1 class="text-3xl font-display font-bold tracking-tight text-text-primary mb-2 text-center">Choose your username</h1>
-    <p class="text-text-secondary text-center mb-8 max-w-xs font-sans text-sm">
+    <p class="text-text-secondary text-center mb-6 max-w-xs font-sans text-sm">
       Pick a unique username. Other people will be able to find and chat with you using this handle.
     </p>
 
-    <div class="w-full flex flex-col gap-4">
+    <form (ngSubmit)="submitUsername()" class="w-full flex flex-col gap-4">
       <!-- Input Box -->
       <div #inputGroup class="relative flex items-center w-full">
         <!-- @ prefix -->
@@ -21,8 +23,10 @@
           type="text" 
           [ngModel]="username()" 
           (ngModelChange)="onUsernameChange($event)"
+          name="username"
           placeholder="username" 
           maxlength="20"
+          autocomplete="off"
           [disabled]="isSubmitting()"
           class="w-full pl-9 pr-12 py-3.5 bg-surface-1/50 border border-border-light rounded-2xl text-text-primary placeholder-text-muted focus:outline-none focus:border-accent focus:bg-surface-0/90 transition-all font-medium text-base shadow-sm"
         />
@@ -32,9 +36,9 @@
           @if (isChecking()) {
             <i class="ti ti-loader-2 animate-spin text-accent text-lg"></i>
           } @else if (isAvailable() === true) {
-            <i class="ti ti-circle-check-filled text-emerald-500 text-xl animate-bounce"></i>
+            <i class="ti ti-circle-check-filled text-emerald-500 text-xl animate-fadeIn"></i>
           } @else if (isAvailable() === false) {
-            <i class="ti ti-circle-x-filled text-rose-500 text-xl"></i>
+            <i class="ti ti-circle-x-filled text-rose-500 text-xl animate-fadeIn"></i>
           }
         </div>
       </div>
@@ -57,84 +61,88 @@
       }
 
       <!-- E2EE Recovery Passphrase Section -->
-      <div class="w-full h-[1px] bg-border-light my-2"></div>
+      <div class="w-full h-[1px] bg-border-light my-1"></div>
       
       <div class="flex flex-col gap-3.5">
         <h2 class="text-sm font-semibold text-text-primary flex items-center gap-1.5">
           <i class="ti ti-lock text-accent text-base"></i>
           <span>E2EE Recovery Backup</span>
         </h2>
-        <p class="text-xs text-text-secondary text-left leading-relaxed">
-          Create a passphrase to encrypt your private key backup. You will need this to restore your chat history when logging in on new devices.
-        </p>
 
-        <p class="text-[11px] text-amber-500 font-medium bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl flex items-start gap-1.5 leading-normal">
-          <i class="ti ti-shield-alert text-sm flex-shrink-0 mt-0.5"></i>
-          <span><strong>Zero-Knowledge Notice:</strong> Loop cannot reset your passphrase. If lost, previous chat history cannot be recovered.</span>
+        <p class="text-xs text-text-secondary text-left leading-relaxed">
+          Loop auto-generated a secure E2EE recovery passphrase for you. Save it to restore your chat history when logging in on new devices.
         </p>
         
-        <!-- Passphrase Input -->
-        <div class="relative flex items-center w-full">
-          <i class="ti ti-key absolute left-4 text-text-muted text-lg select-none"></i>
-          <input 
-            [type]="showPassphrase() ? 'text' : 'password'" 
-            [ngModel]="passphrase()" 
-            (ngModelChange)="passphrase.set($event)"
-            placeholder="Recovery Passphrase (min. 12 chars)" 
-            [disabled]="isSubmitting()"
-            class="w-full pl-10 pr-11 py-3 bg-surface-1/50 border border-border-light rounded-2xl text-text-primary placeholder-text-muted focus:outline-none focus:border-accent focus:bg-surface-0/90 transition-all font-medium text-sm shadow-sm"
-          />
-          <button 
-            type="button"
-            (click)="showPassphrase.set(!showPassphrase())"
-            class="absolute right-4 text-text-muted hover:text-text-secondary cursor-pointer flex items-center justify-center p-1 rounded-full transition-colors select-none"
-          >
-            @if (showPassphrase()) {
-              <i class="ti ti-eye-off text-lg animate-fadeIn"></i>
-            } @else {
-              <i class="ti ti-eye text-lg animate-fadeIn"></i>
-            }
-          </button>
+        <!-- Generated Passphrase Box -->
+        <div class="flex flex-col gap-2">
+          <div class="relative flex items-center w-full bg-surface-1/70 border border-border-light rounded-2xl p-3.5 pr-12 shadow-inner">
+            <i class="ti ti-key text-accent text-lg select-none mr-2.5 flex-shrink-0"></i>
+            <span class="font-mono text-sm text-text-primary font-semibold tracking-wide break-all select-all">
+              {{ passphrase() }}
+            </span>
+            <button 
+              type="button"
+              (click)="regeneratePassphrase()"
+              title="Generate new passphrase"
+              class="absolute right-3 text-text-muted hover:text-accent cursor-pointer p-1.5 rounded-xl transition-colors select-none"
+            >
+              <i class="ti ti-refresh text-lg"></i>
+            </button>
+          </div>
+
+          <!-- Copy & Download Action Buttons -->
+          <div class="grid grid-cols-2 gap-2 mt-0.5">
+            <button 
+              type="button"
+              (click)="copyPassphrase()"
+              class="py-2 px-3 bg-surface-1 hover:bg-surface-2 border border-border-light rounded-xl text-text-primary text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer select-none"
+            >
+              @if (isCopied()) {
+                <i class="ti ti-check text-emerald-500 text-sm animate-fadeIn"></i>
+                <span class="text-emerald-600 font-semibold">Copied!</span>
+              } @else {
+                <i class="ti ti-copy text-sm text-accent"></i>
+                <span>Copy Phrase</span>
+              }
+            </button>
+
+            <button 
+              type="button"
+              (click)="downloadPassphraseTxt()"
+              class="py-2 px-3 bg-surface-1 hover:bg-surface-2 border border-border-light rounded-xl text-text-primary text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer select-none"
+            >
+              <i class="ti ti-download text-sm text-accent"></i>
+              <span>Download .txt</span>
+            </button>
+          </div>
         </div>
 
-        <!-- Confirm Passphrase Input -->
-        <div class="relative flex items-center w-full">
-          <i class="ti ti-key absolute left-4 text-text-muted text-lg select-none"></i>
-          <input 
-            [type]="showConfirmPassphrase() ? 'text' : 'password'" 
-            [ngModel]="confirmPassphrase()" 
-            (ngModelChange)="confirmPassphrase.set($event)"
-            placeholder="Confirm Passphrase" 
-            [disabled]="isSubmitting()"
-            class="w-full pl-10 pr-11 py-3 bg-surface-1/50 border border-border-light rounded-2xl text-text-primary placeholder-text-muted focus:outline-none focus:border-accent focus:bg-surface-0/90 transition-all font-medium text-sm shadow-sm"
-          />
-          <button 
-            type="button"
-            (click)="showConfirmPassphrase.set(!showConfirmPassphrase())"
-            class="absolute right-4 text-text-muted hover:text-text-secondary cursor-pointer flex items-center justify-center p-1 rounded-full transition-colors select-none"
-          >
-            @if (showConfirmPassphrase()) {
-              <i class="ti ti-eye-off text-lg animate-fadeIn"></i>
-            } @else {
-              <i class="ti ti-eye text-lg animate-fadeIn"></i>
-            }
-          </button>
-        </div>
+        <!-- Warning Card -->
+        <p class="text-[11px] text-amber-500 font-medium bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl flex items-start gap-1.5 leading-normal">
+          <i class="ti ti-shield-alert text-sm flex-shrink-0 mt-0.5"></i>
+          <span>Save this passphrase before continuing — you won't be able to view it again.</span>
+        </p>
 
-        <!-- Passphrase Validation Error -->
-        @if (passphraseError()) {
-          <p class="text-xs text-rose-500 font-medium px-1 flex items-center gap-1.5 animate-fadeIn">
-            <i class="ti ti-alert-circle text-sm"></i>
-            <span>{{ passphraseError() }}</span>
-          </p>
-        }
+        <!-- Save Confirmation Checkbox -->
+        <label class="flex items-start gap-2.5 p-2 rounded-xl hover:bg-surface-1/40 cursor-pointer select-none transition-colors mt-1">
+          <input 
+            type="checkbox"
+            [ngModel]="hasSavedPassphrase()"
+            (ngModelChange)="hasSavedPassphrase.set($event)"
+            name="hasSavedPassphrase"
+            class="mt-0.5 rounded border-border-strong text-accent focus:ring-accent w-4 h-4 cursor-pointer accent-accent"
+          />
+          <span class="text-xs text-text-primary font-medium leading-snug">
+            I've saved my recovery passphrase in a safe place
+          </span>
+        </label>
       </div>
 
       <!-- Submit Button -->
       <button 
-        (click)="submitUsername()" 
-        [disabled]="!isAvailable() || isChecking() || isSubmitting()"
-        class="w-full mt-4 py-3.5 px-5 bg-accent hover:bg-accent-hover disabled:opacity-50 text-white font-medium rounded-2xl flex items-center justify-center gap-2 transition-all duration-200 shadow-md shadow-accent/15 disabled:shadow-none cursor-pointer disabled:cursor-not-allowed select-none"
+        type="submit"
+        [disabled]="!isAvailable() || isChecking() || isSubmitting() || !hasSavedPassphrase()"
+        class="w-full mt-2 py-3.5 px-5 bg-accent hover:bg-accent-hover disabled:opacity-50 text-white font-medium rounded-2xl flex items-center justify-center gap-2 transition-all duration-200 shadow-md shadow-accent/15 disabled:shadow-none cursor-pointer disabled:cursor-not-allowed select-none"
       >
         @if (isSubmitting()) {
           <i class="ti ti-loader-2 animate-spin text-lg"></i>
@@ -144,6 +152,8 @@
           <i class="ti ti-arrow-right text-lg"></i>
         }
       </button>
-    </div>
+    </form>
   </div>
 </div>
+
+

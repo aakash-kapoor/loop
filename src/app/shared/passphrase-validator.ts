@@ -70,3 +70,35 @@ export function evaluatePassphraseStrength(passphrase: string): PassphraseValida
 
   return { isValid: true, entropyBits };
 }
+
+export function generateRandomPassphrase(wordCount = 6): string {
+  const WORD_LIST = [
+    'anchor', 'beacon', 'breeze', 'bridge', 'canyon', 'castle', 'cedar', 'cobalt',
+    'comet', 'crystal', 'desert', 'diamond', 'dragon', 'echo', 'ember', 'falcon',
+    'forest', 'fountain', 'galaxy', 'glacier', 'harbor', 'horizon', 'island', 'jungle',
+    'lagoon', 'lantern', 'legend', 'meadow', 'meteor', 'mountain', 'nebula', 'oasis',
+    'ocean', 'orbit', 'orchid', 'panther', 'pebble', 'phoenix', 'planet', 'portal',
+    'prairie', 'prism', 'pulsar', 'pyramid', 'quantum', 'quartz', 'river', 'shadow',
+    'shield', 'sierra', 'silver', 'solaris', 'spark', 'sphinx', 'spring', 'starlight',
+    'summit', 'sunrise', 'sunset', 'tempest', 'thunder', 'timber', 'topaz', 'torrent',
+    'trident', 'tundra', 'twilight', 'valley', 'velvet', 'vortex', 'whisper', 'zenith'
+  ];
+
+  const array = new Uint32Array(wordCount);
+  if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) {
+    window.crypto.getRandomValues(array);
+  } else {
+    for (let i = 0; i < wordCount; i++) {
+      array[i] = Math.floor(Math.random() * 4294967296);
+    }
+  }
+
+  const selectedWords: string[] = [];
+  for (let i = 0; i < wordCount; i++) {
+    const index = array[i] % WORD_LIST.length;
+    selectedWords.push(WORD_LIST[index]);
+  }
+
+  return selectedWords.join('-');
+}
+

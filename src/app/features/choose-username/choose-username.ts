@@ -9,7 +9,7 @@ import { FormsModule } from '@angular/forms';
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 
-import { evaluatePassphraseStrength } from '../../shared/passphrase-validator';
+import { generateRandomPassphrase } from '../../shared/passphrase-validator';
 
 @Component({
   selector: 'app-choose-username',
@@ -29,12 +29,9 @@ export class ChooseUsername implements AfterViewInit, OnDestroy {
   readonly errorMessage = signal<string>('');
   readonly isSubmitting = signal<boolean>(false);
 
-  readonly passphrase = signal<string>('');
-  readonly confirmPassphrase = signal<string>('');
-  readonly passphraseError = signal<string>('');
-
-  readonly showPassphrase = signal<boolean>(false);
-  readonly showConfirmPassphrase = signal<boolean>(false);
+  readonly passphrase = signal<string>(generateRandomPassphrase());
+  readonly hasSavedPassphrase = signal<boolean>(false);
+  readonly isCopied = signal<boolean>(false);
 
   private readonly usernameSubject = new Subject<string>();
   private checkSubscription?: Subscription;
@@ -90,9 +87,53 @@ export class ChooseUsername implements AfterViewInit, OnDestroy {
     this.checkSubscription?.unsubscribe();
   }
 
+  regeneratePassphrase() {
+    this.passphrase.set(generateRandomPassphrase());
+    this.isCopied.set(false);
+  }
+
+  async copyPassphrase() {
+    const text = this.passphrase();
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      this.isCopied.set(true);
+      this.toastService.show('Passphrase copied to clipboard!', 'success');
+      setTimeout(() => this.isCopied.set(false), 2500);
+    } catch (err) {
+      console.error('Copy failed:', err);
+      this.toastService.show('Failed to copy passphrase.', 'error');
+    }
+  }
+
+  downloadPassphraseTxt() {
+    const text = this.passphrase();
+    const handle = this.username().trim() || 'user';
+    const content = `LOOP E2EE RECOVERY PASSPHRASE\n` +
+      `----------------------------------------\n` +
+      `Username: @${handle}\n` +
+      `Passphrase: ${text}\n` +
+      `Created: ${new Date().toISOString()}\n\n` +
+      `IMPORTANT NOTICE:\n` +
+      `Keep this passphrase safe. Loop uses zero-knowledge encryption.\n` +
+      `If lost, your previous chat history cannot be recovered on new devices.\n`;
+
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `loop-recovery-passphrase-${handle}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    this.toastService.show('Passphrase backup downloaded!', 'success');
+  }
+
   onUsernameChange(val: string) {
-    this.username.set(val);
-    const cleaned = val.trim();
+    const lowerVal = val ? val.toLowerCase() : '';
+    this.username.set(lowerVal);
+    const cleaned = lowerVal.trim();
     if (!cleaned) {
       this.isAvailable.set(null);
       this.isChecking.set(false);
@@ -104,26 +145,14 @@ export class ChooseUsername implements AfterViewInit, OnDestroy {
   }
 
   async submitUsername() {
-    const finalUsername = this.username().trim();
-    if (!finalUsername || !this.isAvailable() || this.isChecking() || this.isSubmitting()) {
+    const finalUsername = this.username().trim().toLowerCase();
+    if (!finalUsername || !this.isAvailable() || this.isChecking() || this.isSubmitting() || !this.hasSavedPassphrase()) {
       return;
     }
 
     const pass = this.passphrase();
-    const confirmPass = this.confirmPassphrase();
+    if (!pass) return;
 
-    const strength = evaluatePassphraseStrength(pass);
-    if (!strength.isValid) {
-      this.passphraseError.set(strength.message || 'Passphrase is not strong enough.');
-      return;
-    }
-
-    if (pass !== confirmPass) {
-      this.passphraseError.set('Passphrases do not match.');
-      return;
-    }
-
-    this.passphraseError.set('');
     this.isSubmitting.set(true);
     try {
       const user = this.auth.currentUser();
@@ -163,3 +192,4 @@ export class ChooseUsername implements AfterViewInit, OnDestroy {
     }
   }
 }
+
