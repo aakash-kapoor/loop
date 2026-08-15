@@ -1,0 +1,39 @@
+.case-study-hero-mesh {
+  background: radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.12) 0%, transparent 50%),
+              radial-gradient(circle at 80% 60%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
+              radial-gradient(circle at 40% 90%, rgba(16, 185, 129, 0.08) 0%, transparent 50%);
+}
+
+@keyframes meshPulse {
+  0%, 100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.animate-mesh-pulse {
+  animation: meshPulse 8s ease-in-out infinite;
+  will-change: opacity;
+}
+
+#architecture, #crypto-demo, #challenges, #benchmarks, #code {
+  scroll-margin-top: 5.5rem;
+}
+
+.code-pre-block {
+  font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  tab-size: 2;
+}
+
+.glow-card-emerald {
+  box-shadow: 0 0 30px -10px rgba(16, 185, 129, 0.2);
+}
+
+.glow-card-accent {
+  box-shadow: 0 0 35px -10px rgba(59, 130, 246, 0.22);
+}
+
+
+

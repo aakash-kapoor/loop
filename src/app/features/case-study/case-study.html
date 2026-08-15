@@ -1,0 +1,804 @@
+<div (scroll)="onScroll($event)" class="h-dvh w-full bg-bg-main text-text-primary overflow-x-hidden overflow-y-auto selection:bg-accent/30 relative font-sans">
+  
+  <!-- Scroll Reading Progress Bar -->
+  <div class="fixed top-0 left-0 h-[2.5px] bg-accent z-[60] transition-all duration-75 ease-out shadow-sm shadow-accent/50" [style.width.%]="scrollProgress()"></div>
+
+  <!-- Background Mesh Orbs -->
+  <div class="fixed inset-0 pointer-events-none -z-10 overflow-hidden case-study-hero-mesh animate-mesh-pulse"></div>
+
+  <!-- Top Navigation Header -->
+  <header class="sticky top-0 z-50 w-full glass-liquid border-b border-border-light/60 px-4 md:px-8 py-3.5 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <img src="favicon.svg" alt="Loop" class="w-9 h-9 rounded-2xl shadow-md shadow-accent/20" />
+      <div>
+        <span class="font-display font-bold text-lg tracking-tight text-text-primary block leading-none">LOOP</span>
+        <span class="text-[10px] text-accent font-semibold tracking-wider uppercase">Case Study</span>
+      </div>
+    </div>
+
+    <!-- Desktop Section Quicklinks -->
+    <nav class="hidden lg:flex items-center gap-6 text-xs font-semibold text-text-secondary">
+      <a href="#pipeline" (click)="scrollToSection('pipeline', $event)" class="hover:text-accent transition-colors">Architecture</a>
+      <a href="#crypto-demo" (click)="scrollToSection('crypto-demo', $event)" class="hover:text-accent transition-colors flex items-center gap-1">
+        <span>E2EE Demo</span>
+        <span class="px-1.5 py-0.5 rounded-full text-[9px] bg-accent/15 text-accent font-bold">Live</span>
+      </a>
+      <a href="#deep-dives" (click)="scrollToSection('deep-dives', $event)" class="hover:text-accent transition-colors">Subsystems</a>
+      <a href="#challenges" (click)="scrollToSection('challenges', $event)" class="hover:text-accent transition-colors">Trade-offs</a>
+      <a href="#code" (click)="scrollToSection('code', $event)" class="hover:text-accent transition-colors">Code</a>
+    </nav>
+
+    <div class="flex items-center gap-2">
+      <button 
+        (click)="toggleDarkMode()" 
+        class="glass-liquid-btn w-9 h-9 rounded-xl flex items-center justify-center text-text-secondary hover:text-text-primary transition-colors cursor-pointer active-press"
+        [title]="isDarkMode() ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
+      >
+        <i class="ti text-lg" [class.ti-sun]="isDarkMode()" [class.ti-moon]="!isDarkMode()"></i>
+      </button>
+
+      <button 
+        (click)="launchApp()"
+        class="glass-liquid-btn text-xs font-semibold px-4 py-2 rounded-xl text-text-primary flex items-center gap-1.5 cursor-pointer active-press shadow-sm"
+      >
+        <span>Launch App</span>
+        <i class="ti ti-arrow-right text-sm text-accent"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="max-w-6xl mx-auto px-4 md:px-8 pt-12 pb-16 text-center relative flex flex-col items-center">
+    <!-- Badge Pill -->
+    <div class="hero-anim-item inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full glass-liquid text-xs font-semibold text-accent border border-accent/20 mb-6 shadow-sm">
+      <i class="ti ti-shield-lock text-sm"></i>
+      <span>Zero-Knowledge Architecture & WebRTC Engineering</span>
+    </div>
+
+    <h1 class="hero-anim-item text-4xl md:text-6xl font-display font-extrabold tracking-tight text-text-primary max-w-4xl leading-[1.15] mb-6">
+      Building End-to-End Encrypted Communication for the Modern Web
+    </h1>
+
+    <p class="hero-anim-item text-base md:text-xl text-text-secondary max-w-2xl leading-relaxed mb-6 font-sans">
+      A technical deep dive into how Loop combines Web Crypto API zero-knowledge encryption, LiveKit SFU WebRTC media relays, and an Angular 21 signals-first architecture.
+    </p>
+
+    <!-- Reading Metadata Badges -->
+    <div class="hero-anim-item flex flex-wrap items-center justify-center gap-2 md:gap-3 text-xs text-text-muted mb-8 font-medium">
+      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-1/80 border border-border-light">
+        <i class="ti ti-clock text-accent"></i>
+        <span>5 min read</span>
+      </span>
+      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-1/80 border border-border-light">
+        <i class="ti ti-key text-emerald-500"></i>
+        <span>W3C SubtleCrypto</span>
+      </span>
+      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-1/80 border border-border-light">
+        <i class="ti ti-video text-indigo-500"></i>
+        <span>LiveKit SFU</span>
+      </span>
+      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-1/80 border border-border-light">
+        <i class="ti ti-bolt text-amber-500"></i>
+        <span>Angular 21 Signals</span>
+      </span>
+    </div>
+
+    <!-- CTAs & Action Pills -->
+    <div class="hero-anim-item flex flex-wrap items-center justify-center gap-3 mb-12">
+      <button 
+        (click)="launchApp()"
+        class="px-6 py-3.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded-2xl flex items-center gap-2 shadow-lg shadow-accent/25 transition-all cursor-pointer active-press text-sm hover:scale-[1.02] active:scale-[0.98]"
+      >
+        <span>Experience Loop Live</span>
+        <i class="ti ti-arrow-right text-base"></i>
+      </button>
+
+      <button 
+        (click)="scrollToSection('crypto-demo', $event)" 
+        class="glass-liquid-btn px-6 py-3.5 text-text-primary font-semibold rounded-2xl text-sm flex items-center gap-2 cursor-pointer active-press border border-accent/30 text-accent"
+      >
+        <i class="ti ti-player-play text-base text-accent"></i>
+        <span>Try E2EE Simulator</span>
+      </button>
+
+      <button 
+        (click)="scrollToSection('pipeline', $event)" 
+        class="glass-liquid-btn px-6 py-3.5 text-text-primary font-semibold rounded-2xl text-sm flex items-center gap-2 cursor-pointer active-press"
+      >
+        <span>Explore Pipeline</span>
+        <i class="ti ti-chevron-down text-base text-text-muted"></i>
+      </button>
+    </div>
+
+    <!-- Quick Stats Metric Pills -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 w-full max-w-4xl">
+      <div class="stat-card-anim glass-liquid-card p-4 rounded-2xl text-center">
+        <span class="text-2xl md:text-3xl font-display font-bold text-accent block mb-0.5">RSA 2048</span>
+        <span class="text-xs text-text-muted font-medium">Web Crypto Local Keys</span>
+      </div>
+      <div class="stat-card-anim glass-liquid-card p-4 rounded-2xl text-center">
+        <span class="text-2xl md:text-3xl font-display font-bold text-emerald-500 block mb-0.5">0 Bytes</span>
+        <span class="text-xs text-text-muted font-medium">Server Plaintext Storage</span>
+      </div>
+      <div class="stat-card-anim glass-liquid-card p-4 rounded-2xl text-center">
+        <span class="text-2xl md:text-3xl font-display font-bold text-indigo-500 block mb-0.5">&lt;100ms</span>
+        <span class="text-xs text-text-muted font-medium">Target SLO E2E Latency</span>
+      </div>
+      <div class="stat-card-anim glass-liquid-card p-4 rounded-2xl text-center">
+        <span class="text-2xl md:text-3xl font-display font-bold text-amber-500 block mb-0.5">LiveKit SFU</span>
+        <span class="text-xs text-text-muted font-medium">WebRTC Voice & Video</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Zero-Trust Architecture Pipeline Flow -->
+  <section id="pipeline" class="scroll-mt-24 max-w-6xl mx-auto px-4 md:px-8 py-12">
+    <div class="section-title-anim text-center mb-10">
+      <h2 class="text-2xl md:text-3xl font-display font-bold text-text-primary mb-3">Zero-Trust Message Lifecycle</h2>
+      <p class="text-text-secondary text-sm md:text-base max-w-xl mx-auto">
+        How an encrypted message traverses the system with zero cryptographic plaintext exposure to Firebase or cloud relays.
+      </p>
+    </div>
+
+    <!-- 3-Stage Pipeline Diagram Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 relative">
+      <!-- Step 1 -->
+      <div class="glass-liquid-card p-6 rounded-3xl border border-accent/20 relative flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-4">
+            <span class="px-2.5 py-1 rounded-xl bg-accent/15 text-accent text-xs font-mono font-bold">STAGE 01</span>
+            <i class="ti ti-lock-cog text-accent text-2xl"></i>
+          </div>
+          <h3 class="text-base font-bold text-text-primary mb-2">Sender Client Isolation</h3>
+          <p class="text-xs text-text-secondary leading-relaxed mb-4">
+            Generates an ephemeral 256-bit AES-GCM key in WebCrypto, encrypts message plaintext, and wraps the AES key using the recipient's RSA-OAEP public JWK.
+          </p>
+        </div>
+        <div class="p-3 rounded-2xl bg-surface-1/70 border border-border-light text-[11px] font-mono text-text-muted">
+          <span class="text-emerald-500">✓</span> Local IndexedDB Private Key<br>
+          <span class="text-emerald-500">✓</span> AES-256-GCM + IV 12-byte
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="glass-liquid-card p-6 rounded-3xl border border-indigo-500/20 relative flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-4">
+            <span class="px-2.5 py-1 rounded-xl bg-indigo-500/15 text-indigo-500 text-xs font-mono font-bold">STAGE 02</span>
+            <i class="ti ti-cloud-lock text-indigo-500 text-2xl"></i>
+          </div>
+          <h3 class="text-base font-bold text-text-primary mb-2">Zero-Knowledge Relay</h3>
+          <p class="text-xs text-text-secondary leading-relaxed mb-4">
+            Firestore acts strictly as an untrusted ciphertext mailbox. The backend stores Base64 ciphertext, IVs, and encrypted key envelopes without ability to inspect content.
+          </p>
+        </div>
+        <div class="p-3 rounded-2xl bg-surface-1/70 border border-border-light text-[11px] font-mono text-text-muted">
+          <span class="text-indigo-400">🛡️</span> Zero Plaintext Stored<br>
+          <span class="text-indigo-400">🛡️</span> Realtime Snapshot Stream
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="glass-liquid-card p-6 rounded-3xl border border-emerald-500/20 relative flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-4">
+            <span class="px-2.5 py-1 rounded-xl bg-emerald-500/15 text-emerald-500 text-xs font-mono font-bold">STAGE 03</span>
+            <i class="ti ti-key text-emerald-500 text-2xl"></i>
+          </div>
+          <h3 class="text-base font-bold text-text-primary mb-2">Recipient Local Decrypt</h3>
+          <p class="text-xs text-text-secondary leading-relaxed mb-4">
+            Recipient browser extracts the encrypted key envelope, unwraps the AES session key using their local non-exportable RSA private key, and renders the message.
+          </p>
+        </div>
+        <div class="p-3 rounded-2xl bg-surface-1/70 border border-border-light text-[11px] font-mono text-text-muted">
+          <span class="text-emerald-500">✓</span> In-Memory Decryption Only<br>
+          <span class="text-emerald-500">✓</span> Decrypted in &lt;2ms
+        </div>
+      </div>
+    </div>
+
+    <!-- Trust Boundary Comparison Matrix -->
+    <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="p-5 rounded-2xl bg-emerald-500/5 border border-emerald-500/20">
+        <div class="flex items-center gap-2 mb-2 text-emerald-500 font-bold text-sm">
+          <i class="ti ti-device-desktop"></i>
+          <span>Client Boundary (User Device)</span>
+        </div>
+        <p class="text-xs text-text-secondary leading-relaxed">
+          Has access to unencrypted message bodies, local RSA private keys in IndexedDB, live WebRTC camera/microphone feed, and decrypted conversation history.
+        </p>
+      </div>
+
+      <div class="p-5 rounded-2xl bg-indigo-500/5 border border-indigo-500/20">
+        <div class="flex items-center gap-2 mb-2 text-indigo-400 font-bold text-sm">
+          <i class="ti ti-cloud"></i>
+          <span>Cloud & SFU Relay Boundary (Server)</span>
+        </div>
+        <p class="text-xs text-text-secondary leading-relaxed">
+          Only sees Base64 encrypted ciphertexts, public RSA JWKs, PBKDF2-salted recovery envelopes, and ephemeral WebRTC media packets.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive WebCrypto E2EE Simulator Playground -->
+  <section id="crypto-demo" class="scroll-mt-24 max-w-6xl mx-auto px-4 md:px-8 py-12">
+    <div class="glass-liquid-card glow-card-accent p-6 md:p-10 rounded-3xl border border-accent/30 relative overflow-hidden">
+      <!-- Background subtle glow -->
+      <div class="absolute -right-20 -top-20 w-64 h-64 bg-accent/10 rounded-full blur-3xl pointer-events-none"></div>
+
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div>
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/15 text-accent text-xs font-semibold mb-2">
+            <i class="ti ti-cpu"></i>
+            <span>Interactive WebCrypto Sandbox</span>
+          </div>
+          <h2 class="text-2xl md:text-3xl font-display font-bold text-text-primary">Test Live End-to-End Encryption</h2>
+          <p class="text-text-secondary text-xs md:text-sm max-w-xl">
+            Type any sample message below. This runs real <code class="text-accent font-mono">window.crypto.subtle</code> cryptographic primitives directly in your browser.
+          </p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          @if (simExecutionTimeMs() > 0) {
+            <div class="px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 text-xs font-mono flex items-center gap-1.5">
+              <i class="ti ti-bolt"></i>
+              <span>{{ simExecutionTimeMs() }}ms execution</span>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Playground Input & Actions -->
+      <div class="flex flex-col sm:flex-row items-center gap-3 mb-6">
+        <div class="relative w-full">
+          <input 
+            type="text" 
+            [(ngModel)]="simInputText"
+            (keyup.enter)="runCryptoSimulation()"
+            placeholder="Type plaintext message to encrypt..."
+            class="w-full px-4 py-3 bg-surface-1/70 border border-border-light rounded-2xl text-text-primary placeholder-text-muted text-sm font-medium focus:outline-none focus:border-accent focus:bg-surface-0/90 transition-all shadow-inner"
+          />
+        </div>
+        <button 
+          (click)="runCryptoSimulation()"
+          [disabled]="isSimulating()"
+          class="w-full sm:w-auto px-6 py-3 bg-accent hover:bg-accent-hover disabled:opacity-50 text-white font-semibold rounded-2xl text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer active-press shadow-md shadow-accent/20 whitespace-nowrap"
+        >
+          @if (isSimulating()) {
+            <i class="ti ti-loader-2 animate-spin text-base"></i>
+            <span>Encrypting…</span>
+          } @else {
+            <i class="ti ti-lock text-base"></i>
+            <span>Run WebCrypto E2EE</span>
+          }
+        </button>
+      </div>
+
+      <!-- Live Pipeline Reactive Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+        <!-- 1. Key & IV -->
+        <div class="p-4 rounded-2xl bg-surface-1/60 border border-border-light flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between text-xs font-semibold text-accent mb-2">
+              <span>01. Ephemeral Key & IV</span>
+              <i class="ti ti-key"></i>
+            </div>
+            <p class="text-[11px] text-text-muted mb-2">SubtleCrypto AES-GCM 256</p>
+            <div class="font-mono text-xs text-text-primary break-all bg-surface-0/60 p-2 rounded-xl border border-border-light/60 mb-2">
+              {{ simAesKeyPreview() }}
+            </div>
+          </div>
+          <div class="text-[10px] font-mono text-text-muted">
+            IV: <span class="text-text-secondary">{{ simIvHex() }}</span>
+          </div>
+        </div>
+
+        <!-- 2. Ciphertext -->
+        <div class="p-4 rounded-2xl bg-surface-1/60 border border-border-light flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between text-xs font-semibold text-indigo-400 mb-2">
+              <span>02. Encrypted Payload</span>
+              <i class="ti ti-shield-lock"></i>
+            </div>
+            <p class="text-[11px] text-text-muted mb-2">Base64 Transmitted Body</p>
+            <div class="font-mono text-xs text-indigo-300 break-all bg-surface-0/60 p-2 rounded-xl border border-border-light/60 line-clamp-3">
+              {{ simCiphertext() }}
+            </div>
+          </div>
+          <span class="text-[10px] text-emerald-500 font-semibold mt-2 flex items-center gap-1">
+            <i class="ti ti-check"></i> Zero plaintext exposed
+          </span>
+        </div>
+
+        <!-- 3. RSA Envelope -->
+        <div class="p-4 rounded-2xl bg-surface-1/60 border border-border-light flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between text-xs font-semibold text-amber-500 mb-2">
+              <span>03. Recipient Envelope</span>
+              <i class="ti ti-mail-lock"></i>
+            </div>
+            <p class="text-[11px] text-text-muted mb-2">RSA-OAEP Key Encapsulation</p>
+            <div class="font-mono text-xs text-amber-300 break-all bg-surface-0/60 p-2 rounded-xl border border-border-light/60 line-clamp-3">
+              {{ simRsaEnvelope() }}
+            </div>
+          </div>
+          <span class="text-[10px] text-text-muted font-medium mt-2">
+            Target: Recipient Public JWK
+          </span>
+        </div>
+
+        <!-- 4. Decrypted Verification -->
+        <div class="p-4 rounded-2xl bg-surface-1/60 border border-emerald-500/30 bg-emerald-500/5 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between text-xs font-semibold text-emerald-500 mb-2">
+              <span>04. Decrypted Output</span>
+              <i class="ti ti-shield-check"></i>
+            </div>
+            <p class="text-[11px] text-text-muted mb-2">Local In-Memory Plaintext</p>
+            <div class="font-mono text-xs text-text-primary font-bold break-all bg-surface-0/60 p-2 rounded-xl border border-border-light/60">
+              "{{ simDecryptedOutput() }}"
+            </div>
+          </div>
+          <div class="flex items-center gap-1 text-[11px] text-emerald-500 font-semibold mt-2">
+            <i class="ti ti-circle-check-filled"></i>
+            <span>Cryptographic Integrity Match</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Problem vs Solution Comparison Section -->
+  <section class="max-w-6xl mx-auto px-4 md:px-8 py-12">
+    <div class="section-title-anim text-center mb-10">
+      <h2 class="text-2xl md:text-3xl font-display font-bold text-text-primary mb-3">The Architectural Challenge</h2>
+      <p class="text-text-secondary text-sm md:text-base max-w-xl mx-auto">
+        Most web messengers sacrifice privacy for real-time responsiveness. Loop was designed to prove that zero-knowledge encryption and low-latency multimedia can coexist without compromises.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Traditional Cloud Messaging Card -->
+      <div class="comparison-card-anim glass-liquid-card p-6 md:p-8 rounded-3xl border border-rose-500/20 bg-rose-500/5">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-10 h-10 rounded-xl bg-rose-500/15 text-rose-500 flex items-center justify-center text-xl">
+            <i class="ti ti-server-off"></i>
+          </div>
+          <h3 class="text-lg font-bold text-text-primary">Traditional Centralized Messaging</h3>
+        </div>
+        <ul class="space-y-3 text-xs md:text-sm text-text-secondary">
+          <li class="flex items-start gap-2">
+            <i class="ti ti-x text-rose-500 text-base mt-0.5 flex-shrink-0"></i>
+            <span>Server holds master decryption keys or decrypts messages in transit.</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <i class="ti ti-x text-rose-500 text-base mt-0.5 flex-shrink-0"></i>
+            <span>Vulnerable to database leaks, provider subpoenas, or server breaches.</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <i class="ti ti-x text-rose-500 text-base mt-0.5 flex-shrink-0"></i>
+            <span>Passphrase recovery allows providers to reset keys remotely.</span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Loop Solution Card -->
+      <div class="comparison-card-anim glass-liquid-card p-6 md:p-8 rounded-3xl border border-emerald-500/30 bg-emerald-500/5">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center text-xl">
+            <i class="ti ti-shield-check"></i>
+          </div>
+          <h3 class="text-lg font-bold text-text-primary">Loop Zero-Knowledge Architecture</h3>
+        </div>
+        <ul class="space-y-3 text-xs md:text-sm text-text-secondary">
+          <li class="flex items-start gap-2">
+            <i class="ti ti-check text-emerald-500 text-base mt-0.5 flex-shrink-0"></i>
+            <span>Private keys are generated locally in IndexedDB using W3C Web Crypto API.</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <i class="ti ti-check text-emerald-500 text-base mt-0.5 flex-shrink-0"></i>
+            <span>Zero-Knowledge Server: Firestore only stores JWK public keys & encrypted backups.</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <i class="ti ti-check text-emerald-500 text-base mt-0.5 flex-shrink-0"></i>
+            <span>PBKDF2 + AES-GCM 256 backup using 6-word Diceware recovery phrase.</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive Deep Dive Section (Signals-Driven Tabs) -->
+  <section id="deep-dives" class="scroll-mt-24 max-w-6xl mx-auto px-4 md:px-8 py-12">
+    <div class="section-title-anim text-center mb-8">
+      <h2 class="text-2xl md:text-3xl font-display font-bold text-text-primary mb-2">Technical Subsystems</h2>
+      <p class="text-text-secondary text-sm max-w-md mx-auto">Select a core subsystem to inspect its technical design and implementation details.</p>
+    </div>
+
+    <!-- Tab Buttons -->
+    <div role="tablist" class="flex items-center justify-center gap-2 p-1.5 glass-liquid rounded-2xl max-w-md mx-auto mb-8">
+      <button 
+        role="tab"
+        [attr.aria-selected]="activeSection() === 'security'"
+        (click)="setSection('security')"
+        [class.bg-accent]="activeSection() === 'security'"
+        [class.text-white]="activeSection() === 'security'"
+        [class.text-text-secondary]="activeSection() !== 'security'"
+        class="flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition-all cursor-pointer select-none text-center hover:bg-accent/10"
+      >
+        Security & E2EE
+      </button>
+      <button 
+        role="tab"
+        [attr.aria-selected]="activeSection() === 'webrtc'"
+        (click)="setSection('webrtc')"
+        [class.bg-accent]="activeSection() === 'webrtc'"
+        [class.text-white]="activeSection() === 'webrtc'"
+        [class.text-text-secondary]="activeSection() !== 'webrtc'"
+        class="flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition-all cursor-pointer select-none text-center hover:bg-accent/10"
+      >
+        WebRTC Calls
+      </button>
+      <button 
+        role="tab"
+        [attr.aria-selected]="activeSection() === 'ux'"
+        (click)="setSection('ux')"
+        [class.bg-accent]="activeSection() === 'ux'"
+        [class.text-white]="activeSection() === 'ux'"
+        [class.text-text-secondary]="activeSection() !== 'ux'"
+        class="flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition-all cursor-pointer select-none text-center hover:bg-accent/10"
+      >
+        Signals & UX
+      </button>
+    </div>
+
+    <!-- Tab Content Container -->
+    <div class="glass-liquid-card p-6 md:p-10 rounded-3xl min-h-[380px]">
+      @switch (activeSection()) {
+        @case ('security') {
+          <div class="tab-content-anim space-y-6">
+            <div class="flex items-center gap-3">
+              <i class="ti ti-key text-accent text-2xl"></i>
+              <div>
+                <h3 class="text-xl font-bold text-text-primary">Zero-Knowledge E2EE Protocol</h3>
+                <span class="text-xs text-text-muted">Web Crypto API &bull; RSA-OAEP 2048 &bull; PBKDF2 &bull; AES-GCM 256</span>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="p-4 rounded-2xl bg-surface-1/60 border border-border-light">
+                <span class="text-accent font-mono text-xs font-bold block mb-1">01 / LOCAL KEYGEN</span>
+                <h4 class="text-sm font-semibold text-text-primary mb-1">IndexedDB Isolation</h4>
+                <p class="text-xs text-text-secondary leading-relaxed">
+                  Upon username registration, an RSA-OAEP 2048 keypair is generated directly inside the browser using W3C WebCrypto API. Private keys never touch any server.
+                </p>
+              </div>
+
+              <div class="p-4 rounded-2xl bg-surface-1/60 border border-border-light">
+                <span class="text-emerald-500 font-mono text-xs font-bold block mb-1">02 / PUBLIC JWK</span>
+                <h4 class="text-sm font-semibold text-text-primary mb-1">Public Key Distribution</h4>
+                <p class="text-xs text-text-secondary leading-relaxed">
+                  The public key is exported as a JWK JSON string and published to Firestore. Peers query this key to encrypt outgoing messages exclusively for the recipient.
+                </p>
+              </div>
+
+              <div class="p-4 rounded-2xl bg-surface-1/60 border border-border-light">
+                <span class="text-indigo-500 font-mono text-xs font-bold block mb-1">03 / 6-WORD BACKUP</span>
+                <h4 class="text-sm font-semibold text-text-primary mb-1">Diceware Recovery</h4>
+                <p class="text-xs text-text-secondary leading-relaxed">
+                  Private keys are encrypted via PBKDF2 (100,000 iterations) using a 6-word Diceware phrase. Users back up their phrase via Copy or .txt export for new logins.
+                </p>
+              </div>
+            </div>
+          </div>
+        }
+
+        @case ('webrtc') {
+          <div class="tab-content-anim space-y-6">
+            <div class="flex items-center gap-3">
+              <i class="ti ti-video text-indigo-500 text-2xl"></i>
+              <div>
+                <h3 class="text-xl font-bold text-text-primary">Low-Latency WebRTC & LiveKit Infrastructure</h3>
+                <span class="text-xs text-text-muted">LiveKit SFU &bull; Peer Connection State &bull; Adaptive Streaming &bull; Background Call Logs</span>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="p-4 rounded-2xl bg-surface-1/60 border border-border-light">
+                <span class="text-indigo-500 font-mono text-xs font-bold block mb-1">01 / SFU RELAYING</span>
+                <h4 class="text-sm font-semibold text-text-primary mb-1">Selective Forwarding Unit</h4>
+                <p class="text-xs text-text-secondary leading-relaxed">
+                  LiveKit SFU acts as a media relay engine, routing high-definition opus audio and VP8/H.264 video streams dynamically based on network bandwidth constraints.
+                </p>
+              </div>
+
+              <div class="p-4 rounded-2xl bg-surface-1/60 border border-border-light">
+                <span class="text-accent font-mono text-xs font-bold block mb-1">02 / CALL SIGNALLING</span>
+                <h4 class="text-sm font-semibold text-text-primary mb-1">Reactive Room Coordination</h4>
+                <p class="text-xs text-text-secondary leading-relaxed">
+                  Call invites, ringing indicators, and participant status changes sync instantly via Firestore listeners, showing incoming modal dialogs even when navigating chats.
+                </p>
+              </div>
+
+              <div class="p-4 rounded-2xl bg-surface-1/60 border border-border-light">
+                <span class="text-emerald-500 font-mono text-xs font-bold block mb-1">03 / IN-CHAT HISTORY</span>
+                <h4 class="text-sm font-semibold text-text-primary mb-1">Integrated Call Logs</h4>
+                <p class="text-xs text-text-secondary leading-relaxed">
+                  Call durations, missed signals, and video/audio statuses automatically record into chat timelines with a one-click "Call back" action.
+                </p>
+              </div>
+            </div>
+          </div>
+        }
+
+        @case ('ux') {
+          <div class="tab-content-anim space-y-6">
+            <div class="flex items-center gap-3">
+              <i class="ti ti-bolt text-amber-500 text-2xl"></i>
+              <div>
+                <h3 class="text-xl font-bold text-text-primary">Angular 21 Signals & Touch UX</h3>
+                <span class="text-xs text-text-muted">Fine-Grained Reactivity &bull; Swipe Gestures &bull; Canvas Compression &bull; PWA</span>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="p-4 rounded-2xl bg-surface-1/60 border border-border-light">
+                <span class="text-amber-500 font-mono text-xs font-bold block mb-1">01 / SIGNALS-FIRST</span>
+                <h4 class="text-sm font-semibold text-text-primary mb-1">Zero-Zone Overhead</h4>
+                <p class="text-xs text-text-secondary leading-relaxed">
+                  Component state, computed message groups, and active unread counts use Angular Signals for targeted DOM updates without unnecessary change detection cycles.
+                </p>
+              </div>
+
+              <div class="p-4 rounded-2xl bg-surface-1/60 border border-border-light">
+                <span class="text-accent font-mono text-xs font-bold block mb-1">02 / TOUCH GESTURES</span>
+                <h4 class="text-sm font-semibold text-text-primary mb-1">Swipe-to-Reply</h4>
+                <p class="text-xs text-text-secondary leading-relaxed">
+                  Custom touch event handlers enable smooth horizontal swipe gestures on mobile devices to trigger reply threads with tactile scale feedback.
+                </p>
+              </div>
+
+              <div class="p-4 rounded-2xl bg-surface-1/60 border border-border-light">
+                <span class="text-emerald-500 font-mono text-xs font-bold block mb-1">03 / ATTACHMENTS</span>
+                <h4 class="text-sm font-semibold text-text-primary mb-1">Canvas Compression</h4>
+                <p class="text-xs text-text-secondary leading-relaxed">
+                  Images uploaded via drag & drop or file selector undergo client-side HTML5 Canvas compression before upload, reducing data transfer size by up to 70%.
+                </p>
+              </div>
+            </div>
+          </div>
+        }
+      }
+    </div>
+  </section>
+
+  <!-- Key Engineering Challenges & Architectural Decisions -->
+  <section id="challenges" class="scroll-mt-24 max-w-6xl mx-auto px-4 md:px-8 py-12">
+    <div class="section-title-anim text-center mb-10">
+      <h2 class="text-2xl md:text-3xl font-display font-bold text-text-primary mb-3">Key Engineering Decisions & Trade-offs</h2>
+      <p class="text-text-secondary text-sm md:text-base max-w-xl mx-auto">
+        Real-world architectural trade-offs solved during the implementation of Loop's zero-knowledge stack.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Challenge 1: Hybrid Encryption -->
+      <div class="challenge-card-anim glass-liquid-card p-6 md:p-8 rounded-3xl border border-border-light flex flex-col justify-between">
+        <div>
+          <div class="flex items-center gap-2.5 text-xs font-bold text-accent mb-3 uppercase tracking-wider font-mono">
+            <i class="ti ti-arrows-split"></i>
+            <span>01 &bull; Cryptographic Throughput</span>
+          </div>
+          <h3 class="text-lg font-bold text-text-primary mb-2">Hybrid Encryption Architecture</h3>
+          <p class="text-xs md:text-sm text-text-secondary leading-relaxed mb-4">
+            <strong class="text-text-primary">Problem:</strong> RSA-OAEP 2048 cannot encrypt payloads larger than 214 bytes, and pure asymmetric crypto is computationally heavy for long chat histories.
+          </p>
+          <p class="text-xs md:text-sm text-text-secondary leading-relaxed">
+            <strong class="text-emerald-500">Solution:</strong> A hybrid scheme. Loop generates a 256-bit AES-GCM conversation key for lightning-fast hardware-accelerated message encryption, and only uses RSA-OAEP to encrypt/wrap the AES key for recipient peers.
+          </p>
+        </div>
+      </div>
+
+      <!-- Challenge 2: Zero-Knowledge Multi-Device Sync -->
+      <div class="challenge-card-anim glass-liquid-card p-6 md:p-8 rounded-3xl border border-border-light flex flex-col justify-between">
+        <div>
+          <div class="flex items-center gap-2.5 text-xs font-bold text-indigo-400 mb-3 uppercase tracking-wider font-mono">
+            <i class="ti ti-shield-lock"></i>
+            <span>02 &bull; Key Distribution</span>
+          </div>
+          <h3 class="text-lg font-bold text-text-primary mb-2">Zero-Knowledge Key Recovery</h3>
+          <p class="text-xs md:text-sm text-text-secondary leading-relaxed mb-4">
+            <strong class="text-text-primary">Problem:</strong> Private keys cannot be stored on cloud servers, but users need a mechanism to restore keys when logging in on a new device or browser profile.
+          </p>
+          <p class="text-xs md:text-sm text-text-secondary leading-relaxed">
+            <strong class="text-emerald-500">Solution:</strong> A 6-word Diceware recovery phrase. Upon signup, PBKDF2 (100,000 rounds, SHA-256) derives an AES master key entirely client-side, encrypting the exported private JWK before saving to Firestore.
+          </p>
+        </div>
+      </div>
+
+      <!-- Challenge 3: LiveKit SFU vs P2P Mesh -->
+      <div class="challenge-card-anim glass-liquid-card p-6 md:p-8 rounded-3xl border border-border-light flex flex-col justify-between">
+        <div>
+          <div class="flex items-center gap-2.5 text-xs font-bold text-amber-500 mb-3 uppercase tracking-wider font-mono">
+            <i class="ti ti-network"></i>
+            <span>03 &bull; WebRTC Scaling</span>
+          </div>
+          <h3 class="text-lg font-bold text-text-primary mb-2">SFU Relays vs P2P Mesh</h3>
+          <p class="text-xs md:text-sm text-text-secondary leading-relaxed mb-4">
+            <strong class="text-text-primary">Problem:</strong> Full-mesh WebRTC requires each peer to upload video streams to every other peer ($O(N^2)$ bandwidth), resulting in degraded mobile performance.
+          </p>
+          <p class="text-xs md:text-sm text-text-secondary leading-relaxed">
+            <strong class="text-emerald-500">Solution:</strong> Integrated LiveKit Selective Forwarding Unit (SFU). Each peer only sends 1 upstream track ($O(1)$), allowing the server to forward adaptive bitrates dynamically while preserving sub-100ms latency.
+          </p>
+        </div>
+      </div>
+
+      <!-- Challenge 4: Signals-Driven Fine-Grained UI -->
+      <div class="challenge-card-anim glass-liquid-card p-6 md:p-8 rounded-3xl border border-border-light flex flex-col justify-between">
+        <div>
+          <div class="flex items-center gap-2.5 text-xs font-bold text-emerald-500 mb-3 uppercase tracking-wider font-mono">
+            <i class="ti ti-bolt"></i>
+            <span>04 &bull; Rendering Performance</span>
+          </div>
+          <h3 class="text-lg font-bold text-text-primary mb-2">Signals-First Change Detection</h3>
+          <p class="text-xs md:text-sm text-text-secondary leading-relaxed mb-4">
+            <strong class="text-text-primary">Problem:</strong> High-frequency audio level meters, typing indicators, and message decryption streams trigger continuous global Angular Zone.js dirty-checking.
+          </p>
+          <p class="text-xs md:text-sm text-text-secondary leading-relaxed">
+            <strong class="text-emerald-500">Solution:</strong> Standalone Angular 21 Components powered by Signals. Reactivity operates at the leaf node level, maintaining a locked 60 FPS framerate during live multimedia calls.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive Code Architecture Snippets -->
+  <section id="code" class="scroll-mt-24 max-w-6xl mx-auto px-4 md:px-8 py-12">
+    <div class="section-title-anim text-center mb-8">
+      <h2 class="text-2xl md:text-3xl font-display font-bold text-text-primary mb-2">Production Implementation Snippets</h2>
+      <p class="text-text-secondary text-sm max-w-md mx-auto">Explore the actual TypeScript logic powering the cryptographic core and real-time engine.</p>
+    </div>
+
+    <div class="glass-liquid-card rounded-3xl border border-border-light overflow-hidden">
+      <!-- Snippet Selector Header -->
+      <div class="flex flex-wrap items-center justify-between gap-3 p-4 border-b border-border-light/60 bg-surface-1/40">
+        <div class="flex items-center gap-2">
+          <button 
+            (click)="activeCodeTab.set('crypto')"
+            [class.bg-accent]="activeCodeTab() === 'crypto'"
+            [class.text-white]="activeCodeTab() === 'crypto'"
+            [class.text-text-secondary]="activeCodeTab() !== 'crypto'"
+            class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer select-none hover:bg-accent/10"
+          >
+            WebCrypto Keygen
+          </button>
+          <button 
+            (click)="activeCodeTab.set('pbkdf2')"
+            [class.bg-accent]="activeCodeTab() === 'pbkdf2'"
+            [class.text-white]="activeCodeTab() === 'pbkdf2'"
+            [class.text-text-secondary]="activeCodeTab() !== 'pbkdf2'"
+            class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer select-none hover:bg-accent/10"
+          >
+            PBKDF2 Key Derivation
+          </button>
+          <button 
+            (click)="activeCodeTab.set('livekit')"
+            [class.bg-accent]="activeCodeTab() === 'livekit'"
+            [class.text-white]="activeCodeTab() === 'livekit'"
+            [class.text-text-secondary]="activeCodeTab() !== 'livekit'"
+            class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer select-none hover:bg-accent/10"
+          >
+            LiveKit Signals Bridge
+          </button>
+        </div>
+
+        <button 
+          (click)="copySnippet(activeSnippet)"
+          class="glass-liquid-btn px-3 py-1.5 rounded-xl text-xs font-semibold text-text-primary flex items-center gap-1.5 cursor-pointer active-press"
+        >
+          @if (copiedCode()) {
+            <i class="ti ti-check text-emerald-500 text-sm"></i>
+            <span class="text-emerald-500">Copied!</span>
+          } @else {
+            <i class="ti ti-copy text-sm text-text-muted"></i>
+            <span>Copy Snippet</span>
+          }
+        </button>
+      </div>
+
+      <!-- Code Pre Block -->
+      <div class="p-5 md:p-6 bg-surface-0/80 overflow-x-auto text-xs md:text-sm text-text-primary">
+        <pre class="code-pre-block leading-relaxed whitespace-pre font-mono"><code>{{ activeSnippet }}</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- Technical SLO Benchmarks & System Matrix -->
+  <section id="benchmarks" class="scroll-mt-24 max-w-6xl mx-auto px-4 md:px-8 py-12">
+    <div class="section-title-anim text-center mb-10">
+      <h2 class="text-2xl md:text-3xl font-display font-bold text-text-primary mb-2">Technical Specifications & Target SLOs</h2>
+      <p class="text-text-secondary text-sm max-w-xl mx-auto">Summary of security standards, network performance targets, and software stack components.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Target SLO Benchmarks Card -->
+      <div class="spec-card-anim glass-liquid-card p-6 rounded-3xl">
+        <h3 class="text-base font-bold text-text-primary flex items-center gap-2 mb-4">
+          <i class="ti ti-chart-dots text-accent"></i>
+          <span>Target SLO Benchmarks</span>
+        </h3>
+        <div class="space-y-3 text-xs md:text-sm">
+          <div class="flex items-center justify-between p-2.5 rounded-xl bg-surface-1/50 border border-border-light">
+            <span class="text-text-secondary">E2E Message Delivery Latency</span>
+            <span class="font-mono font-bold text-accent">&lt; 100ms (Target)</span>
+          </div>
+          <div class="flex items-center justify-between p-2.5 rounded-xl bg-surface-1/50 border border-border-light">
+            <span class="text-text-secondary">Server Plaintext Exposure</span>
+            <span class="font-mono font-bold text-emerald-500">0 Bytes (Guaranteed)</span>
+          </div>
+          <div class="flex items-center justify-between p-2.5 rounded-xl bg-surface-1/50 border border-border-light">
+            <span class="text-text-secondary">UI Micro-Interaction Framerate</span>
+            <span class="font-mono font-bold text-indigo-500">60 FPS Smooth</span>
+          </div>
+          <div class="flex items-center justify-between p-2.5 rounded-xl bg-surface-1/50 border border-border-light">
+            <span class="text-text-secondary">Media Compression Reduction</span>
+            <span class="font-mono font-bold text-amber-500">~60 - 75% Average</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tech Stack Matrix Card -->
+      <div class="spec-card-anim glass-liquid-card p-6 rounded-3xl">
+        <h3 class="text-base font-bold text-text-primary flex items-center gap-2 mb-4">
+          <i class="ti ti-stack-2 text-accent"></i>
+          <span>Technology Stack Specifications</span>
+        </h3>
+        <div class="space-y-3 text-xs md:text-sm">
+          <div class="flex items-center justify-between p-2.5 rounded-xl bg-surface-1/50 border border-border-light">
+            <span class="text-text-secondary">Frontend Framework</span>
+            <span class="font-semibold text-text-primary">Angular 21 + Signals + Tailwind v4</span>
+          </div>
+          <div class="flex items-center justify-between p-2.5 rounded-xl bg-surface-1/50 border border-border-light">
+            <span class="text-text-secondary">Cryptography Standards</span>
+            <span class="font-semibold text-text-primary">W3C WebCrypto (RSA-OAEP, AES-GCM)</span>
+          </div>
+          <div class="flex items-center justify-between p-2.5 rounded-xl bg-surface-1/50 border border-border-light">
+            <span class="text-text-secondary">Real-Time Media Engine</span>
+            <span class="font-semibold text-text-primary">LiveKit Client WebRTC SFU</span>
+          </div>
+          <div class="flex items-center justify-between p-2.5 rounded-xl bg-surface-1/50 border border-border-light">
+            <span class="text-text-secondary">Backend & Storage</span>
+            <span class="font-semibold text-text-primary">Firebase Auth, Firestore, IndexedDB</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer CTA Banner -->
+  <footer class="footer-cta-anim max-w-6xl mx-auto px-4 md:px-8 py-16 text-center border-t border-border-light/60 mt-12">
+    <div class="glass-liquid-card p-8 md:p-12 rounded-3xl border border-accent/20 flex flex-col items-center">
+      <h2 class="text-2xl md:text-4xl font-display font-bold text-text-primary mb-3">Ready to Experience Zero-Knowledge Messaging?</h2>
+      <p class="text-text-secondary text-sm md:text-base max-w-lg mb-6">
+        Claim your unique handle, backup your E2EE recovery phrase, and start chatting securely in seconds.
+      </p>
+
+      <button 
+        (click)="launchApp()"
+        class="px-8 py-4 bg-accent hover:bg-accent-hover text-white font-semibold rounded-2xl shadow-lg shadow-accent/25 transition-all cursor-pointer active-press text-base flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+      >
+        <span>Launch Loop Now</span>
+        <i class="ti ti-arrow-right text-lg"></i>
+      </button>
+
+      <div class="flex items-center gap-4 text-xs text-text-muted mt-8">
+        <a routerLink="/terms" class="hover:text-text-primary transition-colors">Terms of Service</a>
+        <span>&bull;</span>
+        <a routerLink="/privacy" class="hover:text-text-primary transition-colors">Privacy Policy</a>
+      </div>
+    </div>
+  </footer>
+
+</div>
+

@@ -27,6 +27,13 @@ export const routes: Routes = [
       import('./features/privacy/privacy').then((m) => m.PrivacyComponent),
   },
   {
+    path: 'case-study',
+    loadComponent: () =>
+      import('./features/case-study/case-study').then(
+        (m) => m.CaseStudyComponent
+      ),
+  },
+  {
     path: '',
     loadComponent: () =>
       import('./features/shell/shell').then((m) => m.Shell),
